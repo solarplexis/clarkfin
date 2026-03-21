@@ -124,6 +124,7 @@ export async function getUserProfileById(uid: string) {
     uid: snapshot.id,
     email: String(data.email ?? ""),
     fullName: String(data.fullName ?? ""),
+    avatarUrl: data.avatarUrl ? String(data.avatarUrl) : undefined,
     role: data.role as UserProfile["role"],
     organizationId: data.organizationId ? String(data.organizationId) : undefined,
     activeSemesterId: data.activeSemesterId ? String(data.activeSemesterId) : undefined,
@@ -232,10 +233,10 @@ export async function getOrganizationById(orgId: string) {
 
   return {
     orgId: snapshot.id,
-    name: String(data.name ?? ""),
-    apiKeyHash: String(data.apiKeyHash ?? ""),
-    apiKeyPreview: data.apiKeyPreview ? String(data.apiKeyPreview) : undefined,
-    settings: (data.settings ?? {}) as Organization["settings"],
+      name: String(data.name ?? ""),
+      apiKeyHash: String(data.apiKeyHash ?? ""),
+      apiKeyPreview: data.apiKeyPreview ? String(data.apiKeyPreview) : undefined,
+      settings: (data.settings ?? {}) as Organization["settings"],
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt)
   } satisfies Organization;
@@ -254,6 +255,48 @@ export async function findOrganizationByApiKeyHash(apiKeyHash: string) {
   }
 
   return getOrganizationById(snapshot.docs[0].id);
+}
+
+export async function updateUserProfile(input: {
+  uid: string;
+  fullName: string;
+  avatarUrl?: string;
+}) {
+  const adminDb = getAdminDb();
+  await adminDb.collection("users").doc(input.uid).set(
+    {
+      fullName: input.fullName,
+      avatarUrl: input.avatarUrl || null,
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  return getUserProfileById(input.uid);
+}
+
+export async function updateOrganizationProfile(input: {
+  orgId: string;
+  name: string;
+  supportEmail?: string;
+  brandColor?: string;
+  logoUrl?: string;
+}) {
+  const adminDb = getAdminDb();
+  await adminDb.collection("organizations").doc(input.orgId).set(
+    {
+      name: input.name,
+      settings: {
+        supportEmail: input.supportEmail || null,
+        brandColor: input.brandColor || null,
+        logoUrl: input.logoUrl || null
+      },
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  return getOrganizationById(input.orgId);
 }
 
 export async function getSemesterById(semesterId: string) {

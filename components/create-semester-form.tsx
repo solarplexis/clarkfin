@@ -57,7 +57,12 @@ export function CreateSemesterForm() {
         </button>
       }
       title="Add course"
+      triggerAriaLabel="Add course"
+      triggerChildren={<span aria-hidden="true" className="section-plus-glyph">+</span>}
+      triggerClassName="section-plus-button"
       triggerLabel="Add course"
+      triggerTooltip="Add course"
+      triggerVariant="secondary"
     >
       <form
         action={(formData) => {

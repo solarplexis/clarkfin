@@ -12,6 +12,7 @@ export interface Organization {
   settings?: {
     allowedEmailDomains?: string[];
     brandColor?: string;
+    logoUrl?: string;
     supportEmail?: string;
   };
   createdAt?: string;
@@ -82,6 +83,7 @@ export interface UserProfile {
   uid: string;
   email: string;
   fullName: string;
+  avatarUrl?: string;
   role: UserRole;
   organizationId?: string;
   activeSemesterId?: string;

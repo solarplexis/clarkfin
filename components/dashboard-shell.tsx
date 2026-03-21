@@ -1,16 +1,7 @@
 import Link from "next/link";
 
+import { AccountMenu } from "@/components/account-menu";
 import type { UserProfile } from "@/types/domain";
-import { LogoutButton } from "@/components/logout-button";
-
-function initials(name: string) {
-  return name
-    .split(" ")
-    .slice(0, 2)
-    .map((w) => w[0])
-    .join("")
-    .toUpperCase();
-}
 
 export function DashboardShell({
   user,
@@ -41,11 +32,7 @@ export function DashboardShell({
           )}
         </nav>
         <div className="appbar-end">
-          <div className="appbar-user">
-            <div className="appbar-avatar">{initials(user.fullName)}</div>
-            <span className="appbar-user-name">{user.fullName}</span>
-          </div>
-          <LogoutButton />
+          <AccountMenu avatarUrl={user.avatarUrl} fullName={user.fullName} />
         </div>
       </header>
       <div className="page-shell">

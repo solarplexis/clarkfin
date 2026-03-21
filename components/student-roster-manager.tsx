@@ -103,7 +103,11 @@ function CreateStudentDrawer() {
         </button>
       }
       title="Add student"
+      triggerAriaLabel="Add student"
+      triggerChildren={<span aria-hidden="true" className="section-plus-glyph">+</span>}
+      triggerClassName="section-plus-button"
       triggerLabel="Add student"
+      triggerTooltip="Add student"
       triggerVariant="secondary"
     >
       <form
@@ -239,7 +243,7 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
     <div className="card">
       <div className="card-header">
         <div>
-          <h2>Student roster</h2>
+          <h2>Student Roster</h2>
           <p className="muted" style={{ margin: "6px 0 0" }}>
             Manage student records first, then create invites from this list.
           </p>

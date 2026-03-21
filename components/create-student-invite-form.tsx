@@ -108,14 +108,18 @@ export function CreateStudentInviteForm({
         </button>
       }
       title="Invite student"
-      triggerDisabled={semesters.length === 0 || students.length === 0}
-      triggerLabel={
+      triggerAriaLabel={
         semesters.length === 0
-          ? "Add course first"
+          ? "Add a course first"
           : students.length === 0
-            ? "Add students first"
+            ? "Add students to the roster first"
             : "Invite student"
       }
+      triggerChildren={<span aria-hidden="true" className="section-plus-glyph">+</span>}
+      triggerClassName="section-plus-button"
+      triggerDisabled={semesters.length === 0 || students.length === 0}
+      triggerLabel="Invite student"
+      triggerTooltip="Invite student"
       triggerVariant="secondary"
     >
       <form

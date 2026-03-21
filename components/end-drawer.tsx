@@ -8,6 +8,10 @@ type EndDrawerProps = {
   triggerLabel: string;
   triggerVariant?: "primary" | "secondary";
   triggerDisabled?: boolean;
+  triggerAriaLabel?: string;
+  triggerClassName?: string;
+  triggerChildren?: React.ReactNode;
+  triggerTooltip?: string;
   children: React.ReactNode;
   footer?: React.ReactNode;
 };
@@ -18,6 +22,10 @@ export function EndDrawer({
   triggerLabel,
   triggerVariant = "primary",
   triggerDisabled = false,
+  triggerAriaLabel,
+  triggerClassName,
+  triggerChildren,
+  triggerTooltip,
   children,
   footer
 }: EndDrawerProps) {
@@ -49,12 +57,17 @@ export function EndDrawer({
   return (
     <>
       <button
-        className={triggerVariant === "primary" ? "button" : "button-secondary"}
+        aria-label={triggerAriaLabel ?? triggerLabel}
+        className={[
+          triggerVariant === "primary" ? "button" : "button-secondary",
+          triggerClassName ?? ""
+        ].join(" ").trim()}
+        data-tooltip={triggerTooltip}
         type="button"
         disabled={triggerDisabled}
         onClick={() => setIsOpen(true)}
       >
-        {triggerLabel}
+        {triggerChildren ?? triggerLabel}
       </button>
 
       {isOpen ? (
