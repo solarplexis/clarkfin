@@ -52,9 +52,16 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/session/login",
         title: "Create session cookie",
         auth: "Public",
-        description: "Takes a Firebase `idToken`, validates the ClarkFin profile for that user, and writes the secure session cookie used by all browser-authenticated APIs.",
-        requestExample: `{
+        description: "Establishes a server session cookie. Accepts either a Firebase `idToken` (browser flow) or plain `email` + `password` credentials (server-to-server or invite redemption flow). Both paths validate the ClarkFin profile before writing the cookie.",
+        requestExample: `// Option A — Firebase idToken (browser flow)
+{
   "idToken": "eyJhbGciOiJSUzI1NiIs..."
+}
+
+// Option B — credentials (server-to-server)
+{
+  "email": "alex@college.edu",
+  "password": "StrongPass123!"
 }`,
         responseExample: `{
   "ok": true,

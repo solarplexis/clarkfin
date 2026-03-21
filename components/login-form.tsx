@@ -28,8 +28,11 @@ export function LoginForm() {
         body: JSON.stringify({ idToken })
       });
 
+      const json = (await response.json()) as { error?: string };
+
       if (!response.ok) {
-        throw new Error("Could not create a server session.");
+        setError(json.error ?? "Unable to sign in.");
+        return;
       }
 
       router.push("/app");
@@ -37,7 +40,7 @@ export function LoginForm() {
       setError(
         submissionError instanceof Error
           ? submissionError.message
-          : "Unable to sign you in."
+          : "Unable to sign in."
       );
     } finally {
       setIsPending(false);

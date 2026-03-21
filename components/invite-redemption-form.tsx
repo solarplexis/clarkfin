@@ -2,9 +2,6 @@
 
 import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
-import { signInWithEmailAndPassword } from "firebase/auth";
-
-import { getClientAuth } from "@/src/lib/firebase/client";
 
 export function InviteRedemptionForm({
   inviteCode,
@@ -47,17 +44,10 @@ export function InviteRedemptionForm({
         throw new Error(registerJson.error ?? "Registration failed.");
       }
 
-      const credential = await signInWithEmailAndPassword(
-        getClientAuth(),
-        payload.email,
-        payload.password
-      );
-      const idToken = await credential.user.getIdToken();
-
       const loginResponse = await fetch("/api/session/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ idToken })
+        body: JSON.stringify({ email: payload.email, password: payload.password })
       });
 
       if (!loginResponse.ok) {

@@ -1,27 +1,72 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
 
-import { getSessionCookieName, getSessionDurationMs } from "@/src/lib/env";
+import { getFirebaseApiKey, getSessionCookieName, getSessionDurationMs } from "@/src/lib/env";
 import { getAdminAuth } from "@/src/lib/firebase/admin";
 import { getUserProfileById } from "@/src/lib/data/repositories";
 
+async function resolveIdToken(body: {
+  idToken?: string;
+  email?: string;
+  password?: string;
+}): Promise<{ idToken: string } | { error: string; status: number }> {
+  if (body.idToken) {
+    return { idToken: body.idToken };
+  }
+
+  if (body.email && body.password) {
+    const apiKey = getFirebaseApiKey();
+    const res = await fetch(
+      `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${apiKey}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: body.email, password: body.password, returnSecureToken: true })
+      }
+    );
+
+    const json = (await res.json()) as { idToken?: string; error?: { message?: string } };
+
+    if (!res.ok || !json.idToken) {
+      const msg = json.error?.message ?? "";
+      const friendly =
+        msg.includes("INVALID_PASSWORD") ||
+        msg.includes("EMAIL_NOT_FOUND") ||
+        msg.includes("INVALID_LOGIN_CREDENTIALS")
+          ? "Incorrect email or password."
+          : "Unable to sign in.";
+      return { error: friendly, status: 401 };
+    }
+
+    return { idToken: json.idToken };
+  }
+
+  return { error: "idToken or email+password required.", status: 400 };
+}
+
 export async function POST(request: Request) {
   try {
-    const { idToken } = (await request.json()) as { idToken?: string };
+    const body = (await request.json()) as {
+      idToken?: string;
+      email?: string;
+      password?: string;
+    };
 
-    if (!idToken) {
-      return NextResponse.json({ error: "Missing idToken." }, { status: 400 });
+    const result = await resolveIdToken(body);
+
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status });
     }
 
     const adminAuth = getAdminAuth();
-    const decoded = await adminAuth.verifyIdToken(idToken);
+    const decoded = await adminAuth.verifyIdToken(result.idToken);
     const profile = await getUserProfileById(decoded.uid);
 
     if (!profile) {
       return NextResponse.json({ error: "No ClarkFin profile found for this user." }, { status: 403 });
     }
 
-    const sessionCookie = await adminAuth.createSessionCookie(idToken, {
+    const sessionCookie = await adminAuth.createSessionCookie(result.idToken, {
       expiresIn: getSessionDurationMs()
     });
 
