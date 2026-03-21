@@ -1223,6 +1223,393 @@ tbody tr:hover {
   margin-bottom: 28px;
 }
 
+/* ─── API docs ───────────────────────────────────────────────── */
+.api-docs-shell {
+  min-height: 100dvh;
+  background: #0b0f1e;
+  color: #c8d0e8;
+}
+
+.api-docs-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  height: 58px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(14px);
+  background: rgba(11, 15, 30, 0.88);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+}
+
+.api-docs-brand {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 10px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #fff;
+  font-size: 1rem;
+}
+
+.api-docs-brand span {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: rgba(200, 208, 232, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.api-docs-topbar-actions .button-secondary {
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+  color: #c8d0e8;
+}
+
+.api-docs-topbar-actions .button-secondary:hover {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+}
+
+.api-docs-layout {
+  max-width: 1440px;
+  margin: 0 auto;
+  padding: 28px 24px 72px;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr) 300px;
+  gap: 24px;
+  align-items: start;
+}
+
+.api-docs-sidebar {
+  position: sticky;
+  top: 80px;
+  align-self: start;
+  max-height: calc(100dvh - 100px);
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.api-sidebar-group + .api-sidebar-group {
+  margin-top: 24px;
+  padding-top: 20px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+}
+
+.api-sidebar-label {
+  margin-bottom: 6px;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: rgba(200, 208, 232, 0.4);
+}
+
+.api-docs-sidebar a {
+  display: block;
+  padding: 6px 10px;
+  border-radius: 7px;
+  color: rgba(200, 208, 232, 0.65);
+  font-size: 0.87rem;
+  transition: background 120ms, color 120ms;
+}
+
+.api-docs-sidebar a:hover {
+  background: rgba(139, 142, 249, 0.12);
+  color: #c8d0e8;
+}
+
+.api-docs-main {
+  min-width: 0;
+  display: grid;
+  gap: 20px;
+}
+
+.api-hero {
+  border-radius: 16px;
+  padding: 32px;
+  background: linear-gradient(135deg, #111827 0%, #141c35 100%);
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.api-intro-card {
+  border-radius: 14px;
+  padding: 24px;
+  background: #111827;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.api-endpoint-card {
+  border-radius: 14px;
+  padding: 22px;
+  background: #111827;
+  border: 1px solid rgba(255,255,255,0.07);
+  transition: border-color 140ms;
+}
+
+.api-endpoint-card:hover {
+  border-color: rgba(139, 142, 249, 0.25);
+}
+
+.api-hero-kicker,
+.api-sticky-label,
+.api-example-label,
+.api-auth-label {
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: #8b8ef9;
+}
+
+.api-hero h1 {
+  margin-top: 10px;
+  font-size: clamp(1.6rem, 3vw, 2.2rem);
+  line-height: 1.15;
+  letter-spacing: -0.03em;
+  color: #fff;
+}
+
+.api-hero p {
+  max-width: 58ch;
+  margin-top: 12px;
+  font-size: 0.95rem;
+  color: rgba(200, 208, 232, 0.7);
+  line-height: 1.65;
+}
+
+.api-hero-chips,
+.api-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.api-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(139, 142, 249, 0.12);
+  border: 1px solid rgba(139, 142, 249, 0.2);
+  color: #a5a8fb;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.api-intro-card h2,
+.api-group-header h2 {
+  font-size: 1.25rem;
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.api-intro-card p,
+.api-group-header p {
+  margin-top: 8px;
+  color: rgba(200, 208, 232, 0.65);
+  max-width: 72ch;
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.api-auth-grid {
+  margin-top: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.api-auth-card {
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.api-auth-label {
+  margin-bottom: 4px;
+}
+
+.api-auth-card p {
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: rgba(200, 208, 232, 0.6);
+  line-height: 1.5;
+}
+
+.api-group {
+  display: grid;
+  gap: 12px;
+}
+
+.api-group-stack {
+  display: grid;
+  gap: 12px;
+}
+
+.api-endpoint-topline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.api-endpoint-topline code,
+.api-example-card pre,
+.api-sticky-panel pre {
+  font-family: "SF Mono", "Fira Code", "Consolas", monospace;
+}
+
+.api-endpoint-topline code {
+  font-size: 0.88rem;
+  color: #c8d0e8;
+  background: rgba(255, 255, 255, 0.06);
+  padding: 5px 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+.api-endpoint-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-top: 14px;
+  flex-wrap: wrap;
+}
+
+.api-endpoint-card h3 {
+  font-size: 1.05rem;
+  letter-spacing: -0.01em;
+  color: #fff;
+}
+
+.api-endpoint-card > p {
+  margin-top: 8px;
+  color: rgba(200, 208, 232, 0.65);
+  font-size: 0.88rem;
+  line-height: 1.6;
+}
+
+.api-example-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+}
+
+.api-example-card {
+  border-radius: 10px;
+  padding: 14px 16px;
+  background: #0d1630;
+  border: 1px solid rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+
+.api-example-label {
+  margin-bottom: 8px;
+}
+
+.api-example-card pre,
+.api-sticky-panel pre {
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-size: 0.8rem;
+  line-height: 1.65;
+  color: #a8b8d8;
+}
+
+.api-method {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 58px;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.api-method-get {
+  background: rgba(14, 168, 150, 0.15);
+  color: #2dd4bf;
+  border: 1px solid rgba(14, 168, 150, 0.2);
+}
+
+.api-method-post {
+  background: rgba(139, 142, 249, 0.15);
+  color: #a5a8fb;
+  border: 1px solid rgba(139, 142, 249, 0.2);
+}
+
+.api-method-patch {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+  border: 1px solid rgba(245, 158, 11, 0.2);
+}
+
+.api-method-delete {
+  background: rgba(248, 113, 113, 0.15);
+  color: #f87171;
+  border: 1px solid rgba(248, 113, 113, 0.2);
+}
+
+.api-docs-aside {
+  position: sticky;
+  top: 80px;
+  align-self: start;
+}
+
+.api-sticky-panel {
+  border-radius: 14px;
+  padding: 20px;
+  background: #111827;
+  border: 1px solid rgba(255,255,255,0.07);
+}
+
+.api-sticky-panel h3 {
+  margin-top: 8px;
+  font-size: 1rem;
+  color: #fff;
+}
+
+.api-sticky-panel p {
+  margin-top: 8px;
+  color: rgba(200, 208, 232, 0.65);
+  font-size: 0.87rem;
+  line-height: 1.6;
+}
+
+.api-sticky-panel pre {
+  margin-top: 10px;
+  background: #0d1630;
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 8px;
+  padding: 12px 14px;
+}
+
+.api-sticky-divider {
+  height: 1px;
+  background: rgba(255, 255, 255, 0.07);
+  margin: 18px 0;
+}
+
+.api-sticky-list {
+  margin: 10px 0 0;
+  padding-left: 16px;
+  color: rgba(200, 208, 232, 0.6);
+  font-size: 0.85rem;
+  display: grid;
+  gap: 7px;
+  line-height: 1.5;
+}
+
 /* ─── Responsive ──────────────────────────────────────────────── */
 @media (max-width: 860px) {
   .auth-root {
@@ -1248,6 +1635,25 @@ tbody tr:hover {
     border-left: none;
     border-top: 1px solid var(--line);
   }
+
+  .api-docs-layout {
+    grid-template-columns: 1fr;
+    padding: 20px 16px 56px;
+  }
+
+  .api-docs-sidebar,
+  .api-docs-aside {
+    position: static;
+    max-height: none;
+  }
+
+  .api-docs-sidebar {
+    order: 2;
+  }
+
+  .api-docs-aside {
+    order: 3;
+  }
 }
 
 @media (max-width: 640px) {
@@ -1270,5 +1676,27 @@ tbody tr:hover {
 
   .end-drawer-content {
     padding: 16px 14px;
+  }
+
+  .api-docs-topbar {
+    padding: 0 14px;
+  }
+
+  .api-docs-layout {
+    padding: 18px 14px 40px;
+    gap: 18px;
+  }
+
+  .api-hero,
+  .api-intro-card,
+  .api-endpoint-card,
+  .api-sticky-panel {
+    padding: 18px;
+    border-radius: 18px;
+  }
+
+  .api-hero h1 {
+    max-width: none;
+    font-size: 2rem;
   }
 }

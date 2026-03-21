@@ -30,6 +30,7 @@ export function DashboardShell({
           {user.role === "ADMIN" && (
             <Link href="/app/admin"><span>System Admin</span></Link>
           )}
+          <Link href="/docs/api"><span>API Docs</span></Link>
         </nav>
         <div className="appbar-end">
           <AccountMenu avatarUrl={user.avatarUrl} fullName={user.fullName} />
