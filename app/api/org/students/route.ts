@@ -1,9 +1,31 @@
 import { NextResponse } from "next/server";
 
 import {
-  createStudentRecord
+  createStudentRecord,
+  listStudentsForOrganization
 } from "@/src/lib/data/repositories";
 import { getCurrentUser } from "@/src/lib/auth/session";
+
+export async function GET() {
+  try {
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== "ORG_ADMIN" || !user.organizationId) {
+      return NextResponse.json({ error: "ORG_ADMIN session required." }, { status: 401 });
+    }
+
+    const students = await listStudentsForOrganization(user.organizationId);
+
+    return NextResponse.json({ ok: true, students });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Unable to load students."
+      },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {

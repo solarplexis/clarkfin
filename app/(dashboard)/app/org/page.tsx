@@ -1,5 +1,5 @@
-import { CreateSemesterForm } from "@/components/create-semester-form";
-import { CreateStudentInviteForm } from "@/components/create-student-invite-form";
+import { CreateSemesterForm, EditSemesterDrawer } from "@/components/create-semester-form";
+import { CreateStudentInviteForm, DeleteInviteButton, EditInviteDrawer } from "@/components/create-student-invite-form";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StudentRosterManager } from "@/components/student-roster-manager";
 import { requireRole } from "@/src/lib/auth/session";
@@ -114,12 +114,13 @@ export default async function OrganizationDashboardPage() {
                 <th>Course code</th>
                 <th>ID</th>
                 <th>Status</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {semesters.length === 0 ? (
                 <tr>
-                  <td colSpan={4} style={{ textAlign: "center", color: "var(--muted)" }}>
+                  <td colSpan={5} style={{ textAlign: "center", color: "var(--muted)" }}>
                     No courses yet. Create one before inviting students.
                   </td>
                 </tr>
@@ -133,6 +134,11 @@ export default async function OrganizationDashboardPage() {
                       <span className={`badge ${semester.isActive ? "badge-teal" : "badge-default"}`}>
                         {semester.isActive ? "Active" : "Inactive"}
                       </span>
+                    </td>
+                    <td>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        <EditSemesterDrawer semester={semester} />
+                      </div>
                     </td>
                   </tr>
                 ))
@@ -156,12 +162,13 @@ export default async function OrganizationDashboardPage() {
                 <th>Course</th>
                 <th>Invite code</th>
                 <th>Status</th>
+                <th></th>
               </tr>
             </thead>
             <tbody>
               {invites.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", color: "var(--muted)" }}>
+                  <td colSpan={6} style={{ textAlign: "center", color: "var(--muted)" }}>
                     No invites yet.
                   </td>
                 </tr>
@@ -187,6 +194,12 @@ export default async function OrganizationDashboardPage() {
                         >
                           {invite.status}
                         </span>
+                      </td>
+                      <td>
+                        <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                          <EditInviteDrawer invite={invite} />
+                          <DeleteInviteButton invite={invite} />
+                        </div>
                       </td>
                     </tr>
                   );

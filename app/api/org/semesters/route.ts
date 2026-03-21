@@ -1,7 +1,10 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
-import { createSemesterForOrganization } from "@/src/lib/data/repositories";
+import {
+  createSemesterForOrganization,
+  listSemestersForOrganization
+} from "@/src/lib/data/repositories";
 
 function normalizeId(value: string) {
   return value
@@ -10,6 +13,27 @@ function normalizeId(value: string) {
     .replace(/[^a-z0-9-]/g, "-")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+export async function GET() {
+  try {
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== "ORG_ADMIN" || !user.organizationId) {
+      return NextResponse.json({ error: "ORG_ADMIN session required." }, { status: 401 });
+    }
+
+    const semesters = await listSemestersForOrganization(user.organizationId);
+
+    return NextResponse.json({ ok: true, semesters });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Unable to load courses."
+      },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {

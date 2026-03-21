@@ -2,9 +2,39 @@ import { NextResponse } from "next/server";
 
 import {
   deleteStudentRecord,
+  getStudentRecordById,
   updateStudentRecord
 } from "@/src/lib/data/repositories";
 import { getCurrentUser } from "@/src/lib/auth/session";
+
+export async function GET(
+  _request: Request,
+  { params }: { params: Promise<{ studentId: string }> }
+) {
+  try {
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== "ORG_ADMIN" || !user.organizationId) {
+      return NextResponse.json({ error: "ORG_ADMIN session required." }, { status: 401 });
+    }
+
+    const { studentId } = await params;
+    const student = await getStudentRecordById(studentId);
+
+    if (!student || student.organizationId !== user.organizationId) {
+      return NextResponse.json({ error: "That student could not be found." }, { status: 404 });
+    }
+
+    return NextResponse.json({ ok: true, student });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Unable to load student."
+      },
+      { status: 500 }
+    );
+  }
+}
 
 export async function PATCH(
   request: Request,

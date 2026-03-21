@@ -1,6 +1,7 @@
 "use client";
 
-import { useDeferredValue, useId, useState, useTransition } from "react";
+import { startTransition, useDeferredValue, useId, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { EndDrawer } from "@/components/end-drawer";
 
@@ -19,19 +20,137 @@ type StudentOption = {
   status: "prospect" | "invited" | "active" | "inactive";
 };
 
-type StudentInviteResponse = {
-  error?: string;
-  invite?: {
-    inviteId: string;
-    inviteCode: string;
-    semesterId: string;
-    studentId: string;
-    studentEmail: string;
-    studentFirstName: string;
-    studentLastName: string;
-    status: "pending" | "redeemed" | "revoked";
-  };
+type InviteRow = {
+  inviteId: string;
+  studentFirstName: string;
+  studentLastName: string;
+  studentEmail: string;
+  semesterId: string;
+  status: "pending" | "redeemed" | "revoked";
 };
+
+const PencilIcon = () => (
+  <svg fill="none" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg">
+    <path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 2.474L5.81 11.577l-2.827.636.636-2.828L11.013 1.427Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg fill="none" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 4h12M5 4V2h6v2M3 4l1 10h8l1-10M6 7v4M10 7v4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+  </svg>
+);
+
+export function EditInviteDrawer({ invite }: { invite: InviteRow }) {
+  const formId = useId();
+  const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+
+  async function submit(formData: FormData) {
+    setIsPending(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/org/invites/${invite.inviteId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: String(formData.get("status") ?? "") })
+      });
+
+      const json = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setError(json.error ?? "Unable to update invite.");
+        return;
+      }
+
+      setIsOpen(false);
+      startTransition(() => { router.refresh(); });
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <EndDrawer
+      footer={
+        <button className="button" disabled={isPending} form={formId} type="submit">
+          {isPending ? "Saving..." : "Save invite"}
+        </button>
+      }
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      title="Edit Invite"
+      triggerAriaLabel="Edit Invite"
+      triggerChildren={<PencilIcon />}
+      triggerClassName="icon-button"
+      triggerLabel="Edit Invite"
+      triggerTooltip="Edit Invite"
+      triggerVariant="secondary"
+    >
+      <form
+        action={(formData) => { void submit(formData); }}
+        className="stack"
+        id={formId}
+      >
+        <div className="note-box">
+          {invite.studentFirstName} {invite.studentLastName} · {invite.studentEmail}
+        </div>
+        <div className="field">
+          <label htmlFor={`${formId}-status`}>Status</label>
+          <select defaultValue={invite.status} id={`${formId}-status`} name="status">
+            <option value="pending">pending</option>
+            <option value="redeemed">redeemed</option>
+            <option value="revoked">revoked</option>
+          </select>
+        </div>
+        {error ? <p className="error-msg">{error}</p> : null}
+      </form>
+    </EndDrawer>
+  );
+}
+
+export function DeleteInviteButton({ invite }: { invite: InviteRow }) {
+  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+
+  async function remove() {
+    setIsPending(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/org/invites/${invite.inviteId}`, { method: "DELETE" });
+      const json = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setError(json.error ?? "Unable to delete invite.");
+        return;
+      }
+
+      startTransition(() => { router.refresh(); });
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <div className="stack-sm" style={{ alignItems: "flex-end" }}>
+      <button
+        className="icon-button icon-button-danger"
+        data-tooltip="Delete invite"
+        disabled={isPending || invite.status === "redeemed"}
+        type="button"
+        onClick={() => { void remove(); }}
+      >
+        <TrashIcon />
+      </button>
+      {error ? <p className="error-msg" style={{ margin: 0 }}>{error}</p> : null}
+    </div>
+  );
+}
 
 function formatStudentLabel(student: StudentOption) {
   return `${student.firstName} ${student.lastName}`;
@@ -45,13 +164,14 @@ export function CreateStudentInviteForm({
   students: StudentOption[];
 }) {
   const formId = useId();
+  const router = useRouter();
   const listboxId = `${formId}-student-listbox`;
+  const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<StudentInviteResponse | null>(null);
   const [studentQuery, setStudentQuery] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
   const deferredStudentQuery = useDeferredValue(studentQuery);
   const normalizedStudentQuery = deferredStudentQuery.trim().toLowerCase();
   const selectedStudent = students.find((student) => student.studentId === selectedStudentId) ?? null;
@@ -65,33 +185,36 @@ export function CreateStudentInviteForm({
     : students;
 
   async function submit(formData: FormData) {
+    setIsPending(true);
     setError(null);
-    setResult(null);
 
-    if (!selectedStudentId) {
-      setError("Choose a student before creating an invite.");
-      return;
+    try {
+      if (!selectedStudentId) {
+        setError("Choose a student before creating an invite.");
+        return;
+      }
+
+      const response = await fetch("/api/org/invites", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          semesterId: String(formData.get("semesterId") ?? ""),
+          studentId: selectedStudentId
+        })
+      });
+
+      const json = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setError(json.error ?? "Unable to create invite.");
+        return;
+      }
+
+      setIsOpen(false);
+      startTransition(() => { router.refresh(); });
+    } finally {
+      setIsPending(false);
     }
-
-    const response = await fetch("/api/org/invites", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        semesterId: String(formData.get("semesterId") ?? ""),
-        studentId: selectedStudentId
-      })
-    });
-
-    const json = (await response.json()) as StudentInviteResponse;
-
-    if (!response.ok) {
-      setError(json.error ?? "Unable to create invite.");
-      return;
-    }
-
-    setResult(json);
   }
 
   return (
@@ -104,30 +227,28 @@ export function CreateStudentInviteForm({
           form={formId}
           type="submit"
         >
-          {isPending ? "Creating invite..." : "Create invite"}
+          {isPending ? "Creating invite..." : "Create Invite"}
         </button>
       }
-      title="Invite student"
+      title="Invite Student"
+      open={isOpen}
+      onOpenChange={setIsOpen}
       triggerAriaLabel={
         semesters.length === 0
           ? "Add a course first"
           : students.length === 0
             ? "Add students to the roster first"
-            : "Invite student"
+            : "Invite Student"
       }
       triggerChildren={<span aria-hidden="true" className="section-plus-glyph">+</span>}
       triggerClassName="section-plus-button"
       triggerDisabled={semesters.length === 0 || students.length === 0}
-      triggerLabel="Invite student"
-      triggerTooltip="Invite student"
+      triggerLabel="Invite Student"
+      triggerTooltip="Invite Student"
       triggerVariant="secondary"
     >
       <form
-        action={(formData) => {
-          startTransition(() => {
-            void submit(formData);
-          });
-        }}
+        action={(formData) => { void submit(formData); }}
         className="stack"
         id={formId}
       >
@@ -206,17 +327,6 @@ export function CreateStudentInviteForm({
           </select>
         </div>
         {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
-        {result?.invite ? (
-          <div className="note-box" style={{ marginTop: 4 }}>
-            <strong>
-              {result.invite.studentFirstName} {result.invite.studentLastName} is ready to enroll.
-            </strong>
-            <div style={{ color: "var(--muted)", marginTop: 4 }}>{result.invite.studentEmail}</div>
-            <div style={{ marginTop: 8 }}>
-              <strong>Invite code:</strong> {result.invite.inviteCode}
-            </div>
-          </div>
-        ) : null}
       </form>
     </EndDrawer>
   );

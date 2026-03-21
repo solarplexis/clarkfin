@@ -4,6 +4,28 @@ import {
   createOrganizationWithDefaultOrgAdmin,
   getCurrentUser
 } from "@/src/lib/authz-admin";
+import { listOrganizations } from "@/src/lib/data/repositories";
+
+export async function GET() {
+  try {
+    const adminUser = await getCurrentUser();
+
+    if (!adminUser || adminUser.role !== "ADMIN") {
+      return NextResponse.json({ error: "ADMIN session required." }, { status: 401 });
+    }
+
+    const organizations = await listOrganizations();
+
+    return NextResponse.json({ ok: true, organizations });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Unable to load organizations."
+      },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {

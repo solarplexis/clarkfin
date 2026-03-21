@@ -479,6 +479,135 @@ export async function linkStudentRecordToAuthUser(input: {
   );
 }
 
+export async function updateSemesterForOrganization(input: {
+  semesterId: string;
+  orgId: string;
+  title: string;
+  courseCode: string;
+  startsAt?: string;
+  endsAt?: string;
+  isActive: boolean;
+}) {
+  const adminDb = getAdminDb();
+  const semesterRef = adminDb.collection("semesters").doc(input.semesterId);
+  const snapshot = await semesterRef.get();
+
+  if (!snapshot.exists) {
+    throw new Error("That course could not be found.");
+  }
+
+  const current = mapSemester(snapshot.id, snapshot.data() as Record<string, unknown>);
+
+  if (current.orgId !== input.orgId) {
+    throw new Error("That course does not belong to this organization.");
+  }
+
+  await semesterRef.set(
+    {
+      title: input.title,
+      courseCode: input.courseCode.toUpperCase(),
+      isActive: input.isActive,
+      startsAt: input.startsAt || null,
+      endsAt: input.endsAt || null,
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  const updated = await semesterRef.get();
+
+  return mapSemester(semesterRef.id, updated.data() as Record<string, unknown>);
+}
+
+export async function deleteSemesterForOrganization(semesterId: string, orgId: string) {
+  const adminDb = getAdminDb();
+  const semesterRef = adminDb.collection("semesters").doc(semesterId);
+  const snapshot = await semesterRef.get();
+
+  if (!snapshot.exists) {
+    throw new Error("That course could not be found.");
+  }
+
+  const semester = mapSemester(snapshot.id, snapshot.data() as Record<string, unknown>);
+
+  if (semester.orgId !== orgId) {
+    throw new Error("That course does not belong to this organization.");
+  }
+
+  const [inviteSnapshot, enrollmentSnapshot] = await Promise.all([
+    adminDb
+      .collection("student_invites")
+      .where("semesterId", "==", semesterId)
+      .limit(1)
+      .get(),
+    adminDb
+      .collection("student_enrollments")
+      .where("semesterId", "==", semesterId)
+      .limit(1)
+      .get()
+  ]);
+
+  if (!inviteSnapshot.empty || !enrollmentSnapshot.empty) {
+    throw new Error("Courses with invites or enrollments cannot be deleted.");
+  }
+
+  await semesterRef.delete();
+}
+
+export async function updateStudentInviteStatus(input: {
+  inviteId: string;
+  organizationId: string;
+  status: StudentInvite["status"];
+}) {
+  const adminDb = getAdminDb();
+  const inviteRef = adminDb.collection("student_invites").doc(input.inviteId);
+  const snapshot = await inviteRef.get();
+
+  if (!snapshot.exists) {
+    throw new Error("That invite could not be found.");
+  }
+
+  const current = mapStudentInvite(snapshot.id, snapshot.data() as Record<string, unknown>);
+
+  if (current.organizationId !== input.organizationId) {
+    throw new Error("That invite does not belong to this organization.");
+  }
+
+  await inviteRef.set(
+    {
+      status: input.status,
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  const updated = await inviteRef.get();
+
+  return mapStudentInvite(inviteRef.id, updated.data() as Record<string, unknown>);
+}
+
+export async function deleteStudentInvite(inviteId: string, organizationId: string) {
+  const adminDb = getAdminDb();
+  const inviteRef = adminDb.collection("student_invites").doc(inviteId);
+  const snapshot = await inviteRef.get();
+
+  if (!snapshot.exists) {
+    throw new Error("That invite could not be found.");
+  }
+
+  const invite = mapStudentInvite(snapshot.id, snapshot.data() as Record<string, unknown>);
+
+  if (invite.organizationId !== organizationId) {
+    throw new Error("That invite does not belong to this organization.");
+  }
+
+  if (invite.status === "redeemed") {
+    throw new Error("Redeemed invites cannot be deleted.");
+  }
+
+  await inviteRef.delete();
+}
+
 export async function listSemestersForOrganization(orgId: string) {
   const adminDb = getAdminDb();
   const snapshot = await adminDb
@@ -538,6 +667,17 @@ export async function listStudentInvitesForOrganization(organizationId: string) 
     .get();
 
   return snapshot.docs.map((doc) => mapStudentInvite(doc.id, doc.data()));
+}
+
+export async function getStudentInviteById(inviteId: string) {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb.collection("student_invites").doc(inviteId).get();
+
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  return mapStudentInvite(snapshot.id, snapshot.data() as Record<string, unknown>);
 }
 
 export async function getStudentInviteByCode(inviteCode: string) {

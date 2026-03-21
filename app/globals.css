@@ -728,7 +728,47 @@ tbody tr:hover {
   transform: translateY(-1px);
 }
 
-.section-plus-button::before {
+/* ─── Icon button (table row actions) ────────────────────────── */
+.icon-button {
+  position: relative;
+  width: 30px;
+  min-width: 30px;
+  height: 30px;
+  min-height: 30px;
+  padding: 0;
+  border-radius: var(--radius-sm);
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  transition: background 120ms, border-color 120ms, color 120ms;
+}
+
+.icon-button:hover {
+  background: var(--bg-subtle);
+  border-color: var(--line-strong);
+  color: var(--ink-2);
+}
+
+.icon-button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.icon-button-danger {
+  color: var(--danger);
+  border-color: rgba(224, 62, 82, 0.2);
+}
+
+.icon-button-danger:hover {
+  background: var(--danger-soft);
+  border-color: rgba(224, 62, 82, 0.35);
+  color: var(--danger);
+}
+
+.section-plus-button::before,
+.icon-button::before {
   content: "";
   position: absolute;
   right: 10px;
@@ -742,7 +782,8 @@ tbody tr:hover {
   transition: opacity 140ms ease, transform 140ms ease;
 }
 
-.section-plus-button::after {
+.section-plus-button::after,
+.icon-button::after {
   content: attr(data-tooltip);
   position: absolute;
   right: 0;
@@ -764,8 +805,12 @@ tbody tr:hover {
 
 .section-plus-button[data-tooltip]:not(:disabled):hover::before,
 .section-plus-button[data-tooltip]:not(:disabled):focus-visible::before,
+.icon-button[data-tooltip]:not(:disabled):hover::before,
+.icon-button[data-tooltip]:not(:disabled):focus-visible::before,
 .section-plus-button[data-tooltip]:not(:disabled):hover::after,
-.section-plus-button[data-tooltip]:not(:disabled):focus-visible::after {
+.section-plus-button[data-tooltip]:not(:disabled):focus-visible::after,
+.icon-button[data-tooltip]:not(:disabled):hover::after,
+.icon-button[data-tooltip]:not(:disabled):focus-visible::after {
   opacity: 1;
   transform: translateY(0);
 }

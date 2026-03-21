@@ -5,6 +5,8 @@ import { useEffect, useId, useState } from "react";
 type EndDrawerProps = {
   title: string;
   description?: string;
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
   triggerLabel: string;
   triggerVariant?: "primary" | "secondary";
   triggerDisabled?: boolean;
@@ -19,6 +21,8 @@ type EndDrawerProps = {
 export function EndDrawer({
   title,
   description: _description,
+  open: controlledOpen,
+  onOpenChange,
   triggerLabel,
   triggerVariant = "primary",
   triggerDisabled = false,
@@ -29,7 +33,17 @@ export function EndDrawer({
   children,
   footer
 }: EndDrawerProps) {
-  const [isOpen, setIsOpen] = useState(false);
+  const [internalOpen, setInternalOpen] = useState(false);
+  const isControlled = controlledOpen !== undefined;
+  const isOpen = isControlled ? controlledOpen : internalOpen;
+
+  function setIsOpen(value: boolean) {
+    if (isControlled) {
+      onOpenChange?.(value);
+    } else {
+      setInternalOpen(value);
+    }
+  }
   const headingId = useId();
 
   useEffect(() => {

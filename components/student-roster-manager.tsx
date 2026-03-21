@@ -1,9 +1,21 @@
 "use client";
 
-import { useId, useState, useTransition } from "react";
+import { startTransition, useId, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { EndDrawer } from "@/components/end-drawer";
+
+const PencilIcon = () => (
+  <svg fill="none" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg">
+    <path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 2.474L5.81 11.577l-2.827.636.636-2.828L11.013 1.427Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+  </svg>
+);
+
+const TrashIcon = () => (
+  <svg fill="none" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 4h12M5 4V2h6v2M3 4l1 10h8l1-10M6 7v4M10 7v4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+  </svg>
+);
 
 type StudentStatus = "prospect" | "invited" | "active" | "inactive";
 
@@ -65,33 +77,38 @@ function StudentFormFields({
 function CreateStudentDrawer() {
   const formId = useId();
   const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
   async function submit(formData: FormData) {
+    setIsPending(true);
     setError(null);
 
-    const response = await fetch("/api/org/students", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        firstName: String(formData.get("firstName") ?? ""),
-        lastName: String(formData.get("lastName") ?? ""),
-        email: String(formData.get("email") ?? ""),
-        status: String(formData.get("status") ?? "prospect")
-      })
-    });
+    try {
+      const response = await fetch("/api/org/students", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: String(formData.get("firstName") ?? ""),
+          lastName: String(formData.get("lastName") ?? ""),
+          email: String(formData.get("email") ?? ""),
+          status: String(formData.get("status") ?? "prospect")
+        })
+      });
 
-    const json = (await response.json()) as { error?: string };
+      const json = (await response.json()) as { error?: string };
 
-    if (!response.ok) {
-      setError(json.error ?? "Unable to create student.");
-      return;
+      if (!response.ok) {
+        setError(json.error ?? "Unable to create student.");
+        return;
+      }
+
+      setIsOpen(false);
+      startTransition(() => { router.refresh(); });
+    } finally {
+      setIsPending(false);
     }
-
-    router.refresh();
   }
 
   return (
@@ -99,23 +116,21 @@ function CreateStudentDrawer() {
       description="Add a roster entry before sending course invites."
       footer={
         <button className="button" disabled={isPending} form={formId} type="submit">
-          {isPending ? "Creating student..." : "Add student"}
+          {isPending ? "Creating student..." : "Add Student"}
         </button>
       }
-      title="Add student"
-      triggerAriaLabel="Add student"
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      title="Add Student"
+      triggerAriaLabel="Add Student"
       triggerChildren={<span aria-hidden="true" className="section-plus-glyph">+</span>}
       triggerClassName="section-plus-button"
-      triggerLabel="Add student"
-      triggerTooltip="Add student"
+      triggerLabel="Add Student"
+      triggerTooltip="Add Student"
       triggerVariant="secondary"
     >
       <form
-        action={(formData) => {
-          startTransition(() => {
-            void submit(formData);
-          });
-        }}
+        action={(formData) => { void submit(formData); }}
         className="stack"
         id={formId}
       >
@@ -129,33 +144,38 @@ function CreateStudentDrawer() {
 function EditStudentDrawer({ student }: { student: StudentRow }) {
   const formId = useId();
   const router = useRouter();
+  const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
   async function submit(formData: FormData) {
+    setIsPending(true);
     setError(null);
 
-    const response = await fetch(`/api/org/students/${student.studentId}`, {
-      method: "PATCH",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        firstName: String(formData.get("firstName") ?? ""),
-        lastName: String(formData.get("lastName") ?? ""),
-        email: String(formData.get("email") ?? ""),
-        status: String(formData.get("status") ?? student.status)
-      })
-    });
+    try {
+      const response = await fetch(`/api/org/students/${student.studentId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          firstName: String(formData.get("firstName") ?? ""),
+          lastName: String(formData.get("lastName") ?? ""),
+          email: String(formData.get("email") ?? ""),
+          status: String(formData.get("status") ?? student.status)
+        })
+      });
 
-    const json = (await response.json()) as { error?: string };
+      const json = (await response.json()) as { error?: string };
 
-    if (!response.ok) {
-      setError(json.error ?? "Unable to update student.");
-      return;
+      if (!response.ok) {
+        setError(json.error ?? "Unable to update student.");
+        return;
+      }
+
+      setIsOpen(false);
+      startTransition(() => { router.refresh(); });
+    } finally {
+      setIsPending(false);
     }
-
-    router.refresh();
   }
 
   return (
@@ -166,16 +186,18 @@ function EditStudentDrawer({ student }: { student: StudentRow }) {
           {isPending ? "Saving..." : "Save student"}
         </button>
       }
+      open={isOpen}
+      onOpenChange={setIsOpen}
       title="Edit student"
-      triggerLabel="Edit"
+      triggerAriaLabel="Edit student"
+      triggerChildren={<PencilIcon />}
+      triggerClassName="icon-button"
+      triggerLabel="Edit student"
+      triggerTooltip="Edit student"
       triggerVariant="secondary"
     >
       <form
-        action={(formData) => {
-          startTransition(() => {
-            void submit(formData);
-          });
-        }}
+        action={(formData) => { void submit(formData); }}
         className="stack"
         id={formId}
       >
@@ -200,38 +222,37 @@ function EditStudentDrawer({ student }: { student: StudentRow }) {
 function DeleteStudentButton({ student }: { student: StudentRow }) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isPending, setIsPending] = useState(false);
 
   async function removeStudent() {
+    setIsPending(true);
     setError(null);
 
-    const response = await fetch(`/api/org/students/${student.studentId}`, {
-      method: "DELETE"
-    });
+    try {
+      const response = await fetch(`/api/org/students/${student.studentId}`, { method: "DELETE" });
+      const json = (await response.json()) as { error?: string };
 
-    const json = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setError(json.error ?? "Unable to delete student.");
+        return;
+      }
 
-    if (!response.ok) {
-      setError(json.error ?? "Unable to delete student.");
-      return;
+      startTransition(() => { router.refresh(); });
+    } finally {
+      setIsPending(false);
     }
-
-    router.refresh();
   }
 
   return (
     <div className="stack-sm" style={{ alignItems: "flex-end" }}>
       <button
-        className="button-secondary"
+        className="icon-button icon-button-danger"
+        data-tooltip={student.authUserId ? "Linked students cannot be deleted" : "Delete student"}
         disabled={isPending || Boolean(student.authUserId)}
         type="button"
-        onClick={() => {
-          startTransition(() => {
-            void removeStudent();
-          });
-        }}
+        onClick={() => { void removeStudent(); }}
       >
-        {isPending ? "Removing..." : "Delete"}
+        <TrashIcon />
       </button>
       {error ? <p className="error-msg" style={{ margin: 0 }}>{error}</p> : null}
     </div>

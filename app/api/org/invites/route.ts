@@ -3,8 +3,30 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/src/lib/auth/session";
 import {
   createStudentInvite,
-  getSemesterById
+  getSemesterById,
+  listStudentInvitesForOrganization
 } from "@/src/lib/data/repositories";
+
+export async function GET() {
+  try {
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== "ORG_ADMIN" || !user.organizationId) {
+      return NextResponse.json({ error: "ORG_ADMIN session required." }, { status: 401 });
+    }
+
+    const invites = await listStudentInvitesForOrganization(user.organizationId);
+
+    return NextResponse.json({ ok: true, invites });
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error: error instanceof Error ? error.message : "Unable to load invites."
+      },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {

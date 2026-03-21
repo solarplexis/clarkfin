@@ -21,6 +21,23 @@ function normalizeImageDataUrl(value: unknown) {
   return candidate;
 }
 
+export async function GET() {
+  try {
+    const user = await getCurrentUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Authenticated session required." }, { status: 401 });
+    }
+
+    return NextResponse.json({ ok: true, profile: user });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unable to load profile." },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(request: Request) {
   try {
     const user = await getCurrentUser();
