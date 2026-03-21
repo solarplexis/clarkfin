@@ -22,6 +22,7 @@ type StudentOption = {
 
 type InviteRow = {
   inviteId: string;
+  inviteCode: string;
   studentFirstName: string;
   studentLastName: string;
   studentEmail: string;
@@ -38,6 +39,13 @@ const PencilIcon = () => (
 const TrashIcon = () => (
   <svg fill="none" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg">
     <path d="M2 4h12M5 4V2h6v2M3 4l1 10h8l1-10M6 7v4M10 7v4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+  </svg>
+);
+
+const CopyIcon = () => (
+  <svg fill="none" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6 2.75h5.25A1.75 1.75 0 0 1 13 4.5v6.75A1.75 1.75 0 0 1 11.25 13H6A1.75 1.75 0 0 1 4.25 11.25V4.5A1.75 1.75 0 0 1 6 2.75Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+    <path d="M4.25 5.5H3.5A1.5 1.5 0 0 0 2 7v5.5A1.5 1.5 0 0 0 3.5 14h5.5A1.5 1.5 0 0 0 10.5 12.5v-.75" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
   </svg>
 );
 
@@ -140,7 +148,7 @@ export function DeleteInviteButton({ invite }: { invite: InviteRow }) {
     <div className="stack-sm" style={{ alignItems: "flex-end" }}>
       <button
         className="icon-button icon-button-danger"
-        data-tooltip="Delete invite"
+        data-tooltip="Delete Invite"
         disabled={isPending || invite.status === "redeemed"}
         type="button"
         onClick={() => { void remove(); }}
@@ -149,6 +157,35 @@ export function DeleteInviteButton({ invite }: { invite: InviteRow }) {
       </button>
       {error ? <p className="error-msg" style={{ margin: 0 }}>{error}</p> : null}
     </div>
+  );
+}
+
+export function CopyInviteLinkButton({ invite }: { invite: InviteRow }) {
+  const [tooltip, setTooltip] = useState("Copy Invite URL");
+
+  async function copyLink() {
+    const inviteUrl = new URL(`/invite/${invite.inviteCode}`, window.location.origin).toString();
+
+    try {
+      await navigator.clipboard.writeText(inviteUrl);
+      setTooltip("Copied invite URL");
+      window.setTimeout(() => setTooltip("Copy invite URL"), 1800);
+    } catch {
+      setTooltip("Copy failed");
+      window.setTimeout(() => setTooltip("Copy invite URL"), 1800);
+    }
+  }
+
+  return (
+    <button
+      aria-label="Copy invite URL"
+      className="icon-button"
+      data-tooltip={tooltip}
+      type="button"
+      onClick={() => { void copyLink(); }}
+    >
+      <CopyIcon />
+    </button>
   );
 }
 

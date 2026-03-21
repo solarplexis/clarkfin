@@ -12,6 +12,13 @@ async function toDataUrl(file: File) {
   });
 }
 
+function splitName(fullName: string) {
+  const i = fullName.indexOf(" ");
+  return i === -1
+    ? { firstName: fullName, lastName: "" }
+    : { firstName: fullName.slice(0, i), lastName: fullName.slice(i + 1) };
+}
+
 export function ProfileForm({
   fullName,
   email,
@@ -22,7 +29,8 @@ export function ProfileForm({
   avatarUrl?: string;
 }) {
   const router = useRouter();
-  const [name, setName] = useState(fullName);
+  const [firstName, setFirstName] = useState(() => splitName(fullName).firstName);
+  const [lastName, setLastName] = useState(() => splitName(fullName).lastName);
   const [avatarPreview, setAvatarPreview] = useState(avatarUrl ?? "");
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
@@ -32,13 +40,15 @@ export function ProfileForm({
     setError(null);
     setMessage(null);
 
+    const fullName = `${firstName.trim()} ${lastName.trim()}`.trim();
+
     const response = await fetch("/api/profile", {
       method: "PATCH",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        fullName: name,
+        fullName,
         avatarUrl: avatarPreview
       })
     });
@@ -58,7 +68,7 @@ export function ProfileForm({
     <div className="card stack">
       <div className="card-header">
         <div>
-          <h2>Your profile</h2>
+          <h2>Your Profile</h2>
           <p className="muted" style={{ marginTop: 6 }}>
             Update your display name and profile picture.
           </p>
@@ -67,9 +77,9 @@ export function ProfileForm({
 
       <div className="profile-media">
         {avatarPreview ? (
-          <img alt={name} className="profile-media-image" src={avatarPreview} />
+          <img alt={`${firstName} ${lastName}`} className="profile-media-image" src={avatarPreview} />
         ) : (
-          <div className="profile-media-placeholder">{name.slice(0, 2).toUpperCase()}</div>
+          <div className="profile-media-placeholder">{`${firstName}${lastName}`.slice(0, 2).toUpperCase()}</div>
         )}
         <div className="stack-sm">
           <label className="button-secondary profile-upload-button">
@@ -113,13 +123,25 @@ export function ProfileForm({
         </div>
       </div>
 
-      <div className="field">
-        <label htmlFor="profile-full-name">Display name</label>
-        <input
-          id="profile-full-name"
-          value={name}
-          onChange={(event) => setName(event.target.value)}
-        />
+      <div className="form-grid">
+        <div className="field">
+          <label htmlFor="profile-first-name">First name</label>
+          <input
+            id="profile-first-name"
+            value={firstName}
+            autoComplete="given-name"
+            onChange={(event) => setFirstName(event.target.value)}
+          />
+        </div>
+        <div className="field">
+          <label htmlFor="profile-last-name">Last name</label>
+          <input
+            id="profile-last-name"
+            value={lastName}
+            autoComplete="family-name"
+            onChange={(event) => setLastName(event.target.value)}
+          />
+        </div>
       </div>
 
       <div className="field">
@@ -141,7 +163,7 @@ export function ProfileForm({
             });
           }}
         >
-          {isPending ? "Saving..." : "Save profile"}
+          {isPending ? "Saving..." : "Save Profile"}
         </button>
       </div>
     </div>

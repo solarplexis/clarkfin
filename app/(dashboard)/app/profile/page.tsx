@@ -6,10 +6,9 @@ import { getOrganizationById } from "@/src/lib/data/repositories";
 
 export default async function ProfilePage() {
   const user = await requireUser();
-  const organization =
-    user.role === "ORG_ADMIN" && user.organizationId
-      ? await getOrganizationById(user.organizationId)
-      : null;
+  const organization = user.organizationId
+    ? await getOrganizationById(user.organizationId)
+    : null;
 
   return (
     <DashboardShell user={user}>
@@ -25,6 +24,41 @@ export default async function ProfilePage() {
         email={user.email}
         fullName={user.fullName}
       />
+
+      {user.role === "STUDENT" && organization ? (
+        <div className="card stack">
+          <div className="card-header">
+            <div>
+              <h2>Organization</h2>
+              <p className="muted" style={{ marginTop: 6 }}>Your enrolled institution.</p>
+            </div>
+          </div>
+          <div className="org-affiliation">
+            {organization.settings?.logoUrl ? (
+              <img
+                alt={organization.name}
+                className="org-affiliation-logo"
+                src={organization.settings.logoUrl}
+              />
+            ) : (
+              <div
+                className="org-affiliation-logo-placeholder"
+                style={organization.settings?.brandColor
+                  ? { background: organization.settings.brandColor }
+                  : undefined}
+              >
+                {organization.name.slice(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div>
+              <div className="org-affiliation-name">{organization.name}</div>
+              {organization.settings?.supportEmail ? (
+                <div className="org-affiliation-meta">{organization.settings.supportEmail}</div>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {user.role === "ORG_ADMIN" && organization ? (
         <OrganizationProfileForm

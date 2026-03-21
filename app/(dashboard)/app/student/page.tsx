@@ -27,25 +27,25 @@ export default async function StudentHomePage() {
     <DashboardShell user={user}>
       <div className="page-header">
         <div className="page-header-text">
-          <h1>Student workspace</h1>
-          <p>Build your budget and explore debt payoff strategies.</p>
+          <h1>Student Workspace</h1>
+          <p>Build your budget and explore debt payoff strategies</p>
         </div>
       </div>
 
       <div className="grid-2">
         <div className="card">
           <div className="card-header">
-            <h2>Financial tools</h2>
+            <h2>Financial Tools</h2>
           </div>
           <p style={{ color: "var(--ink-2)", marginBottom: 20 }}>
-            Each save records a draft and an activity event for your instructors.
+            Each save records a draft and an activity event for your instructors
           </p>
           <div className="row" style={{ gap: 10 }}>
             <Link className="btn" href="/app/student/budget">
-              Budget builder
+              Budget Builder
             </Link>
             <Link className="btn btn-secondary" href="/app/student/debt">
-              Debt simulator
+              Debt Simulator
             </Link>
           </div>
         </div>
@@ -59,7 +59,7 @@ export default async function StudentHomePage() {
               <span style={{ color: "var(--ink-2)" }}>{user.organizationId}</span>
             </div>
             <div className="row" style={{ gap: 8 }}>
-              <span className="badge badge-accent">Active course</span>
+              <span className="badge badge-accent">Active Course</span>
               <span style={{ color: "var(--ink-2)" }}>
                 {workspace?.activeSemester
                   ? `${workspace.activeSemester.courseCode} · ${workspace.activeSemester.title}`
@@ -80,9 +80,9 @@ export default async function StudentHomePage() {
         </div>
       </div>
 
-      <div className="section-title" style={{ marginTop: 32 }}>Recent activity</div>
+      <div className="section-title" style={{ marginTop: 32 }}>Recent Activity</div>
       {recentActivity.length === 0 ? (
-        <div className="empty-state">No activity yet. Start with the budget builder or debt simulator.</div>
+        <div className="empty-state">No activity yet. Start with the Budget Builder or Debt Simulator</div>
       ) : (
         <div className="card">
           <ul className="plain-list">

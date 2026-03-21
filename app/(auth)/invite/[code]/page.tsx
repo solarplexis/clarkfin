@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 
 import { InviteRedemptionForm } from "@/components/invite-redemption-form";
@@ -29,33 +28,23 @@ export default async function InvitePage({
   const organization = await getOrganizationById(invite.organizationId);
 
   return (
-    <main className="page grid two">
-      <section className="hero stack">
-        <span className="eyebrow">Invite-only enrollment</span>
-        <h1 style={{ maxWidth: "12ch" }}>Set up your student account.</h1>
-        <p className="lede">
-          You are registering for {semester.title} ({semester.courseCode}) at{" "}
-          {organization?.name ?? semester.orgId}. This invite is reserved for{" "}
-          {invite.studentFirstName} {invite.studentLastName} and will place your activity inside
-          the correct organization and course silo from day one.
-        </p>
-        <p className="muted">
-          Invited email: <strong>{invite.studentEmail}</strong>
-        </p>
-        <p className="muted">
-          If you already have a ClarkFin account, use the same email and your existing password to
-          add this new enrollment.
-        </p>
-        <Link className="button-secondary" href="/login">
-          Already have an account?
-        </Link>
-      </section>
-      <InviteRedemptionForm
-        inviteCode={code}
-        invitedEmail={invite.studentEmail}
-        invitedFirstName={invite.studentFirstName}
-        invitedLastName={invite.studentLastName}
-      />
+    <main className="auth-centered">
+      <div className="auth-box" style={{ maxWidth: 480 }}>
+        <div className="auth-box-header">
+          <span className="auth-box-logo">ClarkFin</span>
+          <h1>Accept your invite</h1>
+          <p>
+            {semester.courseCode} · {semester.title}
+            {organization ? ` — ${organization.name}` : ""}
+          </p>
+        </div>
+        <InviteRedemptionForm
+          inviteCode={code}
+          invitedEmail={invite.studentEmail}
+          invitedFirstName={invite.studentFirstName}
+          invitedLastName={invite.studentLastName}
+        />
+      </div>
     </main>
   );
 }

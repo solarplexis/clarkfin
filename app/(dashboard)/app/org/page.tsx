@@ -1,5 +1,5 @@
 import { CreateSemesterForm, EditSemesterDrawer } from "@/components/create-semester-form";
-import { CreateStudentInviteForm, DeleteInviteButton, EditInviteDrawer } from "@/components/create-student-invite-form";
+import { CopyInviteLinkButton, CreateStudentInviteForm, DeleteInviteButton, EditInviteDrawer } from "@/components/create-student-invite-form";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StudentRosterManager } from "@/components/student-roster-manager";
 import { requireRole } from "@/src/lib/auth/session";
@@ -197,6 +197,7 @@ export default async function OrganizationDashboardPage() {
                       </td>
                       <td>
                         <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                          <CopyInviteLinkButton invite={invite} />
                           <EditInviteDrawer invite={invite} />
                           <DeleteInviteButton invite={invite} />
                         </div>
