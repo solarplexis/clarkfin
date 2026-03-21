@@ -1,12 +1,27 @@
 import Link from "next/link";
 
 import { DashboardShell } from "@/components/dashboard-shell";
-import { requireRole } from "@/src/lib/auth/session";
-import { listRecentActivityForStudent } from "@/src/lib/data/repositories";
+import { StudentWorkspaceSwitcher } from "@/components/student-workspace-switcher";
+import { requireRole, resolveStudentWorkspace } from "@/src/lib/auth/session";
+import {
+  getSemesterById,
+  listRecentActivityForStudent
+} from "@/src/lib/data/repositories";
 
 export default async function StudentHomePage() {
   const user = await requireRole("STUDENT");
+  const workspace = await resolveStudentWorkspace(user);
   const recentActivity = await listRecentActivityForStudent(user.uid);
+  const enrollmentOptions = await Promise.all(
+    (workspace?.enrollments ?? []).map(async (enrollment) => {
+      const semester = await getSemesterById(enrollment.semesterId);
+
+      return {
+        semesterId: enrollment.semesterId,
+        label: semester ? `${semester.courseCode} · ${semester.title}` : enrollment.semesterId
+      };
+    })
+  );
 
   return (
     <DashboardShell user={user}>
@@ -44,9 +59,23 @@ export default async function StudentHomePage() {
               <span style={{ color: "var(--ink-2)" }}>{user.organizationId}</span>
             </div>
             <div className="row" style={{ gap: 8 }}>
-              <span className="badge badge-accent">Semester</span>
-              <span style={{ color: "var(--ink-2)" }}>{user.semesterId}</span>
+              <span className="badge badge-accent">Active course</span>
+              <span style={{ color: "var(--ink-2)" }}>
+                {workspace?.activeSemester
+                  ? `${workspace.activeSemester.courseCode} · ${workspace.activeSemester.title}`
+                  : "No active course selected"}
+              </span>
             </div>
+            {enrollmentOptions.length > 0 ? (
+              <StudentWorkspaceSwitcher
+                activeSemesterId={user.activeSemesterId}
+                options={enrollmentOptions}
+              />
+            ) : (
+              <div className="empty-state" style={{ padding: 16 }}>
+                No course enrollments yet.
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -7,19 +7,22 @@ type EndDrawerProps = {
   description?: string;
   triggerLabel: string;
   triggerVariant?: "primary" | "secondary";
+  triggerDisabled?: boolean;
   children: React.ReactNode;
+  footer?: React.ReactNode;
 };
 
 export function EndDrawer({
   title,
-  description,
+  description: _description,
   triggerLabel,
   triggerVariant = "primary",
-  children
+  triggerDisabled = false,
+  children,
+  footer
 }: EndDrawerProps) {
   const [isOpen, setIsOpen] = useState(false);
   const headingId = useId();
-  const descriptionId = useId();
 
   useEffect(() => {
     if (!isOpen) {
@@ -48,6 +51,7 @@ export function EndDrawer({
       <button
         className={triggerVariant === "primary" ? "button" : "button-secondary"}
         type="button"
+        disabled={triggerDisabled}
         onClick={() => setIsOpen(true)}
       >
         {triggerLabel}
@@ -62,31 +66,16 @@ export function EndDrawer({
             onClick={() => setIsOpen(false)}
           />
           <aside
-            aria-describedby={description ? descriptionId : undefined}
             aria-labelledby={headingId}
             aria-modal="true"
             className="end-drawer-panel"
             role="dialog"
           >
             <header className="end-drawer-header">
-              <div className="stack">
-                <h2 id={headingId}>{title}</h2>
-                {description ? (
-                  <p className="muted" id={descriptionId}>
-                    {description}
-                  </p>
-                ) : null}
-              </div>
-              <button
-                aria-label="Close panel"
-                className="button-secondary"
-                type="button"
-                onClick={() => setIsOpen(false)}
-              >
-                Close
-              </button>
+              <h2 id={headingId}>{title}</h2>
             </header>
             <div className="end-drawer-content">{children}</div>
+            {footer ? <div className="end-drawer-footer">{footer}</div> : null}
           </aside>
         </div>
       ) : null}

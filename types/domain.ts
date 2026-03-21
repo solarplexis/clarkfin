@@ -23,11 +23,57 @@ export interface Semester {
   orgId: string;
   title: string;
   courseCode: string;
-  inviteCode: string;
   isActive: boolean;
   startsAt?: string;
   endsAt?: string;
   status?: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type StudentStatus = "prospect" | "invited" | "active" | "inactive";
+
+export interface StudentRecord {
+  studentId: string;
+  organizationId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  authUserId?: string;
+  status: StudentStatus;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type InviteStatus = "pending" | "redeemed" | "revoked";
+
+export interface StudentInvite {
+  inviteId: string;
+  inviteCode: string;
+  studentId: string;
+  organizationId: string;
+  semesterId: string;
+  studentEmail: string;
+  studentFirstName: string;
+  studentLastName: string;
+  status: InviteStatus;
+  createdByUid: string;
+  redeemedByUid?: string;
+  createdAt?: string;
+  updatedAt?: string;
+  redeemedAt?: string;
+}
+
+export type EnrollmentStatus = "enrolled" | "completed" | "withdrawn";
+
+export interface StudentEnrollment {
+  enrollmentId: string;
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  inviteId?: string;
+  studentEmail: string;
+  status: EnrollmentStatus;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -38,7 +84,7 @@ export interface UserProfile {
   fullName: string;
   role: UserRole;
   organizationId?: string;
-  semesterId?: string;
+  activeSemesterId?: string;
   createdAt?: string;
   updatedAt?: string;
 }

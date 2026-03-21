@@ -4,7 +4,13 @@ import { redirect } from "next/navigation";
 import type { UserProfile, UserRole } from "@/types/domain";
 import { getSessionCookieName } from "@/src/lib/env";
 import { getAdminAuth } from "@/src/lib/firebase/admin";
-import { getUserProfileById } from "@/src/lib/data/repositories";
+import {
+  getSemesterById,
+  getStudentEnrollment,
+  getUserProfileById,
+  listStudentEnrollments,
+  setUserActiveSemester
+} from "@/src/lib/data/repositories";
 
 export async function getCurrentUser() {
   const cookieStore = await cookies();
@@ -50,4 +56,49 @@ export async function requireRole(...roles: UserRole[]) {
 
 export function canAccessOrganization(user: UserProfile, orgId: string) {
   return user.role === "ADMIN" || user.organizationId === orgId;
+}
+
+export async function resolveStudentWorkspace(user: UserProfile) {
+  if (user.role !== "STUDENT") {
+    return null;
+  }
+
+  const enrollments = await listStudentEnrollments(user.uid);
+
+  if (enrollments.length === 0) {
+    return {
+      enrollments: [],
+      activeEnrollment: null,
+      activeSemester: null
+    };
+  }
+
+  const activeEnrollment =
+    (user.activeSemesterId
+      ? enrollments.find((enrollment) => enrollment.semesterId === user.activeSemesterId)
+      : null) ?? enrollments[0];
+
+  if (!user.activeSemesterId || user.activeSemesterId !== activeEnrollment.semesterId) {
+    await setUserActiveSemester(user.uid, activeEnrollment.semesterId);
+    user.activeSemesterId = activeEnrollment.semesterId;
+  }
+
+  const [activeSemester, enrollmentCheck] = await Promise.all([
+    getSemesterById(activeEnrollment.semesterId),
+    getStudentEnrollment(user.uid, activeEnrollment.semesterId)
+  ]);
+
+  if (!enrollmentCheck) {
+    return {
+      enrollments,
+      activeEnrollment: null,
+      activeSemester: null
+    };
+  }
+
+  return {
+    enrollments,
+    activeEnrollment,
+    activeSemester
+  };
 }

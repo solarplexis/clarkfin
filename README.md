@@ -18,11 +18,14 @@ ClarkFin is a multi-tenant, self-serve educational platform built for community 
 ## 🔐 Database Schema (Firestore)
 - `/organizations/{orgId}`
 - `/semesters/{semesterId}` (linked to orgId)
+- `/students/{studentId}` (org-managed roster that links to auth users after first invite acceptance)
+- `/student_invites/{inviteId}` (student + course specific invite records)
+- `/student_enrollments/{uid}_{semesterId}` (supports overlapping current and upcoming terms)
 - `/users/{uid}` (contains role: 'ADMIN' | 'STUDENT')
 - `/activity_logs/{logId}` (contextualized by studentId and semesterId)
 
 ## 📋 Implementation Tasks for Claude
-1. **Auth Scaffolding:** Implement Firebase Auth with a custom "Invite Code" flow that assigns students to the correct `organizationId` and `semesterId`.
+1. **Auth Scaffolding:** Implement Firebase Auth with a custom invite flow that creates course-specific student enrollments and supports overlapping current and upcoming terms.
 2. **Admin Dashboard:** Create a view for `ORG_ADMIN` users to see a list of enrolled students and their latest activity timestamps.
 3. **Financial Modules:**
     - Budgeting Tool (Income vs. Expense tracker)
@@ -61,13 +64,18 @@ This project is configured for deployment on **Netlify**. Ensure `NEXT_PUBLIC_FI
 ## Firestore collections in use
 - `/organizations/{orgId}`
 - `/semesters/{semesterId}`
+- `/students/{studentId}`
+- `/student_invites/{inviteId}`
+- `/student_enrollments/{uid}_{semesterId}`
 - `/users/{uid}`
 - `/activity_logs/{logId}`
 - `/budget_drafts/{semesterId}_{uid}`
 - `/debt_scenarios/{semesterId}_{uid}`
 
 ## Notes
-- Student registration currently uses a semester invite code that assigns both `organizationId` and `semesterId`.
+- Student registration uses student-and-course-specific invite records and writes separate enrollment records so one student can hold multiple concurrent or upcoming course enrollments.
+- Org admins manage a student roster first, then create invites by selecting from that roster.
+- Student profiles keep an `activeSemesterId` workspace pointer for the UI, but enrollment truth lives in `student_enrollments`.
 - Per-organization API keys are expected to be stored as a SHA-256 hash in `organizations.apiKeyHash`.
 - Firestore client access is governed by [firestore.rules](/Users/danaheath/Projects/io/danaheath/clarkfin/firestore.rules). Server routes using the Firebase Admin SDK still need explicit auth and tenancy checks because Admin SDK access bypasses Firestore rules.
-- If you want, the next step can be adding seed data creation, Firestore security rules, or invite-code management UI for org admins.
+- If you want, the next step can be adding seed data creation, Firestore security rules, or richer invite lifecycle management for org admins.

@@ -23,7 +23,7 @@ export function DashboardShell({
     <>
       <header className="appbar">
         <div className="appbar-logo">
-          Clark<span>Fin</span>
+          ClarkFin
         </div>
         <nav className="appbar-nav">
           {user.role === "STUDENT" && (

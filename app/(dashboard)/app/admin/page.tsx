@@ -18,7 +18,7 @@ export default async function SystemAdminPage() {
       <div className="page-header">
         <div className="page-header-text">
           <h1>System Administration</h1>
-          <p>Manage organizations, credentials, and semester setup.</p>
+          <p>Manage organizations, credentials, and course setup.</p>
         </div>
         <CreateOrganizationForm />
       </div>
@@ -29,7 +29,7 @@ export default async function SystemAdminPage() {
           <div className="stat-card-value">{organizations.length}</div>
         </div>
         <div className="stat-card">
-          <div className="stat-card-label">Total semesters</div>
+          <div className="stat-card-label">Total courses</div>
           <div className="stat-card-value">
             {organizationDetails.reduce((sum, d) => sum + d.semesters.length, 0)}
           </div>
@@ -54,10 +54,10 @@ export default async function SystemAdminPage() {
                     )}
                   </div>
                 </div>
-                <span className="badge badge-accent">{semesters.length} semester{semesters.length !== 1 ? "s" : ""}</span>
+                <span className="badge badge-accent">{semesters.length} course{semesters.length !== 1 ? "s" : ""}</span>
               </div>
               {semesters.length === 0 ? (
-                <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>No semesters yet.</p>
+                <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>No courses yet.</p>
               ) : (
                 <ul className="plain-list">
                   {semesters.map((semester) => (
@@ -67,7 +67,7 @@ export default async function SystemAdminPage() {
                           <div className="semester-card-title">{semester.title}</div>
                           <div className="semester-card-meta">{semester.courseCode}</div>
                         </div>
-                        <span className="semester-card-code">{semester.inviteCode}</span>
+                        <span className="semester-card-code">{semester.semesterId}</span>
                       </div>
                     </li>
                   ))}

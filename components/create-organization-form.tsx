@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 
 import { EndDrawer } from "@/components/end-drawer";
 
@@ -12,6 +12,7 @@ type CreateOrgResponse = {
 };
 
 export function CreateOrganizationForm() {
+  const formId = useId();
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CreateOrgResponse | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -49,87 +50,93 @@ export function CreateOrganizationForm() {
 
   return (
     <EndDrawer
-        description="Configure tenant details and create the default organization admin in one flow."
-        title="Create organization"
-        triggerLabel="Open organization form"
+      description="Configure tenant details and create the default organization admin in one flow."
+      footer={
+        <button className="button" disabled={isPending} form={formId} type="submit">
+          {isPending ? "Creating organization..." : "Create organization and org admin"}
+        </button>
+      }
+      title="Create organization"
+      triggerLabel="Add organization"
+    >
+      <form
+        action={(formData) => {
+          startTransition(() => {
+            void submit(formData);
+          });
+        }}
+        className="stack"
+        id={formId}
       >
-        <form
-          className="stack"
-          action={(formData) => {
-            startTransition(() => {
-              void submit(formData);
-            });
-          }}
-        >
-          <div className="form-grid">
-            <div className="field">
-              <label htmlFor="orgId">Organization ID</label>
-              <input id="orgId" name="orgId" placeholder="csn-nevada" required />
+        <div className="form-grid">
+          <div className="field">
+            <label htmlFor={`${formId}-orgId`}>Organization ID</label>
+            <input id={`${formId}-orgId`} name="orgId" placeholder="csn-nevada" required />
+          </div>
+          <div className="field">
+            <label htmlFor={`${formId}-name`}>Organization name</label>
+            <input
+              id={`${formId}-name`}
+              name="name"
+              placeholder="College of Southern Nevada"
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor={`${formId}-supportEmail`}>Support email</label>
+            <input id={`${formId}-supportEmail`} name="supportEmail" type="email" />
+          </div>
+          <div className="field">
+            <label htmlFor={`${formId}-brandColor`}>Brand color</label>
+            <input id={`${formId}-brandColor`} name="brandColor" placeholder="#0f6a5b" />
+          </div>
+          <div className="field" style={{ gridColumn: "1 / -1" }}>
+            <label htmlFor={`${formId}-allowedEmailDomains`}>Allowed student email domains</label>
+            <input
+              id={`${formId}-allowedEmailDomains`}
+              name="allowedEmailDomains"
+              placeholder="school.edu, students.school.edu"
+            />
+          </div>
+        </div>
+
+        <h3>Default organization admin</h3>
+        <div className="form-grid">
+          <div className="field">
+            <label htmlFor={`${formId}-orgAdminFullName`}>Full name</label>
+            <input id={`${formId}-orgAdminFullName`} name="orgAdminFullName" required />
+          </div>
+          <div className="field">
+            <label htmlFor={`${formId}-orgAdminEmail`}>Email</label>
+            <input id={`${formId}-orgAdminEmail`} name="orgAdminEmail" type="email" required />
+          </div>
+          <div className="field">
+            <label htmlFor={`${formId}-orgAdminPassword`}>Temporary password</label>
+            <input
+              id={`${formId}-orgAdminPassword`}
+              minLength={8}
+              name="orgAdminPassword"
+              required
+              type="password"
+            />
+          </div>
+        </div>
+
+        {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
+        {result?.organization && result.apiKey ? (
+          <div className="panel stack" style={{ padding: 16 }}>
+            <strong>{result.organization.name} created.</strong>
+            <div className="muted">Org ID: {result.organization.orgId}</div>
+            <div className="muted">
+              Default org admin: {result.orgAdmin?.fullName} ({result.orgAdmin?.email})
             </div>
-            <div className="field">
-              <label htmlFor="name">Organization name</label>
-              <input id="name" name="name" placeholder="College of Southern Nevada" required />
-            </div>
-            <div className="field">
-              <label htmlFor="supportEmail">Support email</label>
-              <input id="supportEmail" name="supportEmail" type="email" />
-            </div>
-            <div className="field">
-              <label htmlFor="brandColor">Brand color</label>
-              <input id="brandColor" name="brandColor" placeholder="#0f6a5b" />
-            </div>
-            <div className="field" style={{ gridColumn: "1 / -1" }}>
-              <label htmlFor="allowedEmailDomains">Allowed student email domains</label>
-              <input
-                id="allowedEmailDomains"
-                name="allowedEmailDomains"
-                placeholder="school.edu, students.school.edu"
-              />
+            <div className="note">
+              <strong>API key</strong>
+              <div style={{ wordBreak: "break-all" }}>{result.apiKey}</div>
             </div>
           </div>
-
-          <h3>Default organization admin</h3>
-          <div className="form-grid">
-            <div className="field">
-              <label htmlFor="orgAdminFullName">Full name</label>
-              <input id="orgAdminFullName" name="orgAdminFullName" required />
-            </div>
-            <div className="field">
-              <label htmlFor="orgAdminEmail">Email</label>
-              <input id="orgAdminEmail" name="orgAdminEmail" type="email" required />
-            </div>
-            <div className="field">
-              <label htmlFor="orgAdminPassword">Temporary password</label>
-              <input
-                id="orgAdminPassword"
-                name="orgAdminPassword"
-                type="password"
-                minLength={8}
-                required
-              />
-            </div>
-          </div>
-
-          {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
-          {result?.organization && result.apiKey ? (
-            <div className="panel stack" style={{ padding: 16 }}>
-              <strong>{result.organization.name} created.</strong>
-              <div className="muted">Org ID: {result.organization.orgId}</div>
-              <div className="muted">
-                Default org admin: {result.orgAdmin?.fullName} ({result.orgAdmin?.email})
-              </div>
-              <div className="note">
-                <strong>API key</strong>
-                <div style={{ wordBreak: "break-all" }}>{result.apiKey}</div>
-              </div>
-            </div>
-          ) : null}
-
-          <button className="button" type="submit" disabled={isPending}>
-            {isPending ? "Creating organization..." : "Create organization and org admin"}
-          </button>
-        </form>
-      </EndDrawer>
-    </section>
+        ) : null}
+      </form>
+    </EndDrawer>
   );
 }

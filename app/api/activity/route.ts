@@ -4,6 +4,7 @@ import { getCurrentUser } from "@/src/lib/auth/session";
 import { calculateDebtScenario } from "@/src/lib/activity/debt";
 import {
   createActivityLog,
+  getStudentEnrollment,
   upsertBudgetDraft,
   upsertDebtScenario
 } from "@/src/lib/data/repositories";
@@ -28,12 +29,23 @@ function sanitizeBudgetItems(value: unknown) {
 export async function POST(request: Request) {
   const user = await getCurrentUser();
 
-  if (!user || user.role !== "STUDENT" || !user.organizationId || !user.semesterId) {
+  if (!user || user.role !== "STUDENT" || !user.organizationId) {
     return NextResponse.json({ error: "Student session required." }, { status: 401 });
   }
 
   const body = (await request.json()) as Record<string, unknown>;
   const type = String(body.type ?? "");
+  const semesterId = String(body.semesterId ?? user.activeSemesterId ?? "").trim();
+
+  if (!semesterId) {
+    return NextResponse.json({ error: "Select an active course workspace first." }, { status: 400 });
+  }
+
+  const enrollment = await getStudentEnrollment(user.uid, semesterId);
+
+  if (!enrollment || enrollment.organizationId !== user.organizationId) {
+    return NextResponse.json({ error: "You are not enrolled in that course." }, { status: 403 });
+  }
 
   if (type === "budget.save") {
     const income = sanitizeBudgetItems(body.income);
@@ -45,7 +57,7 @@ export async function POST(request: Request) {
     await upsertBudgetDraft({
       userId: user.uid,
       organizationId: user.organizationId,
-      semesterId: user.semesterId,
+      semesterId,
       income,
       expenses,
       notes,
@@ -56,7 +68,7 @@ export async function POST(request: Request) {
     await createActivityLog({
       userId: user.uid,
       organizationId: user.organizationId,
-      semesterId: user.semesterId,
+      semesterId,
       module: "budget",
       action: isFinal ? "submitted" : "saved",
       status: isFinal ? "completed" : "draft",
@@ -84,7 +96,7 @@ export async function POST(request: Request) {
     await upsertDebtScenario({
       userId: user.uid,
       organizationId: user.organizationId,
-      semesterId: user.semesterId,
+      semesterId,
       debtName,
       balance,
       interestRate,
@@ -99,7 +111,7 @@ export async function POST(request: Request) {
     await createActivityLog({
       userId: user.uid,
       organizationId: user.organizationId,
-      semesterId: user.semesterId,
+      semesterId,
       module: "debt",
       action: isFinal ? "submitted" : "saved",
       status: isFinal ? "completed" : "draft",

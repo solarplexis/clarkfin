@@ -7,9 +7,13 @@ import { EndDrawer } from "@/components/end-drawer";
 import { calculateDebtScenario } from "@/src/lib/activity/debt";
 
 export function DebtSimulator({
-  initialScenario
+  initialScenario,
+  semesterId,
+  semesterLabel
 }: {
   initialScenario: DebtScenario | null;
+  semesterId?: string;
+  semesterLabel?: string;
 }) {
   const [debtName, setDebtName] = useState(initialScenario?.debtName ?? "Credit Card");
   const [balance, setBalance] = useState(initialScenario?.balance ?? 2400);
@@ -33,6 +37,7 @@ export function DebtSimulator({
       },
       body: JSON.stringify({
         type: "debt.save",
+        semesterId,
         debtName,
         balance,
         interestRate,
@@ -59,6 +64,7 @@ export function DebtSimulator({
       <div className="panel stack">
         <h2>Debt Simulator</h2>
         <p className="muted">Use the end drawer editor to model payoff timelines and save drafts.</p>
+        <p className="muted">Workspace: {semesterLabel ?? "No course selected"}</p>
         <div className="row" style={{ justifyContent: "space-between" }}>
           <span className="pill">{isFinal ? "Marked final" : "Working draft"}</span>
           <EndDrawer
@@ -141,7 +147,7 @@ export function DebtSimulator({
               <button
                 className="button"
                 type="button"
-                disabled={isPending}
+                disabled={isPending || !semesterId}
                 onClick={() => {
                   startTransition(() => {
                     void saveScenario();

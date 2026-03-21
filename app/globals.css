@@ -450,6 +450,65 @@ p { color: var(--ink-2); }
   gap: 14px;
 }
 
+.student-picker {
+  position: relative;
+}
+
+.student-picker-summary {
+  margin-top: 8px;
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
+.student-picker-results {
+  margin-top: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  box-shadow: var(--shadow-md);
+  overflow: hidden;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.student-picker-empty {
+  padding: 14px 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.student-picker-option {
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  padding: 12px;
+  text-align: left;
+  display: grid;
+  gap: 3px;
+  transition: background 120ms;
+}
+
+.student-picker-option:last-child {
+  border-bottom: 0;
+}
+
+.student-picker-option:hover,
+.student-picker-option-selected {
+  background: var(--bg-subtle);
+}
+
+.student-picker-option-name {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.student-picker-option-meta {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+
 /* ─── Checkbox row ────────────────────────────────────────────── */
 .check-row {
   display: flex;
@@ -628,7 +687,7 @@ tbody tr:hover {
   border-left: 1px solid var(--line);
   box-shadow: -8px 0 40px rgba(8, 14, 30, 0.18);
   display: grid;
-  grid-template-rows: auto 1fr;
+  grid-template-rows: auto 1fr auto;
 }
 
 .end-drawer-header {
@@ -648,6 +707,15 @@ tbody tr:hover {
 .end-drawer-content {
   overflow-y: auto;
   padding: 20px;
+}
+
+.end-drawer-footer {
+  border-top: 1px solid var(--line);
+  padding: 14px 20px 18px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  background: var(--surface);
 }
 
 /* ─── Auth pages ──────────────────────────────────────────────── */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 
 import { EndDrawer } from "@/components/end-drawer";
 
@@ -10,11 +10,11 @@ type SemesterResponse = {
     semesterId: string;
     title: string;
     courseCode: string;
-    inviteCode: string;
   };
 };
 
 export function CreateSemesterForm() {
+  const formId = useId();
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<SemesterResponse | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -50,60 +50,75 @@ export function CreateSemesterForm() {
 
   return (
     <EndDrawer
-        description="Define term metadata, dates, and activation status before sharing invite codes."
-        title="Create semester"
-        triggerLabel="Open semester form"
+      description="Define the course shell, dates, and activation status before inviting students."
+      footer={
+        <button className="button" disabled={isPending} form={formId} type="submit">
+          {isPending ? "Creating course..." : "Create course"}
+        </button>
+      }
+      title="Add course"
+      triggerLabel="Add course"
+    >
+      <form
+        action={(formData) => {
+          startTransition(() => {
+            void submit(formData);
+          });
+        }}
+        className="stack"
+        id={formId}
       >
-        <form
-          className="stack"
-          action={(formData) => {
-            startTransition(() => {
-              void submit(formData);
-            });
-          }}
-        >
-          <div className="form-grid">
-            <div className="field">
-              <label htmlFor="semesterId">Semester ID</label>
-              <input id="semesterId" name="semesterId" placeholder="fall-2026-fin101" required />
-            </div>
-            <div className="field">
-              <label htmlFor="title">Title</label>
-              <input id="title" name="title" placeholder="Fall 2026 Personal Finance" required />
-            </div>
-            <div className="field">
-              <label htmlFor="courseCode">Course code</label>
-              <input id="courseCode" name="courseCode" placeholder="FIN101" required />
-            </div>
-            <div className="field">
-              <label htmlFor="startsAt">Start date</label>
-              <input id="startsAt" name="startsAt" type="date" />
-            </div>
-            <div className="field">
-              <label htmlFor="endsAt">End date</label>
-              <input id="endsAt" name="endsAt" type="date" />
+        <div className="form-grid">
+          <div className="field">
+            <label htmlFor={`${formId}-semesterId`}>Course run ID</label>
+            <input
+              id={`${formId}-semesterId`}
+              name="semesterId"
+              placeholder="fall-2026-fin101"
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor={`${formId}-title`}>Title</label>
+            <input
+              id={`${formId}-title`}
+              name="title"
+              placeholder="Fall 2026 Personal Finance"
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor={`${formId}-courseCode`}>Course code</label>
+            <input
+              id={`${formId}-courseCode`}
+              name="courseCode"
+              placeholder="FIN101"
+              required
+            />
+          </div>
+          <div className="field">
+            <label htmlFor={`${formId}-startsAt`}>Start date</label>
+            <input id={`${formId}-startsAt`} name="startsAt" type="date" />
+          </div>
+          <div className="field">
+            <label htmlFor={`${formId}-endsAt`}>End date</label>
+            <input id={`${formId}-endsAt`} name="endsAt" type="date" />
+          </div>
+        </div>
+        <label className="row" style={{ alignItems: "center" }}>
+          <input defaultChecked name="isActive" type="checkbox" />
+          Course is active for student invites
+        </label>
+        {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
+        {result?.semester ? (
+          <div className="note-box" style={{ marginTop: 4 }}>
+            <strong>{result.semester.title} created.</strong>
+            <div style={{ color: "var(--muted)", marginTop: 4 }}>
+              {result.semester.courseCode} · {result.semester.semesterId}
             </div>
           </div>
-          <label className="row" style={{ alignItems: "center" }}>
-            <input defaultChecked name="isActive" type="checkbox" />
-            Semester is active for invites
-          </label>
-          {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
-          {result?.semester ? (
-            <div className="note-box" style={{ marginTop: 4 }}>
-              <strong>{result.semester.title} created.</strong>
-              <div style={{ color: "var(--muted)", marginTop: 4 }}>
-                {result.semester.courseCode} · {result.semester.semesterId}
-              </div>
-              <div style={{ marginTop: 8 }}>
-                <strong>Invite code:</strong> {result.semester.inviteCode}
-              </div>
-            </div>
-          ) : null}
-          <button className="btn" disabled={isPending} type="submit">
-            {isPending ? "Creating semester..." : "Create semester"}
-          </button>
-        </form>
-      </EndDrawer>
+        ) : null}
+      </form>
+    </EndDrawer>
   );
 }

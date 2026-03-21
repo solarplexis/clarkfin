@@ -14,9 +14,13 @@ function createItem(label: string, amount = 0): BudgetItem {
 }
 
 export function BudgetTool({
-  initialDraft
+  initialDraft,
+  semesterId,
+  semesterLabel
 }: {
   initialDraft: BudgetDraft | null;
+  semesterId?: string;
+  semesterLabel?: string;
 }) {
   const [income, setIncome] = useState<BudgetItem[]>(
     initialDraft?.income ?? [createItem("Paycheck"), createItem("Grants")]
@@ -43,6 +47,7 @@ export function BudgetTool({
       },
       body: JSON.stringify({
         type: "budget.save",
+        semesterId,
         income,
         expenses,
         notes,
@@ -94,6 +99,9 @@ export function BudgetTool({
         <p className="muted">
           Manage line items in a consistent end drawer. Every save writes the latest draft and
           creates an activity log for reporting.
+        </p>
+        <p className="muted">
+          Workspace: {semesterLabel ?? "No course selected"}
         </p>
         <div className="row" style={{ justifyContent: "space-between" }}>
           <span className="pill">{isFinal ? "Marked final" : "Working draft"}</span>
@@ -187,7 +195,7 @@ export function BudgetTool({
               <button
                 className="button"
                 type="button"
-                disabled={isPending}
+                disabled={isPending || !semesterId}
                 onClick={() => {
                   startTransition(() => {
                     void saveDraft();

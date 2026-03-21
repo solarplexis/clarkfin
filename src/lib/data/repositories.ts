@@ -8,6 +8,9 @@ import type {
   Organization,
   OrganizationCreationResult,
   Semester,
+  StudentEnrollment,
+  StudentRecord,
+  StudentInvite,
   UserProfile
 } from "@/types/domain";
 import { getAdminDb } from "@/src/lib/firebase/admin";
@@ -41,6 +44,72 @@ function mapDoc<T>(id: string, data: Record<string, unknown>) {
   } as T;
 }
 
+function buildFullName(firstName: string, lastName: string) {
+  return `${firstName.trim()} ${lastName.trim()}`.trim();
+}
+
+function mapSemester(id: string, data: Record<string, unknown>) {
+  return {
+    semesterId: id,
+    orgId: String(data.orgId ?? ""),
+    title: String(data.title ?? ""),
+    courseCode: String(data.courseCode ?? ""),
+    isActive: Boolean(data.isActive ?? true),
+    startsAt: data.startsAt ? toIso(data.startsAt) : undefined,
+    endsAt: data.endsAt ? toIso(data.endsAt) : undefined,
+    status: data.status ? Boolean(data.status) : undefined,
+    createdAt: toIso(data.createdAt),
+    updatedAt: toIso(data.updatedAt)
+  } satisfies Semester;
+}
+
+function mapStudentInvite(id: string, data: Record<string, unknown>) {
+  return {
+    inviteId: id,
+    inviteCode: String(data.inviteCode ?? ""),
+    studentId: String(data.studentId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    studentEmail: String(data.studentEmail ?? "").toLowerCase(),
+    studentFirstName: String(data.studentFirstName ?? ""),
+    studentLastName: String(data.studentLastName ?? ""),
+    status: (data.status ?? "pending") as StudentInvite["status"],
+    createdByUid: String(data.createdByUid ?? ""),
+    redeemedByUid: data.redeemedByUid ? String(data.redeemedByUid) : undefined,
+    createdAt: toIso(data.createdAt),
+    updatedAt: toIso(data.updatedAt),
+    redeemedAt: data.redeemedAt ? toIso(data.redeemedAt) : undefined
+  } satisfies StudentInvite;
+}
+
+function mapStudentRecord(id: string, data: Record<string, unknown>) {
+  return {
+    studentId: id,
+    organizationId: String(data.organizationId ?? ""),
+    firstName: String(data.firstName ?? ""),
+    lastName: String(data.lastName ?? ""),
+    email: String(data.email ?? "").toLowerCase(),
+    authUserId: data.authUserId ? String(data.authUserId) : undefined,
+    status: (data.status ?? "prospect") as StudentRecord["status"],
+    createdAt: toIso(data.createdAt),
+    updatedAt: toIso(data.updatedAt)
+  } satisfies StudentRecord;
+}
+
+function mapStudentEnrollment(id: string, data: Record<string, unknown>) {
+  return {
+    enrollmentId: id,
+    userId: String(data.userId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    inviteId: data.inviteId ? String(data.inviteId) : undefined,
+    studentEmail: String(data.studentEmail ?? "").toLowerCase(),
+    status: (data.status ?? "enrolled") as StudentEnrollment["status"],
+    createdAt: toIso(data.createdAt),
+    updatedAt: toIso(data.updatedAt)
+  } satisfies StudentEnrollment;
+}
+
 export async function getUserProfileById(uid: string) {
   const adminDb = getAdminDb();
   const snapshot = await adminDb.collection("users").doc(uid).get();
@@ -57,7 +126,7 @@ export async function getUserProfileById(uid: string) {
     fullName: String(data.fullName ?? ""),
     role: data.role as UserProfile["role"],
     organizationId: data.organizationId ? String(data.organizationId) : undefined,
-    semesterId: data.semesterId ? String(data.semesterId) : undefined,
+    activeSemesterId: data.activeSemesterId ? String(data.activeSemesterId) : undefined,
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt)
   } satisfies UserProfile;
@@ -195,36 +264,176 @@ export async function getSemesterById(semesterId: string) {
     return null;
   }
 
-  const data = snapshot.data() as Record<string, unknown>;
-
-  return {
-    semesterId: snapshot.id,
-    orgId: String(data.orgId ?? ""),
-    title: String(data.title ?? ""),
-    courseCode: String(data.courseCode ?? ""),
-    inviteCode: String(data.inviteCode ?? ""),
-    isActive: Boolean(data.isActive ?? true),
-    startsAt: data.startsAt ? toIso(data.startsAt) : undefined,
-    endsAt: data.endsAt ? toIso(data.endsAt) : undefined,
-    status: data.status ? Boolean(data.status) : undefined,
-    createdAt: toIso(data.createdAt),
-    updatedAt: toIso(data.updatedAt)
-  } satisfies Semester;
+  return mapSemester(snapshot.id, snapshot.data() as Record<string, unknown>);
 }
 
-export async function getSemesterByInviteCode(inviteCode: string) {
+export async function getStudentRecordById(studentId: string) {
   const adminDb = getAdminDb();
-  const snapshot = await adminDb
-    .collection("semesters")
-    .where("inviteCode", "==", inviteCode)
-    .limit(1)
-    .get();
+  const snapshot = await adminDb.collection("students").doc(studentId).get();
 
-  if (snapshot.empty) {
+  if (!snapshot.exists) {
     return null;
   }
 
-  return getSemesterById(snapshot.docs[0].id);
+  return mapStudentRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function listStudentsForOrganization(organizationId: string) {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("students")
+    .where("organizationId", "==", organizationId)
+    .orderBy("lastName")
+    .get();
+
+  return snapshot.docs.map((doc) => mapStudentRecord(doc.id, doc.data()));
+}
+
+export async function createStudentRecord(input: {
+  organizationId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  status?: StudentRecord["status"];
+}) {
+  const adminDb = getAdminDb();
+  const email = input.email.trim().toLowerCase();
+  const existingSnapshot = await adminDb
+    .collection("students")
+    .where("organizationId", "==", input.organizationId)
+    .where("email", "==", email)
+    .limit(1)
+    .get();
+
+  if (!existingSnapshot.empty) {
+    throw new Error("A student with that email already exists in this organization.");
+  }
+
+  const studentRef = adminDb.collection("students").doc();
+  await studentRef.set({
+    organizationId: input.organizationId,
+    firstName: input.firstName,
+    lastName: input.lastName,
+    email,
+    authUserId: null,
+    status: input.status ?? "prospect",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  });
+
+  const snapshot = await studentRef.get();
+
+  return mapStudentRecord(studentRef.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function updateStudentRecord(input: {
+  studentId: string;
+  organizationId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  status: StudentRecord["status"];
+}) {
+  const adminDb = getAdminDb();
+  const studentRef = adminDb.collection("students").doc(input.studentId);
+  const student = await studentRef.get();
+
+  if (!student.exists) {
+    throw new Error("That student could not be found.");
+  }
+
+  const current = mapStudentRecord(student.id, student.data() as Record<string, unknown>);
+
+  if (current.organizationId !== input.organizationId) {
+    throw new Error("That student does not belong to this organization.");
+  }
+
+  const email = input.email.trim().toLowerCase();
+  if (current.authUserId && email !== current.email) {
+    throw new Error("Linked student emails must be changed through the authenticated account flow.");
+  }
+
+  if (email !== current.email) {
+    const existingSnapshot = await adminDb
+      .collection("students")
+      .where("organizationId", "==", input.organizationId)
+      .where("email", "==", email)
+      .limit(1)
+      .get();
+
+    if (!existingSnapshot.empty && existingSnapshot.docs[0].id !== input.studentId) {
+      throw new Error("A student with that email already exists in this organization.");
+    }
+  }
+
+  await studentRef.set(
+    {
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email,
+      status: input.status,
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  const snapshot = await studentRef.get();
+
+  return mapStudentRecord(studentRef.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function deleteStudentRecord(studentId: string, organizationId: string) {
+  const adminDb = getAdminDb();
+  const student = await getStudentRecordById(studentId);
+
+  if (!student || student.organizationId !== organizationId) {
+    throw new Error("That student could not be found.");
+  }
+
+  if (student.authUserId) {
+    throw new Error("Linked students cannot be deleted. Mark them inactive instead.");
+  }
+
+  await adminDb.collection("students").doc(studentId).delete();
+}
+
+export async function linkStudentRecordToAuthUser(input: {
+  studentId: string;
+  organizationId: string;
+  authUserId: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+}) {
+  const adminDb = getAdminDb();
+  const studentRef = adminDb.collection("students").doc(input.studentId);
+  const snapshot = await studentRef.get();
+
+  if (!snapshot.exists) {
+    throw new Error("The student record for this invite no longer exists.");
+  }
+
+  const student = mapStudentRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
+
+  if (student.organizationId !== input.organizationId) {
+    throw new Error("This invite is attached to a different organization.");
+  }
+
+  if (student.authUserId && student.authUserId !== input.authUserId) {
+    throw new Error("This student record is already linked to a different user.");
+  }
+
+  await studentRef.set(
+    {
+      authUserId: input.authUserId,
+      firstName: input.firstName,
+      lastName: input.lastName,
+      email: input.email.toLowerCase(),
+      status: "active",
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
 }
 
 export async function listSemestersForOrganization(orgId: string) {
@@ -235,23 +444,7 @@ export async function listSemestersForOrganization(orgId: string) {
     .orderBy("title")
     .get();
 
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
-
-    return {
-      semesterId: doc.id,
-      orgId: String(data.orgId ?? ""),
-      title: String(data.title ?? ""),
-      courseCode: String(data.courseCode ?? ""),
-      inviteCode: String(data.inviteCode ?? ""),
-      isActive: Boolean(data.isActive ?? true),
-      startsAt: data.startsAt ? toIso(data.startsAt) : undefined,
-      endsAt: data.endsAt ? toIso(data.endsAt) : undefined,
-      status: data.status ? Boolean(data.status) : undefined,
-      createdAt: toIso(data.createdAt),
-      updatedAt: toIso(data.updatedAt)
-    } satisfies Semester;
-  });
+  return snapshot.docs.map((doc) => mapSemester(doc.id, doc.data()));
 }
 
 export async function createSemesterForOrganization(input: {
@@ -271,13 +464,10 @@ export async function createSemesterForOrganization(input: {
     throw new Error("A semester with that ID already exists.");
   }
 
-  const inviteCode = generateInviteCode();
-
   await semesterRef.set({
     orgId: input.orgId,
     title: input.title,
     courseCode: input.courseCode,
-    inviteCode,
     isActive: input.isActive ?? true,
     startsAt: input.startsAt || null,
     endsAt: input.endsAt || null,
@@ -290,11 +480,166 @@ export async function createSemesterForOrganization(input: {
     orgId: input.orgId,
     title: input.title,
     courseCode: input.courseCode,
-    inviteCode,
     isActive: input.isActive ?? true,
     startsAt: input.startsAt,
     endsAt: input.endsAt
   } satisfies Semester;
+}
+
+export async function listStudentInvitesForOrganization(organizationId: string) {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("student_invites")
+    .where("organizationId", "==", organizationId)
+    .orderBy("createdAt", "desc")
+    .get();
+
+  return snapshot.docs.map((doc) => mapStudentInvite(doc.id, doc.data()));
+}
+
+export async function getStudentInviteByCode(inviteCode: string) {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("student_invites")
+    .where("inviteCode", "==", inviteCode)
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) {
+    return null;
+  }
+
+  return mapStudentInvite(
+    snapshot.docs[0].id,
+    snapshot.docs[0].data() as Record<string, unknown>
+  );
+}
+
+export async function createStudentInvite(input: {
+  studentId: string;
+  organizationId: string;
+  semesterId: string;
+  createdByUid: string;
+}) {
+  const adminDb = getAdminDb();
+  const student = await getStudentRecordById(input.studentId);
+
+  if (!student || student.organizationId !== input.organizationId) {
+    throw new Error("That student could not be found.");
+  }
+
+  const inviteId = `invite_${sha256(`${input.semesterId}:${student.email}`).slice(0, 24)}`;
+  const inviteRef = adminDb.collection("student_invites").doc(inviteId);
+  const inviteCode = generateInviteCode();
+
+  await inviteRef.set({
+    inviteCode,
+    studentId: student.studentId,
+    organizationId: input.organizationId,
+    semesterId: input.semesterId,
+    studentEmail: student.email,
+    studentFirstName: student.firstName,
+    studentLastName: student.lastName,
+    status: "pending",
+    createdByUid: input.createdByUid,
+    redeemedByUid: null,
+    redeemedAt: null,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  });
+
+  const snapshot = await inviteRef.get();
+
+  await adminDb.collection("students").doc(student.studentId).set(
+    {
+      status: student.authUserId ? student.status : "invited",
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+
+  return mapStudentInvite(inviteRef.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function redeemStudentInvite(inviteId: string, redeemedByUid: string) {
+  const adminDb = getAdminDb();
+  await adminDb.collection("student_invites").doc(inviteId).set(
+    {
+      status: "redeemed",
+      redeemedByUid,
+      redeemedAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+}
+
+export async function createStudentEnrollment(input: {
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  inviteId?: string;
+  studentEmail: string;
+}) {
+  const adminDb = getAdminDb();
+  const enrollmentId = `${input.userId}_${input.semesterId}`;
+  const enrollmentRef = adminDb.collection("student_enrollments").doc(enrollmentId);
+  const existing = await enrollmentRef.get();
+
+  if (existing.exists) {
+    return mapStudentEnrollment(enrollmentRef.id, existing.data() as Record<string, unknown>);
+  }
+
+  await enrollmentRef.set({
+    userId: input.userId,
+    organizationId: input.organizationId,
+    semesterId: input.semesterId,
+    inviteId: input.inviteId ?? null,
+    studentEmail: input.studentEmail.toLowerCase(),
+    status: "enrolled",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  });
+
+  const snapshot = await enrollmentRef.get();
+
+  return mapStudentEnrollment(enrollmentRef.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function getStudentEnrollment(userId: string, semesterId: string) {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("student_enrollments")
+    .doc(`${userId}_${semesterId}`)
+    .get();
+
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  return mapStudentEnrollment(snapshot.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function listStudentEnrollments(userId: string) {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("student_enrollments")
+    .where("userId", "==", userId)
+    .orderBy("createdAt", "desc")
+    .get();
+
+  return snapshot.docs.map((doc) => mapStudentEnrollment(doc.id, doc.data()));
+}
+
+export async function setUserActiveSemester(uid: string, semesterId: string) {
+  const adminDb = getAdminDb();
+  await adminDb.collection("users").doc(uid).set(
+    {
+      activeSemesterId: semesterId,
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
 }
 
 export async function createUserProfile(profile: Omit<UserProfile, "createdAt" | "updatedAt">) {
@@ -349,7 +694,7 @@ export async function listRecentActivityForStudent(userId: string, limit = 8) {
 
 export async function listOrganizationStudentsWithLatestActivity(orgId: string) {
   const adminDb = getAdminDb();
-  const [usersSnapshot, activitySnapshot] = await Promise.all([
+  const [usersSnapshot, activitySnapshot, enrollmentsSnapshot] = await Promise.all([
     adminDb
       .collection("users")
       .where("organizationId", "==", orgId)
@@ -360,10 +705,15 @@ export async function listOrganizationStudentsWithLatestActivity(orgId: string) 
       .where("organizationId", "==", orgId)
       .orderBy("occurredAt", "desc")
       .limit(250)
+      .get(),
+    adminDb
+      .collection("student_enrollments")
+      .where("organizationId", "==", orgId)
       .get()
   ]);
 
   const latestByUser = new Map<string, string>();
+  const enrollmentCountByUser = new Map<string, number>();
 
   activitySnapshot.docs.forEach((doc) => {
     const data = doc.data();
@@ -374,14 +724,21 @@ export async function listOrganizationStudentsWithLatestActivity(orgId: string) 
     }
   });
 
+  enrollmentsSnapshot.docs.forEach((doc) => {
+    const userId = String(doc.data().userId ?? "");
+    enrollmentCountByUser.set(userId, (enrollmentCountByUser.get(userId) ?? 0) + 1);
+  });
+
   return usersSnapshot.docs.map((doc) => {
     const data = doc.data();
+    const activeSemesterId = data.activeSemesterId ? String(data.activeSemesterId) : "";
 
     return {
       uid: doc.id,
       fullName: String(data.fullName ?? ""),
       email: String(data.email ?? ""),
-      semesterId: data.semesterId ? String(data.semesterId) : "",
+      activeSemesterId,
+      enrollmentCount: enrollmentCountByUser.get(doc.id) ?? 0,
       latestActivityAt: latestByUser.get(doc.id) ?? null
     };
   });

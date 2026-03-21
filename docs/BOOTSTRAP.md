@@ -146,14 +146,17 @@ Expected result:
 Expected result:
 - The organization exists in Firestore and the default `ORG_ADMIN` can sign in.
 
-## Recipe 9: Create the first semester and invite code
+## Recipe 9: Create the first course and student invite
 1. Sign in as the `ORG_ADMIN`.
 2. Open `/app/org`.
-3. Use the semester creation form.
-4. Copy the generated invite code.
+3. Use the student roster UI to add the first student record.
+4. Use the course creation form to create the semester/course shell.
+5. Use the student invite form to generate an invite for a specific student and course.
+6. Copy the generated invite code.
 
 Expected result:
-- The semester is active and students can register through `/invite/<code>`.
+- The course is active and the invited student can register through `/invite/<code>`.
+- If the student already has a ClarkFin account, redeeming the invite adds another enrollment instead of replacing the current one.
 
 ## Recipe 10: Verify the API-first workflow
 ClarkFin should be treated as API-first, not UI-only.

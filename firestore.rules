@@ -35,8 +35,11 @@ service cloud.firestore {
       return currentUserExists() && currentUserData().organizationId == orgId;
     }
 
-    function sameSemester(semesterId) {
-      return currentUserExists() && currentUserData().semesterId == semesterId;
+    function enrolledInSemester(semesterId) {
+      return currentUserExists()
+        && exists(
+          /databases/$(database)/documents/student_enrollments/$(request.auth.uid + "_" + semesterId)
+        );
     }
 
     function ownsUser(userId) {
@@ -47,7 +50,7 @@ service cloud.firestore {
       return isStudent()
         && ownsUser(userId)
         && sameOrg(orgId)
-        && sameSemester(semesterId);
+        && enrolledInSemester(semesterId);
     }
 
     match /users/{uid} {
@@ -59,13 +62,14 @@ service cloud.firestore {
         || (ownsUser(uid)
           && request.resource.data.role == "STUDENT"
           && request.resource.data.organizationId is string
-          && request.resource.data.semesterId is string);
+          && (!request.resource.data.keys().hasAny(["activeSemesterId"])
+            || request.resource.data.activeSemesterId is string));
 
       allow update: if isAdmin()
         || (ownsUser(uid)
           && request.resource.data.role == resource.data.role
           && request.resource.data.organizationId == resource.data.organizationId
-          && request.resource.data.semesterId == resource.data.semesterId);
+          && request.resource.data.activeSemesterId is string);
 
       allow delete: if isAdmin();
     }
@@ -80,6 +84,39 @@ service cloud.firestore {
         || (signedIn() && sameOrg(resource.data.orgId));
       allow write: if isAdmin()
         || (isOrgAdmin() && sameOrg(request.resource.data.orgId));
+    }
+
+    match /students/{studentId} {
+      allow read: if isAdmin()
+        || (isOrgAdmin() && sameOrg(resource.data.organizationId))
+        || (isStudent() && resource.data.authUserId == request.auth.uid);
+
+      allow create, update: if isAdmin()
+        || (isOrgAdmin() && sameOrg(request.resource.data.organizationId));
+
+      allow delete: if isAdmin()
+        || (isOrgAdmin() && sameOrg(resource.data.organizationId));
+    }
+
+    match /student_invites/{inviteId} {
+      allow read: if isAdmin()
+        || (isOrgAdmin() && sameOrg(resource.data.organizationId));
+
+      allow create, update: if isAdmin()
+        || (isOrgAdmin() && sameOrg(request.resource.data.organizationId));
+
+      allow delete: if isAdmin();
+    }
+
+    match /student_enrollments/{enrollmentId} {
+      allow read: if isAdmin()
+        || (isOrgAdmin() && sameOrg(resource.data.organizationId))
+        || (isStudent() && ownsUser(resource.data.userId));
+
+      allow create, update: if isAdmin()
+        || (isOrgAdmin() && sameOrg(request.resource.data.organizationId));
+
+      allow delete: if isAdmin();
     }
 
     match /activity_logs/{logId} {

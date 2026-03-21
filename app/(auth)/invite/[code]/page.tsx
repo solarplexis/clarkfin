@@ -4,7 +4,8 @@ import { notFound } from "next/navigation";
 import { InviteRedemptionForm } from "@/components/invite-redemption-form";
 import {
   getOrganizationById,
-  getSemesterByInviteCode
+  getSemesterById,
+  getStudentInviteByCode
 } from "@/src/lib/data/repositories";
 
 export default async function InvitePage({
@@ -13,13 +14,19 @@ export default async function InvitePage({
   params: Promise<{ code: string }>;
 }) {
   const { code } = await params;
-  const semester = await getSemesterByInviteCode(code);
+  const invite = await getStudentInviteByCode(code);
 
-  if (!semester) {
+  if (!invite || invite.status !== "pending") {
     notFound();
   }
 
-  const organization = await getOrganizationById(semester.orgId);
+  const semester = await getSemesterById(invite.semesterId);
+
+  if (!semester || !semester.isActive) {
+    notFound();
+  }
+
+  const organization = await getOrganizationById(invite.organizationId);
 
   return (
     <main className="page grid two">
@@ -28,17 +35,27 @@ export default async function InvitePage({
         <h1 style={{ maxWidth: "12ch" }}>Set up your student account.</h1>
         <p className="lede">
           You are registering for {semester.title} ({semester.courseCode}) at{" "}
-          {organization?.name ?? semester.orgId}. This invite places your activity inside the
-          correct organization and semester silo from day one.
+          {organization?.name ?? semester.orgId}. This invite is reserved for{" "}
+          {invite.studentFirstName} {invite.studentLastName} and will place your activity inside
+          the correct organization and course silo from day one.
         </p>
         <p className="muted">
-          Invite code: <strong>{code}</strong>
+          Invited email: <strong>{invite.studentEmail}</strong>
+        </p>
+        <p className="muted">
+          If you already have a ClarkFin account, use the same email and your existing password to
+          add this new enrollment.
         </p>
         <Link className="button-secondary" href="/login">
           Already have an account?
         </Link>
       </section>
-      <InviteRedemptionForm inviteCode={code} />
+      <InviteRedemptionForm
+        inviteCode={code}
+        invitedEmail={invite.studentEmail}
+        invitedFirstName={invite.studentFirstName}
+        invitedLastName={invite.studentLastName}
+      />
     </main>
   );
 }
