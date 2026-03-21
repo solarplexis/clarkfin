@@ -1,0 +1,135 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function currentUserDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function currentUserExists() {
+      return signedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    function currentUserData() {
+      return currentUserDoc().data;
+    }
+
+    function isAdmin() {
+      return currentUserExists() && currentUserData().role == "ADMIN";
+    }
+
+    function isOrgAdmin() {
+      return currentUserExists() && currentUserData().role == "ORG_ADMIN";
+    }
+
+    function isStudent() {
+      return currentUserExists() && currentUserData().role == "STUDENT";
+    }
+
+    function sameOrg(orgId) {
+      return currentUserExists() && currentUserData().organizationId == orgId;
+    }
+
+    function sameSemester(semesterId) {
+      return currentUserExists() && currentUserData().semesterId == semesterId;
+    }
+
+    function ownsUser(userId) {
+      return signedIn() && request.auth.uid == userId;
+    }
+
+    function validStudentScopedWrite(orgId, semesterId, userId) {
+      return isStudent()
+        && ownsUser(userId)
+        && sameOrg(orgId)
+        && sameSemester(semesterId);
+    }
+
+    match /users/{uid} {
+      allow read: if isAdmin()
+        || ownsUser(uid)
+        || (isOrgAdmin() && sameOrg(resource.data.organizationId));
+
+      allow create: if isAdmin()
+        || (ownsUser(uid)
+          && request.resource.data.role == "STUDENT"
+          && request.resource.data.organizationId is string
+          && request.resource.data.semesterId is string);
+
+      allow update: if isAdmin()
+        || (ownsUser(uid)
+          && request.resource.data.role == resource.data.role
+          && request.resource.data.organizationId == resource.data.organizationId
+          && request.resource.data.semesterId == resource.data.semesterId);
+
+      allow delete: if isAdmin();
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isAdmin() || (isOrgAdmin() && sameOrg(orgId));
+      allow write: if isAdmin();
+    }
+
+    match /semesters/{semesterId} {
+      allow read: if isAdmin()
+        || (signedIn() && sameOrg(resource.data.orgId));
+      allow write: if isAdmin()
+        || (isOrgAdmin() && sameOrg(request.resource.data.orgId));
+    }
+
+    match /activity_logs/{logId} {
+      allow read: if isAdmin()
+        || (isOrgAdmin() && sameOrg(resource.data.organizationId))
+        || (isStudent() && ownsUser(resource.data.userId));
+
+      allow create: if isAdmin()
+        || validStudentScopedWrite(
+          request.resource.data.organizationId,
+          request.resource.data.semesterId,
+          request.resource.data.userId
+        )
+        || (isOrgAdmin() && sameOrg(request.resource.data.organizationId));
+
+      allow update, delete: if isAdmin();
+    }
+
+    match /budget_drafts/{draftId} {
+      allow read: if isAdmin()
+        || (isOrgAdmin() && sameOrg(resource.data.organizationId))
+        || (isStudent() && ownsUser(resource.data.userId));
+
+      allow create, update: if isAdmin()
+        || validStudentScopedWrite(
+          request.resource.data.organizationId,
+          request.resource.data.semesterId,
+          request.resource.data.userId
+        );
+
+      allow delete: if isAdmin() || (isStudent() && ownsUser(resource.data.userId));
+    }
+
+    match /debt_scenarios/{scenarioId} {
+      allow read: if isAdmin()
+        || (isOrgAdmin() && sameOrg(resource.data.organizationId))
+        || (isStudent() && ownsUser(resource.data.userId));
+
+      allow create, update: if isAdmin()
+        || validStudentScopedWrite(
+          request.resource.data.organizationId,
+          request.resource.data.semesterId,
+          request.resource.data.userId
+        );
+
+      allow delete: if isAdmin() || (isStudent() && ownsUser(resource.data.userId));
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
