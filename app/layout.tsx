@@ -1,0 +1,29 @@
+import type { Metadata } from 'next';
+import localFont from 'next/font/local';
+import './globals.css';
+import { AuthProvider } from '@/components/AuthProvider';
+
+const geistSans = localFont({
+  src: './fonts/GeistVF.woff',
+  variable: '--font-geist-sans',
+  weight: '100 900',
+});
+
+export const metadata: Metadata = {
+  title: 'ClarkFin – Personal Finance',
+  description: 'Community college personal finance learning platform',
+};
+
+export default function RootLayout({
+  children,
+}: Readonly<{
+  children: React.ReactNode;
+}>) {
+  return (
+    <html lang="en">
+      <body className={`${geistSans.variable} font-sans antialiased bg-gray-50 text-gray-900`}>
+        <AuthProvider>{children}</AuthProvider>
+      </body>
+    </html>
+  );
+}
