@@ -15,36 +15,68 @@ export default async function SystemAdminPage() {
 
   return (
     <DashboardShell user={user}>
-      <section className="panel stack">
-        <h2>System administration</h2>
-        <p className="muted">
-          This view is for platform operators. Review organizations, semester setup, and the
-          presence of per-organization export credentials.
-        </p>
-      </section>
-      <CreateOrganizationForm />
-      <section className="grid two section">
-        {organizationDetails.map(({ organization, semesters }) => (
-          <article className="panel stack" key={organization.orgId}>
-            <h3>{organization.name}</h3>
-            <div className="pill">Org ID: {organization.orgId}</div>
-            <div className="pill">
-              API key: {organization.apiKeyPreview ? organization.apiKeyPreview : "Not set"}
-            </div>
-            <div className="muted">Semesters: {semesters.length}</div>
-            <ul className="list">
-              {semesters.map((semester) => (
-                <li key={semester.semesterId}>
-                  <strong>{semester.title}</strong>
-                  <div className="muted">
-                    {semester.courseCode} · invite {semester.inviteCode}
+      <div className="page-header">
+        <div className="page-header-text">
+          <h1>System Administration</h1>
+          <p>Manage organizations, credentials, and semester setup.</p>
+        </div>
+        <CreateOrganizationForm />
+      </div>
+
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="stat-card-label">Organizations</div>
+          <div className="stat-card-value">{organizations.length}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Total semesters</div>
+          <div className="stat-card-value">
+            {organizationDetails.reduce((sum, d) => sum + d.semesters.length, 0)}
+          </div>
+        </div>
+      </div>
+
+      {organizationDetails.length === 0 ? (
+        <div className="empty-state">No organizations yet. Create one to get started.</div>
+      ) : (
+        <div className="grid-2">
+          {organizationDetails.map(({ organization, semesters }) => (
+            <div className="card" key={organization.orgId}>
+              <div className="card-header">
+                <div>
+                  <h2>{organization.name}</h2>
+                  <div style={{ marginTop: 4, display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <span className="badge badge-default">ID: {organization.orgId}</span>
+                    {organization.apiKeyPreview ? (
+                      <span className="badge badge-teal">API key set</span>
+                    ) : (
+                      <span className="badge badge-danger">No API key</span>
+                    )}
                   </div>
-                </li>
-              ))}
-            </ul>
-          </article>
-        ))}
-      </section>
+                </div>
+                <span className="badge badge-accent">{semesters.length} semester{semesters.length !== 1 ? "s" : ""}</span>
+              </div>
+              {semesters.length === 0 ? (
+                <p style={{ fontSize: "0.85rem", color: "var(--muted)" }}>No semesters yet.</p>
+              ) : (
+                <ul className="plain-list">
+                  {semesters.map((semester) => (
+                    <li key={semester.semesterId}>
+                      <div className="semester-card">
+                        <div>
+                          <div className="semester-card-title">{semester.title}</div>
+                          <div className="semester-card-meta">{semester.courseCode}</div>
+                        </div>
+                        <span className="semester-card-code">{semester.inviteCode}</span>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
     </DashboardShell>
   );
 }

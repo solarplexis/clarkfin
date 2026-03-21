@@ -1,7 +1,7 @@
 export function LogoutButton() {
   return (
     <form action="/api/session/logout" method="post">
-      <button className="button-danger" type="submit">
+      <button className="btn btn-secondary btn-sm" type="submit">
         Sign out
       </button>
     </form>

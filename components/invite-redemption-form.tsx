@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 
+import { EndDrawer } from "@/components/end-drawer";
 import { getClientAuth } from "@/src/lib/firebase/client";
 
 export function InviteRedemptionForm({ inviteCode }: { inviteCode: string }) {
@@ -69,28 +70,38 @@ export function InviteRedemptionForm({ inviteCode }: { inviteCode: string }) {
   }
 
   return (
-    <form
-      className="panel stack"
-      action={(formData) => {
-        void handleSubmit(formData);
-      }}
-    >
-      <div className="field">
-        <label htmlFor="fullName">Full name</label>
-        <input id="fullName" name="fullName" type="text" required />
-      </div>
-      <div className="field">
-        <label htmlFor="email">College email</label>
-        <input id="email" name="email" type="email" required />
-      </div>
-      <div className="field">
-        <label htmlFor="password">Password</label>
-        <input id="password" name="password" type="password" minLength={8} required />
-      </div>
-      {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
-      <button className="button" type="submit" disabled={isPending}>
-        {isPending ? "Creating account..." : "Create student account"}
-      </button>
-    </form>
+    <div className="card stack">
+      <h2>Create student account</h2>
+      <p style={{ color: "var(--ink-2)" }}>Open the enrollment drawer and complete your registration.</p>
+      <EndDrawer
+        description="Submit your invite details to create your student account and establish a secure session."
+        title="Invite enrollment"
+        triggerLabel="Open enrollment form"
+      >
+        <form
+          className="stack"
+          action={(formData) => {
+            void handleSubmit(formData);
+          }}
+        >
+          <div className="field">
+            <label htmlFor="fullName">Full name</label>
+            <input id="fullName" name="fullName" type="text" required />
+          </div>
+          <div className="field">
+            <label htmlFor="email">College email</label>
+            <input id="email" name="email" type="email" required />
+          </div>
+          <div className="field">
+            <label htmlFor="password">Password</label>
+            <input id="password" name="password" type="password" minLength={8} required />
+          </div>
+          {error ? <p className="error-msg">{error}</p> : null}
+          <button className="btn" type="submit" disabled={isPending}>
+            {isPending ? "Creating account..." : "Create student account"}
+          </button>
+        </form>
+      </EndDrawer>
+    </div>
   );
 }

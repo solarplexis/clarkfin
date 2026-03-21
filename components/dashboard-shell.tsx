@@ -3,6 +3,15 @@ import Link from "next/link";
 import type { UserProfile } from "@/types/domain";
 import { LogoutButton } from "@/components/logout-button";
 
+function initials(name: string) {
+  return name
+    .split(" ")
+    .slice(0, 2)
+    .map((w) => w[0])
+    .join("")
+    .toUpperCase();
+}
+
 export function DashboardShell({
   user,
   children
@@ -11,49 +20,39 @@ export function DashboardShell({
   children: React.ReactNode;
 }) {
   return (
-    <main className="page app-shell">
-      <header className="hero app-header">
-        <div className="stack">
-          <span className="eyebrow">ClarkFin Workspace</span>
-          <div>
-            <h1 style={{ fontSize: "clamp(2rem, 3vw, 3rem)", maxWidth: "unset" }}>
-              {user.fullName}
-            </h1>
-            <p className="lede" style={{ marginBottom: 0 }}>
-              Signed in as {user.role} {user.organizationId ? `for ${user.organizationId}` : ""}.
-            </p>
-          </div>
+    <>
+      <header className="appbar">
+        <div className="appbar-logo">
+          Clark<span>Fin</span>
         </div>
-        <div className="stack" style={{ justifyItems: "end" }}>
-          <nav>
-            <Link className="button-secondary" href="/app">
-              Home
-            </Link>
-            {user.role === "STUDENT" ? (
-              <>
-                <Link className="button-secondary" href="/app/student/budget">
-                  Budget tool
-                </Link>
-                <Link className="button-secondary" href="/app/student/debt">
-                  Debt simulator
-                </Link>
-              </>
-            ) : null}
-            {user.role === "ORG_ADMIN" ? (
-              <Link className="button-secondary" href="/app/org">
-                Org dashboard
-              </Link>
-            ) : null}
-            {user.role === "ADMIN" ? (
-              <Link className="button-secondary" href="/app/admin">
-                System admin
-              </Link>
-            ) : null}
-          </nav>
+        <nav className="appbar-nav">
+          {user.role === "STUDENT" && (
+            <>
+              <Link href="/app/student"><span>Home</span></Link>
+              <Link href="/app/student/budget"><span>Budget</span></Link>
+              <Link href="/app/student/debt"><span>Debt</span></Link>
+            </>
+          )}
+          {user.role === "ORG_ADMIN" && (
+            <Link href="/app/org"><span>Dashboard</span></Link>
+          )}
+          {user.role === "ADMIN" && (
+            <Link href="/app/admin"><span>System Admin</span></Link>
+          )}
+        </nav>
+        <div className="appbar-end">
+          <div className="appbar-user">
+            <div className="appbar-avatar">{initials(user.fullName)}</div>
+            <span className="appbar-user-name">{user.fullName}</span>
+          </div>
           <LogoutButton />
         </div>
       </header>
-      {children}
-    </main>
+      <div className="page-shell">
+        <div className="page-content">
+          {children}
+        </div>
+      </div>
+    </>
   );
 }

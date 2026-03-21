@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 
 import type { DebtScenario } from "@/types/domain";
+import { EndDrawer } from "@/components/end-drawer";
 import { calculateDebtScenario } from "@/src/lib/activity/debt";
 
 export function DebtSimulator({
@@ -56,93 +57,104 @@ export function DebtSimulator({
   return (
     <section className="grid two">
       <div className="panel stack">
+        <h2>Debt Simulator</h2>
+        <p className="muted">Use the end drawer editor to model payoff timelines and save drafts.</p>
         <div className="row" style={{ justifyContent: "space-between" }}>
-          <h2>Debt Simulator</h2>
           <span className="pill">{isFinal ? "Marked final" : "Working draft"}</span>
+          <EndDrawer
+            description="Adjust debt assumptions, run simulation changes, and save your strategy."
+            title="Debt editor"
+            triggerLabel="Open debt form"
+          >
+            <div className="stack">
+              <div className="form-grid">
+                <div className="field">
+                  <label htmlFor="debt-name">Debt name</label>
+                  <input
+                    id="debt-name"
+                    value={debtName}
+                    onChange={(event) => setDebtName(event.target.value)}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="debt-balance">Balance</label>
+                  <input
+                    id="debt-balance"
+                    min="0"
+                    step="0.01"
+                    type="number"
+                    value={balance}
+                    onChange={(event) => setBalance(Number(event.target.value || "0"))}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="debt-rate">APR (%)</label>
+                  <input
+                    id="debt-rate"
+                    min="0"
+                    step="0.01"
+                    type="number"
+                    value={interestRate}
+                    onChange={(event) => setInterestRate(Number(event.target.value || "0"))}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="debt-minimum">Minimum payment</label>
+                  <input
+                    id="debt-minimum"
+                    min="0"
+                    step="0.01"
+                    type="number"
+                    value={minimumPayment}
+                    onChange={(event) => setMinimumPayment(Number(event.target.value || "0"))}
+                  />
+                </div>
+                <div className="field">
+                  <label htmlFor="debt-planned">Planned payment</label>
+                  <input
+                    id="debt-planned"
+                    min="0"
+                    step="0.01"
+                    type="number"
+                    value={plannedPayment}
+                    onChange={(event) => setPlannedPayment(Number(event.target.value || "0"))}
+                  />
+                </div>
+              </div>
+              <div className="field">
+                <label htmlFor="debt-notes">Reflection notes</label>
+                <textarea
+                  id="debt-notes"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
+                />
+              </div>
+              <label className="row" style={{ alignItems: "center" }}>
+                <input
+                  checked={isFinal}
+                  type="checkbox"
+                  onChange={(event) => setIsFinal(event.target.checked)}
+                />
+                Mark this debt strategy as ready for review
+              </label>
+              {message ? <p style={{ margin: 0, color: "var(--accent)" }}>{message}</p> : null}
+              <button
+                className="button"
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  startTransition(() => {
+                    void saveScenario();
+                  });
+                }}
+              >
+                {isPending ? "Saving..." : "Save debt scenario"}
+              </button>
+            </div>
+          </EndDrawer>
         </div>
-        <div className="form-grid">
-          <div className="field">
-            <label htmlFor="debt-name">Debt name</label>
-            <input
-              id="debt-name"
-              value={debtName}
-              onChange={(event) => setDebtName(event.target.value)}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="debt-balance">Balance</label>
-            <input
-              id="debt-balance"
-              min="0"
-              step="0.01"
-              type="number"
-              value={balance}
-              onChange={(event) => setBalance(Number(event.target.value || "0"))}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="debt-rate">APR (%)</label>
-            <input
-              id="debt-rate"
-              min="0"
-              step="0.01"
-              type="number"
-              value={interestRate}
-              onChange={(event) => setInterestRate(Number(event.target.value || "0"))}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="debt-minimum">Minimum payment</label>
-            <input
-              id="debt-minimum"
-              min="0"
-              step="0.01"
-              type="number"
-              value={minimumPayment}
-              onChange={(event) => setMinimumPayment(Number(event.target.value || "0"))}
-            />
-          </div>
-          <div className="field">
-            <label htmlFor="debt-planned">Planned payment</label>
-            <input
-              id="debt-planned"
-              min="0"
-              step="0.01"
-              type="number"
-              value={plannedPayment}
-              onChange={(event) => setPlannedPayment(Number(event.target.value || "0"))}
-            />
-          </div>
-        </div>
-        <div className="field">
-          <label htmlFor="debt-notes">Reflection notes</label>
-          <textarea
-            id="debt-notes"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-          />
-        </div>
-        <label className="row" style={{ alignItems: "center" }}>
-          <input
-            checked={isFinal}
-            type="checkbox"
-            onChange={(event) => setIsFinal(event.target.checked)}
-          />
-          Mark this debt strategy as ready for review
-        </label>
+        <p className="muted">Current status: {isFinal ? "Ready for review" : "Working draft"}</p>
         {message ? <p style={{ margin: 0, color: "var(--accent)" }}>{message}</p> : null}
-        <button
-          className="button"
-          type="button"
-          disabled={isPending}
-          onClick={() => {
-            startTransition(() => {
-              void saveScenario();
-            });
-          }}
-        >
-          {isPending ? "Saving..." : "Save debt scenario"}
-        </button>
       </div>
       <aside className="panel stack">
         <h2>Simulation result</h2>

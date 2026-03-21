@@ -40,6 +40,7 @@ This project is configured for deployment on **Netlify**. Ensure `NEXT_PUBLIC_FI
 2. Fill in the Firebase web config and `FIREBASE_SERVICE_ACCOUNT`.
 3. Install dependencies with `npm install`.
 4. Start the app with `npm run dev`.
+5. For the full open-source setup walkthrough, follow [docs/BOOTSTRAP.md](/Users/danaheath/Projects/io/danaheath/clarkfin/docs/BOOTSTRAP.md).
 
 ## Current implementation scaffold
 - **Framework:** Next.js App Router with TypeScript

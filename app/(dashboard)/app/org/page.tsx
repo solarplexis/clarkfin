@@ -18,47 +18,49 @@ export default async function OrganizationDashboardPage() {
 
   return (
     <DashboardShell user={user}>
-      <section className="grid two">
-        <article className="panel stack">
-          <h2>{organization?.name ?? orgId}</h2>
-          <p className="muted">
-            Invite codes and API credentials stay isolated per organization. Share the active
-            semester invite code with enrolled students.
-          </p>
-          <div className="stats">
-            <div className="stat">
-              <div className="muted">Students</div>
-              <div className="stat-value">{students.length}</div>
+      <div className="page-header">
+        <div className="page-header-text">
+          <h1>{organization?.name ?? orgId}</h1>
+          <p>Manage semesters and track student engagement.</p>
+        </div>
+        <CreateSemesterForm />
+      </div>
+
+      <div className="stat-grid">
+        <div className="stat-card">
+          <div className="stat-card-label">Enrolled students</div>
+          <div className="stat-card-value">{students.length}</div>
+        </div>
+        <div className="stat-card">
+          <div className="stat-card-label">Semesters</div>
+          <div className="stat-card-value">{semesters.length}</div>
+        </div>
+      </div>
+
+      <div className="section-title">Semesters</div>
+      {semesters.length === 0 ? (
+        <div className="empty-state">No semesters yet. Create one to give students an invite code.</div>
+      ) : (
+        <div className="grid-2">
+          {semesters.map((semester) => (
+            <div className="semester-card" key={semester.semesterId}>
+              <div>
+                <div className="semester-card-title">{semester.title}</div>
+                <div className="semester-card-meta">{semester.courseCode}</div>
+              </div>
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+                <span className="semester-card-code">{semester.inviteCode}</span>
+                <span className={`badge ${semester.isActive ? "badge-teal" : "badge-default"}`}>
+                  {semester.isActive ? "Active" : "Inactive"}
+                </span>
+              </div>
             </div>
-            <div className="stat">
-              <div className="muted">Semesters</div>
-              <div className="stat-value">{semesters.length}</div>
-            </div>
-          </div>
-        </article>
-        <article className="panel stack">
-          <h2>Semester invite codes</h2>
-          {semesters.length === 0 ? (
-            <p className="empty">No semesters configured yet.</p>
-          ) : (
-            <ul className="list">
-              {semesters.map((semester) => (
-                <li key={semester.semesterId}>
-                  <strong>
-                    {semester.title} ({semester.courseCode})
-                  </strong>
-                  <div className="muted">
-                    Invite code: {semester.inviteCode} · {semester.isActive ? "Active" : "Inactive"}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </article>
-      </section>
-      <CreateSemesterForm />
-      <section className="table-card section stack">
-        <h2>Student activity overview</h2>
+          ))}
+        </div>
+      )}
+
+      <div className="section-title" style={{ marginTop: 32 }}>Student activity</div>
+      <div className="table-wrap">
         <table>
           <thead>
             <tr>
@@ -71,7 +73,7 @@ export default async function OrganizationDashboardPage() {
           <tbody>
             {students.length === 0 ? (
               <tr>
-                <td className="empty" colSpan={4}>
+                <td colSpan={4} style={{ textAlign: "center", color: "var(--muted)" }}>
                   No enrolled students yet.
                 </td>
               </tr>
@@ -84,14 +86,14 @@ export default async function OrganizationDashboardPage() {
                   <td>
                     {student.latestActivityAt
                       ? new Date(student.latestActivityAt).toLocaleString()
-                      : "No activity yet"}
+                      : <span style={{ color: "var(--muted)" }}>No activity yet</span>}
                   </td>
                 </tr>
               ))
             )}
           </tbody>
         </table>
-      </section>
+      </div>
     </DashboardShell>
   );
 }

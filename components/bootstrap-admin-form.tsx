@@ -3,6 +3,8 @@
 import { useState, useTransition } from "react";
 import Link from "next/link";
 
+import { EndDrawer } from "@/components/end-drawer";
+
 export function BootstrapAdminForm() {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -47,39 +49,49 @@ export function BootstrapAdminForm() {
           Back to login
         </Link>
       </section>
-      <form
-        className="panel stack"
-        action={(formData) => {
-          startTransition(() => {
-            void submit(formData);
-          });
-        }}
-      >
-        <div className="field">
-          <label htmlFor="fullName">Full name</label>
-          <input id="fullName" name="fullName" type="text" required />
-        </div>
-        <div className="field">
-          <label htmlFor="email">Admin email</label>
-          <input id="email" name="email" type="email" required />
-        </div>
-        <div className="field">
-          <label htmlFor="password">Password</label>
-          <input id="password" name="password" type="password" minLength={8} required />
-        </div>
-        {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
-        {message ? (
-          <div className="stack">
-            <p style={{ color: "var(--accent)", margin: 0 }}>{message}</p>
-            <Link className="button-secondary" href="/login">
-              Continue to login
-            </Link>
-          </div>
-        ) : null}
-        <button className="button" type="submit" disabled={isPending}>
-          {isPending ? "Creating admin..." : "Create platform admin"}
-        </button>
-      </form>
+      <section className="panel stack">
+        <h2>Bootstrap admin setup</h2>
+        <p className="muted">Create the first platform admin using the setup drawer.</p>
+        <EndDrawer
+          description="This account will become the platform-level administrator for ClarkFin."
+          title="Create first admin"
+          triggerLabel="Open admin setup form"
+        >
+          <form
+            className="stack"
+            action={(formData) => {
+              startTransition(() => {
+                void submit(formData);
+              });
+            }}
+          >
+            <div className="field">
+              <label htmlFor="fullName">Full name</label>
+              <input id="fullName" name="fullName" type="text" required />
+            </div>
+            <div className="field">
+              <label htmlFor="email">Admin email</label>
+              <input id="email" name="email" type="email" required />
+            </div>
+            <div className="field">
+              <label htmlFor="password">Password</label>
+              <input id="password" name="password" type="password" minLength={8} required />
+            </div>
+            {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
+            {message ? (
+              <div className="stack">
+                <p style={{ color: "var(--accent)", margin: 0 }}>{message}</p>
+                <Link className="button-secondary" href="/login">
+                  Continue to login
+                </Link>
+              </div>
+            ) : null}
+            <button className="button" type="submit" disabled={isPending}>
+              {isPending ? "Creating admin..." : "Create platform admin"}
+            </button>
+          </form>
+        </EndDrawer>
+      </section>
     </div>
   );
 }

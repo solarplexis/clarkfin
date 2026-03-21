@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 
+import { EndDrawer } from "@/components/end-drawer";
 import type { BudgetDraft, BudgetItem } from "@/types/domain";
 
 function createItem(label: string, amount = 0): BudgetItem {
@@ -89,105 +90,117 @@ export function BudgetTool({
   return (
     <section className="grid two">
       <div className="panel stack">
-        <div className="row" style={{ justifyContent: "space-between" }}>
-          <h2>Budget Builder</h2>
-          <span className="pill">{isFinal ? "Marked final" : "Working draft"}</span>
-        </div>
+        <h2>Budget Builder</h2>
         <p className="muted">
-          Save partial work as you go. Every save writes the latest draft and creates an
-          activity log for reporting.
+          Manage line items in a consistent end drawer. Every save writes the latest draft and
+          creates an activity log for reporting.
         </p>
-        <div className="stack">
-          <h3>Income</h3>
-          {income.map((item) => (
-            <div className="form-grid" key={item.id}>
+        <div className="row" style={{ justifyContent: "space-between" }}>
+          <span className="pill">{isFinal ? "Marked final" : "Working draft"}</span>
+          <EndDrawer
+            description="Edit income, expenses, and notes before saving your latest budget draft."
+            title="Budget editor"
+            triggerLabel="Open budget form"
+          >
+            <div className="stack">
+              <div className="stack">
+                <h3>Income</h3>
+                {income.map((item) => (
+                  <div className="form-grid" key={item.id}>
+                    <div className="field">
+                      <label>Label</label>
+                      <input
+                        value={item.label}
+                        onChange={(event) => {
+                          updateItem(income, setIncome, item.id, "label", event.target.value);
+                        }}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>Amount</label>
+                      <input
+                        min="0"
+                        step="0.01"
+                        type="number"
+                        value={item.amount}
+                        onChange={(event) => {
+                          updateItem(income, setIncome, item.id, "amount", event.target.value);
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                <button className="button-secondary" type="button" onClick={addIncomeItem}>
+                  Add income line
+                </button>
+              </div>
+
+              <div className="stack">
+                <h3>Expenses</h3>
+                {expenses.map((item) => (
+                  <div className="form-grid" key={item.id}>
+                    <div className="field">
+                      <label>Label</label>
+                      <input
+                        value={item.label}
+                        onChange={(event) => {
+                          updateItem(expenses, setExpenses, item.id, "label", event.target.value);
+                        }}
+                      />
+                    </div>
+                    <div className="field">
+                      <label>Amount</label>
+                      <input
+                        min="0"
+                        step="0.01"
+                        type="number"
+                        value={item.amount}
+                        onChange={(event) => {
+                          updateItem(expenses, setExpenses, item.id, "amount", event.target.value);
+                        }}
+                      />
+                    </div>
+                  </div>
+                ))}
+                <button className="button-secondary" type="button" onClick={addExpenseItem}>
+                  Add expense line
+                </button>
+              </div>
+
               <div className="field">
-                <label>Label</label>
-                <input
-                  value={item.label}
-                  onChange={(event) => {
-                    updateItem(income, setIncome, item.id, "label", event.target.value);
-                  }}
+                <label htmlFor="budget-notes">Notes</label>
+                <textarea
+                  id="budget-notes"
+                  value={notes}
+                  onChange={(event) => setNotes(event.target.value)}
                 />
               </div>
-              <div className="field">
-                <label>Amount</label>
+              <label className="row" style={{ alignItems: "center" }}>
                 <input
-                  min="0"
-                  step="0.01"
-                  type="number"
-                  value={item.amount}
-                  onChange={(event) => {
-                    updateItem(income, setIncome, item.id, "amount", event.target.value);
-                  }}
+                  checked={isFinal}
+                  type="checkbox"
+                  onChange={(event) => setIsFinal(event.target.checked)}
                 />
-              </div>
+                Mark this budget as ready for instructor review
+              </label>
+              {message ? <p style={{ margin: 0, color: "var(--accent)" }}>{message}</p> : null}
+              <button
+                className="button"
+                type="button"
+                disabled={isPending}
+                onClick={() => {
+                  startTransition(() => {
+                    void saveDraft();
+                  });
+                }}
+              >
+                {isPending ? "Saving..." : "Save budget"}
+              </button>
             </div>
-          ))}
-          <button className="button-secondary" type="button" onClick={addIncomeItem}>
-            Add income line
-          </button>
+          </EndDrawer>
         </div>
-        <div className="stack">
-          <h3>Expenses</h3>
-          {expenses.map((item) => (
-            <div className="form-grid" key={item.id}>
-              <div className="field">
-                <label>Label</label>
-                <input
-                  value={item.label}
-                  onChange={(event) => {
-                    updateItem(expenses, setExpenses, item.id, "label", event.target.value);
-                  }}
-                />
-              </div>
-              <div className="field">
-                <label>Amount</label>
-                <input
-                  min="0"
-                  step="0.01"
-                  type="number"
-                  value={item.amount}
-                  onChange={(event) => {
-                    updateItem(expenses, setExpenses, item.id, "amount", event.target.value);
-                  }}
-                />
-              </div>
-            </div>
-          ))}
-          <button className="button-secondary" type="button" onClick={addExpenseItem}>
-            Add expense line
-          </button>
-        </div>
-        <div className="field">
-          <label htmlFor="budget-notes">Notes</label>
-          <textarea
-            id="budget-notes"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-          />
-        </div>
-        <label className="row" style={{ alignItems: "center" }}>
-          <input
-            checked={isFinal}
-            type="checkbox"
-            onChange={(event) => setIsFinal(event.target.checked)}
-          />
-          Mark this budget as ready for instructor review
-        </label>
+        <p className="muted">Current status: {isFinal ? "Ready for review" : "Working draft"}</p>
         {message ? <p style={{ margin: 0, color: "var(--accent)" }}>{message}</p> : null}
-        <button
-          className="button"
-          type="button"
-          disabled={isPending}
-          onClick={() => {
-            startTransition(() => {
-              void saveDraft();
-            });
-          }}
-        >
-          {isPending ? "Saving..." : "Save budget"}
-        </button>
       </div>
       <aside className="panel stack">
         <h2>Budget Snapshot</h2>

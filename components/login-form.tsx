@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 
+import { EndDrawer } from "@/components/end-drawer";
 import { getClientAuth } from "@/src/lib/firebase/client";
 
 export function LoginForm() {
@@ -47,24 +48,34 @@ export function LoginForm() {
   }
 
   return (
-    <form
-      className="panel stack"
-      action={(formData) => {
-        void handleSubmit(formData);
-      }}
-    >
-      <div className="field">
-        <label htmlFor="email">Email</label>
-        <input id="email" name="email" type="email" required />
-      </div>
-      <div className="field">
-        <label htmlFor="password">Password</label>
-        <input id="password" name="password" type="password" required />
-      </div>
-      {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
-      <button className="button" type="submit" disabled={isPending}>
-        {isPending ? "Signing in..." : "Sign in"}
-      </button>
-    </form>
+    <div className="card stack">
+      <h2>Sign in</h2>
+      <p style={{ color: "var(--ink-2)" }}>Open the secure form drawer to continue.</p>
+      <EndDrawer
+        description="Use your invited or admin credentials to start an authenticated ClarkFin session."
+        title="Sign in"
+        triggerLabel="Open sign in form"
+      >
+        <form
+          className="stack"
+          action={(formData) => {
+            void handleSubmit(formData);
+          }}
+        >
+          <div className="field">
+            <label htmlFor="email">Email</label>
+            <input id="email" name="email" type="email" required />
+          </div>
+          <div className="field">
+            <label htmlFor="password">Password</label>
+            <input id="password" name="password" type="password" required />
+          </div>
+          {error ? <p className="error-msg">{error}</p> : null}
+          <button className="btn" type="submit" disabled={isPending}>
+            {isPending ? "Signing in..." : "Sign in"}
+          </button>
+        </form>
+      </EndDrawer>
+    </div>
   );
 }
