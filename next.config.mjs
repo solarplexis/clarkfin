@@ -3,10 +3,8 @@ const nextConfig = {
   // Output standalone for efficient container/serverless deployment
   output: 'standalone',
 
-  experimental: {
-    // Prevent firebase-admin from being bundled for the client
-    serverComponentsExternalPackages: ['firebase-admin'],
-  },
+  // Prevent firebase-admin from being bundled for the client
+  serverExternalPackages: ['firebase-admin'],
 
   images: {
     remotePatterns: [],
