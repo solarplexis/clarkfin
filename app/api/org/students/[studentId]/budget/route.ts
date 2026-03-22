@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
 import {
+  getBudgetActuals,
   getBudgetDraft,
   getStudentEnrollment,
   getStudentRecordById
@@ -26,7 +27,7 @@ export async function GET(
     }
 
     if (!student.authUserId) {
-      return NextResponse.json({ ok: true, budget: null });
+      return NextResponse.json({ ok: true, budget: null, actuals: null });
     }
 
     const { searchParams } = new URL(request.url);
@@ -42,9 +43,12 @@ export async function GET(
       return NextResponse.json({ error: "That student is not enrolled in that course." }, { status: 404 });
     }
 
-    const budget = await getBudgetDraft(student.authUserId, semesterId);
+    const [budget, actuals] = await Promise.all([
+      getBudgetDraft(student.authUserId, semesterId),
+      getBudgetActuals(student.authUserId, semesterId)
+    ]);
 
-    return NextResponse.json({ ok: true, budget });
+    return NextResponse.json({ ok: true, budget, actuals });
   } catch (error) {
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "Unable to load budget." },

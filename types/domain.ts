@@ -127,6 +127,27 @@ export interface BudgetDraft {
   updatedAt: string;
 }
 
+export interface ActualItem {
+  id: string;
+  label: string;
+  /** Monthly dollar amount actually received / spent / saved */
+  amount: number;
+  /** ISO date string for when the expense occurred, e.g. "2026-03-15" (expenses only) */
+  date?: string;
+}
+
+export interface BudgetActuals {
+  id: string;
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  actualIncome: ActualItem[];
+  actualSavings: ActualItem[];
+  actualExpenses: ActualItem[];
+  notes: string;
+  updatedAt: string;
+}
+
 export interface DebtScenario {
   id: string;
   userId: string;

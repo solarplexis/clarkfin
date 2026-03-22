@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 import { StudentWorkspaceSwitcher } from "@/components/student-workspace-switcher";
-import type { ActivityLog, BudgetDraft, BudgetItem, DebtScenario, UserProfile } from "@/types/domain";
+import type { ActivityLog, BudgetActuals, BudgetDraft, BudgetItem, DebtScenario, UserProfile } from "@/types/domain";
 import type { Semester, StudentEnrollment } from "@/types/domain";
 
 interface Workspace {
@@ -18,6 +18,7 @@ interface EnrollmentOption {
 interface Props {
   user: UserProfile;
   budget: BudgetDraft | null;
+  actuals: BudgetActuals | null;
   debt: DebtScenario | null;
   recentActivity: ActivityLog[];
   workspace: Workspace | null;
@@ -96,6 +97,7 @@ function CategoryBar({ amount, max, label }: { amount: number; max: number; labe
 export function StudentFinanceDashboard({
   user,
   budget,
+  actuals,
   debt,
   recentActivity,
   workspace,
@@ -106,6 +108,14 @@ export function StudentFinanceDashboard({
   const totalExpenses = budget?.expenses.reduce((s, i) => s + toMonthly(i), 0) ?? 0;
   const balance = totalIncome - totalSavings - totalExpenses;
   const balancePositive = balance >= 0;
+
+  const totalActualIncome = (actuals?.actualIncome ?? []).reduce((s, i) => s + i.amount, 0);
+  const totalActualSavings = (actuals?.actualSavings ?? []).reduce((s, i) => s + i.amount, 0);
+  const totalActualExpenses = (actuals?.actualExpenses ?? []).reduce((s, i) => s + i.amount, 0);
+  const actualFCF = totalActualIncome - totalActualSavings - totalActualExpenses;
+  const hasActuals = actuals !== null && (
+    actuals.actualIncome.length > 0 || actuals.actualExpenses.length > 0 || actuals.actualSavings.length > 0
+  );
 
   const expensesSorted = [...(budget?.expenses ?? [])].sort((a, b) => toMonthly(b) - toMonthly(a));
   const maxExpense = expensesSorted.length > 0 ? toMonthly(expensesSorted[0]) : 0;
@@ -135,19 +145,25 @@ export function StudentFinanceDashboard({
         <div className="fin-stat">
           <div className="fin-stat-label">Monthly Income</div>
           <div className="fin-stat-value fin-positive">{fmt(totalIncome)}</div>
-          <div className="fin-stat-sub">{budget ? `${budget.income.length} source${budget.income.length !== 1 ? "s" : ""}` : "—"}</div>
+          <div className="fin-stat-sub">
+            {hasActuals ? `Actual: ${fmtExact(totalActualIncome)}` : budget ? `${budget.income.length} source${budget.income.length !== 1 ? "s" : ""}` : "—"}
+          </div>
         </div>
         {totalSavings > 0 && (
           <div className="fin-stat">
             <div className="fin-stat-label">Monthly Savings</div>
             <div className="fin-stat-value" style={{ color: "var(--accent)" }}>{fmt(totalSavings)}</div>
-            <div className="fin-stat-sub">{(budget?.savings ?? []).length} goal{(budget?.savings ?? []).length !== 1 ? "s" : ""}</div>
+            <div className="fin-stat-sub">
+              {hasActuals ? `Actual: ${fmtExact(totalActualSavings)}` : `${(budget?.savings ?? []).length} goal${(budget?.savings ?? []).length !== 1 ? "s" : ""}`}
+            </div>
           </div>
         )}
         <div className="fin-stat">
           <div className="fin-stat-label">Monthly Expenses</div>
           <div className="fin-stat-value">{fmt(totalExpenses)}</div>
-          <div className="fin-stat-sub">{budget ? `${budget.expenses.length} categor${budget.expenses.length !== 1 ? "ies" : "y"}` : "—"}</div>
+          <div className="fin-stat-sub">
+            {hasActuals ? `Actual: ${fmtExact(totalActualExpenses)}` : budget ? `${budget.expenses.length} categor${budget.expenses.length !== 1 ? "ies" : "y"}` : "—"}
+          </div>
         </div>
         <div className="fin-stat">
           <div className="fin-stat-label">Free Cash Flow</div>
@@ -155,11 +171,13 @@ export function StudentFinanceDashboard({
             {balancePositive ? "+" : ""}{fmt(balance)}
           </div>
           <div className="fin-stat-sub">
-            {hasBudget
-              ? balancePositive
-                ? "Surplus — you're on track"
-                : "Deficit — review expenses"
-              : "—"}
+            {hasActuals
+              ? `Actual: ${actualFCF >= 0 ? "+" : ""}${fmtExact(actualFCF)}`
+              : hasBudget
+                ? balancePositive
+                  ? "Surplus — you're on track"
+                  : "Deficit — review expenses"
+                : "—"}
           </div>
         </div>
         {hasDebt && (
@@ -181,6 +199,74 @@ export function StudentFinanceDashboard({
           </div>
         )}
       </div>
+
+      {/* ── Budget vs Actual ────────────────────────────────────── */}
+      {hasBudget && hasActuals && (
+        <>
+          <div className="fin-section-label">Budget vs Actual</div>
+          <div className="card">
+            <table className="budget-table" style={{ width: "100%" }}>
+              <thead>
+                <tr>
+                  <th>Category</th>
+                  <th className="budget-table-num">Budgeted / mo</th>
+                  <th className="budget-table-num">Actual / mo</th>
+                  <th className="budget-table-num">Variance</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Income</td>
+                  <td className="budget-table-num">{fmtExact(totalIncome)}</td>
+                  <td className="budget-table-num">{fmtExact(totalActualIncome)}</td>
+                  <td className="budget-table-num">
+                    <span style={{ color: totalActualIncome >= totalIncome ? "var(--teal)" : "var(--danger)", fontWeight: 600 }}>
+                      {totalActualIncome >= totalIncome ? "+" : ""}{fmtExact(totalActualIncome - totalIncome)}
+                    </span>
+                  </td>
+                </tr>
+                {(totalSavings > 0 || totalActualSavings > 0) && (
+                  <tr>
+                    <td>Savings</td>
+                    <td className="budget-table-num">{fmtExact(totalSavings)}</td>
+                    <td className="budget-table-num">{fmtExact(totalActualSavings)}</td>
+                    <td className="budget-table-num">
+                      <span style={{ color: totalActualSavings >= totalSavings ? "var(--teal)" : "var(--amber)", fontWeight: 600 }}>
+                        {totalActualSavings >= totalSavings ? "+" : ""}{fmtExact(totalActualSavings - totalSavings)}
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                <tr>
+                  <td>Expenses</td>
+                  <td className="budget-table-num">{fmtExact(totalExpenses)}</td>
+                  <td className="budget-table-num">{fmtExact(totalActualExpenses)}</td>
+                  <td className="budget-table-num">
+                    <span style={{ color: totalActualExpenses <= totalExpenses ? "var(--teal)" : "var(--danger)", fontWeight: 600 }}>
+                      {totalActualExpenses > totalExpenses ? "+" : ""}{fmtExact(totalActualExpenses - totalExpenses)}
+                    </span>
+                  </td>
+                </tr>
+                <tr style={{ fontWeight: 700, borderTop: "2px solid var(--line)" }}>
+                  <td>Free Cash Flow</td>
+                  <td className="budget-table-num">{fmtExact(balance)}</td>
+                  <td className="budget-table-num">{fmtExact(actualFCF)}</td>
+                  <td className="budget-table-num">
+                    <span style={{ color: actualFCF >= balance ? "var(--teal)" : "var(--danger)", fontWeight: 700 }}>
+                      {actualFCF >= balance ? "+" : ""}{fmtExact(actualFCF - balance)}
+                    </span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+            {actuals?.notes && (
+              <div style={{ marginTop: 12, color: "var(--ink-2)", fontSize: "0.875rem" }}>
+                <strong>Notes:</strong> {actuals.notes}
+              </div>
+            )}
+          </div>
+        </>
+      )}
 
       {/* ── Main two-column section ──────────────────────────────── */}
       {hasBudget ? (

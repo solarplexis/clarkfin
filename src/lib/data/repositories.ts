@@ -2,6 +2,8 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 
 import type {
   ActivityLog,
+  ActualItem,
+  BudgetActuals,
   BudgetDraft,
   DebtScenario,
   ExportRecord,
@@ -980,6 +982,40 @@ export async function upsertBudgetDraft(
 
   await ref.set({
     ...draft,
+    updatedAt: FieldValue.serverTimestamp()
+  });
+}
+
+export async function getBudgetActuals(userId: string, semesterId: string) {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb.collection("budget_actuals").doc(`${semesterId}_${userId}`).get();
+
+  if (!snapshot.exists) {
+    return null;
+  }
+
+  const data = snapshot.data() as Record<string, unknown>;
+
+  return mapDoc<BudgetActuals>(snapshot.id, {
+    userId: String(data.userId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    actualIncome: (data.actualIncome ?? []) as ActualItem[],
+    actualSavings: (data.actualSavings ?? []) as ActualItem[],
+    actualExpenses: (data.actualExpenses ?? []) as ActualItem[],
+    notes: String(data.notes ?? ""),
+    updatedAt: toIso(data.updatedAt)
+  });
+}
+
+export async function upsertBudgetActuals(
+  actuals: Omit<BudgetActuals, "id" | "updatedAt">
+) {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("budget_actuals").doc(`${actuals.semesterId}_${actuals.userId}`);
+
+  await ref.set({
+    ...actuals,
     updatedAt: FieldValue.serverTimestamp()
   });
 }

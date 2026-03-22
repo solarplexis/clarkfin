@@ -1,13 +1,26 @@
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
-import { calculateDebtScenario } from "@/src/lib/activity/debt";
 import {
   createActivityLog,
-  getDebtScenario,
+  getBudgetActuals,
   getStudentEnrollment,
-  upsertDebtScenario
+  upsertBudgetActuals
 } from "@/src/lib/data/repositories";
+import type { ActualItem } from "@/types/domain";
+
+function sanitizeActualItems(value: unknown): ActualItem[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => {
+    const candidate = item as Partial<ActualItem>;
+    return {
+      id: String(candidate.id ?? Math.random().toString(36).slice(2, 8)),
+      label: String(candidate.label ?? ""),
+      amount: Number(candidate.amount ?? 0),
+      ...(candidate.date ? { date: String(candidate.date) } : {})
+    } satisfies ActualItem;
+  });
+}
 
 export async function GET(request: Request) {
   try {
@@ -22,7 +35,7 @@ export async function GET(request: Request) {
 
     if (!semesterId) {
       return NextResponse.json(
-        { error: "Select an active course workspace first." },
+        { error: "semesterId is required (or set an active workspace first)." },
         { status: 400 }
       );
     }
@@ -33,12 +46,12 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: "You are not enrolled in that course." }, { status: 403 });
     }
 
-    const debt = await getDebtScenario(user.uid, semesterId);
+    const actuals = await getBudgetActuals(user.uid, semesterId);
 
-    return NextResponse.json({ ok: true, debt });
+    return NextResponse.json({ ok: true, actuals });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to load debt scenario." },
+      { error: error instanceof Error ? error.message : "Unable to load budget actuals." },
       { status: 500 }
     );
   }
@@ -68,55 +81,42 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: "You are not enrolled in that course." }, { status: 403 });
     }
 
-    const debtName = String(body.debtName ?? "");
-    const balance = Number(body.balance ?? 0);
-    const interestRate = Number(body.interestRate ?? 0);
-    const minimumPayment = Number(body.minimumPayment ?? 0);
-    const plannedPayment = Number(body.plannedPayment ?? 0);
+    const actualIncome = sanitizeActualItems(body.actualIncome);
+    const actualSavings = sanitizeActualItems(body.actualSavings);
+    const actualExpenses = sanitizeActualItems(body.actualExpenses);
     const notes = String(body.notes ?? "");
-    const isFinal = Boolean(body.isFinal ?? false);
 
-    const simulation = calculateDebtScenario({ balance, interestRate, plannedPayment });
-
-    await upsertDebtScenario({
+    await upsertBudgetActuals({
       userId: user.uid,
       organizationId: user.organizationId,
       semesterId,
-      debtName,
-      balance,
-      interestRate,
-      minimumPayment,
-      plannedPayment,
-      payoffMonths: simulation.payoffMonths,
-      totalInterest: simulation.totalInterest,
-      notes,
-      isFinal
+      actualIncome,
+      actualSavings,
+      actualExpenses,
+      notes
     });
 
     await createActivityLog({
       userId: user.uid,
       organizationId: user.organizationId,
       semesterId,
-      module: "debt",
-      action: isFinal ? "submitted" : "saved",
-      status: isFinal ? "completed" : "draft",
-      summary: isFinal ? "Debt strategy marked ready for review." : "Debt scenario saved.",
+      module: "budget",
+      action: "actuals_saved",
+      status: "completed",
+      summary: "Budget actuals recorded.",
       payload: {
-        debtName,
-        balance,
-        interestRate,
-        plannedPayment,
-        payoffMonths: simulation.payoffMonths,
-        totalInterest: simulation.totalInterest
+        actualIncomeCount: actualIncome.length,
+        actualSavingsCount: actualSavings.length,
+        actualExpenseCount: actualExpenses.length
       }
     });
 
-    const debt = await getDebtScenario(user.uid, semesterId);
+    const actuals = await getBudgetActuals(user.uid, semesterId);
 
-    return NextResponse.json({ ok: true, debt });
+    return NextResponse.json({ ok: true, actuals });
   } catch (error) {
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unable to save debt scenario." },
+      { error: error instanceof Error ? error.message : "Unable to save budget actuals." },
       { status: 500 }
     );
   }

@@ -2,6 +2,7 @@ import { DashboardShell } from "@/components/dashboard-shell";
 import { StudentFinanceDashboard } from "@/components/student-finance-dashboard";
 import { requireRole, resolveStudentWorkspace } from "@/src/lib/auth/session";
 import {
+  getBudgetActuals,
   getBudgetDraft,
   getDebtScenario,
   getSemesterById,
@@ -13,9 +14,10 @@ export default async function StudentHomePage() {
   const workspace = await resolveStudentWorkspace(user);
   const semesterId = workspace?.activeEnrollment?.semesterId;
 
-  const [recentActivity, budget, debt, enrollmentOptions] = await Promise.all([
+  const [recentActivity, budget, actuals, debt, enrollmentOptions] = await Promise.all([
     listRecentActivityForStudent(user.uid),
     semesterId ? getBudgetDraft(user.uid, semesterId) : Promise.resolve(null),
+    semesterId ? getBudgetActuals(user.uid, semesterId) : Promise.resolve(null),
     semesterId ? getDebtScenario(user.uid, semesterId) : Promise.resolve(null),
     Promise.all(
       (workspace?.enrollments ?? []).map(async (enrollment) => {
@@ -33,6 +35,7 @@ export default async function StudentHomePage() {
       <StudentFinanceDashboard
         user={user}
         budget={budget}
+        actuals={actuals}
         debt={debt}
         recentActivity={recentActivity}
         workspace={workspace}

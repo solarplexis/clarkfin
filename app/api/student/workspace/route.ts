@@ -1,10 +1,29 @@
 import { NextResponse } from "next/server";
 
-import { getCurrentUser } from "@/src/lib/auth/session";
+import { getCurrentUser, resolveStudentWorkspace } from "@/src/lib/auth/session";
 import {
   getStudentEnrollment,
   setUserActiveSemester
 } from "@/src/lib/data/repositories";
+
+export async function GET() {
+  try {
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== "STUDENT") {
+      return NextResponse.json({ error: "Student session required." }, { status: 401 });
+    }
+
+    const workspace = await resolveStudentWorkspace(user);
+
+    return NextResponse.json({ ok: true, workspace });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unable to load workspace." },
+      { status: 500 }
+    );
+  }
+}
 
 export async function POST(request: Request) {
   try {

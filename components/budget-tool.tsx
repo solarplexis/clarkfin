@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { EndDrawer } from "@/components/end-drawer";
-import type { BudgetDraft, BudgetFrequency, BudgetItem } from "@/types/domain";
+import type { ActualItem, BudgetActuals, BudgetDraft, BudgetFrequency, BudgetItem } from "@/types/domain";
 
 const FREQUENCIES: { value: BudgetFrequency; label: string; perMonth: number }[] = [
   { value: "monthly",     label: "Monthly",      perMonth: 1 },
@@ -40,6 +40,42 @@ function freqLabel(freq: BudgetFrequency): string {
     case "weekly":      return "Weekly";
     case "annual":      return "Annual";
   }
+}
+
+function createActualItem(): ActualItem {
+  return { id: Math.random().toString(36).slice(2, 8), label: "", amount: 0 };
+}
+
+function BvaRow({
+  label,
+  budgeted,
+  actual,
+  higherActualIsGood
+}: {
+  label: string;
+  budgeted: number;
+  actual: number;
+  higherActualIsGood: boolean;
+}) {
+  const variance = actual - budgeted;
+  const isGood = higherActualIsGood ? variance >= 0 : variance <= 0;
+  const pct = budgeted > 0 ? Math.abs((variance / budgeted) * 100).toFixed(0) : null;
+  return (
+    <tr>
+      <td>{label}</td>
+      <td className="budget-table-num">{fmtCurrency(budgeted)}</td>
+      <td className="budget-table-num">{fmtCurrency(actual)}</td>
+      <td
+        className="budget-table-num"
+        style={{ color: isGood ? "#0a9e74" : "var(--danger)", fontWeight: 600 }}
+      >
+        {variance >= 0 ? "+" : ""}{fmtCurrency(variance)}
+        {pct !== null && (
+          <span style={{ opacity: 0.6, fontSize: "0.8em", marginLeft: 4 }}>({pct}%)</span>
+        )}
+      </td>
+    </tr>
+  );
 }
 
 interface SectionTableProps {
@@ -89,10 +125,12 @@ function SectionTable({ title, items, sectionTotal, accentColor, emptyMessage }:
 
 export function BudgetTool({
   initialDraft,
+  initialActuals,
   semesterId,
   semesterLabel
 }: {
   initialDraft: BudgetDraft | null;
+  initialActuals: BudgetActuals | null;
   semesterId?: string;
   semesterLabel?: string;
 }) {
@@ -111,12 +149,32 @@ export function BudgetTool({
   const [isPending, setIsPending] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
+  const [actualIncome, setActualIncome] = useState<ActualItem[]>(
+    initialActuals?.actualIncome ?? []
+  );
+  const [actualSavings, setActualSavings] = useState<ActualItem[]>(
+    initialActuals?.actualSavings ?? []
+  );
+  const [actualExpenses, setActualExpenses] = useState<ActualItem[]>(
+    initialActuals?.actualExpenses ?? []
+  );
+  const [actualsNotes, setActualsNotes] = useState(initialActuals?.notes ?? "");
+  const [isActualsOpen, setIsActualsOpen] = useState(false);
+  const [isActualsPending, setIsActualsPending] = useState(false);
+  const [actualsMessage, setActualsMessage] = useState<string | null>(null);
+
   const totalIncome = income.reduce((sum, item) => sum + toMonthly(item), 0);
   const totalSavings = savings.reduce((sum, item) => sum + toMonthly(item), 0);
   const totalExpenses = expenses.reduce((sum, item) => sum + toMonthly(item), 0);
   const monthlyBalance = Number((totalIncome - totalSavings - totalExpenses).toFixed(2));
   const annualBalance = Number((monthlyBalance * 12).toFixed(2));
   const balancePositive = monthlyBalance >= 0;
+
+  const totalActualIncome = actualIncome.reduce((sum, i) => sum + i.amount, 0);
+  const totalActualSavings = actualSavings.reduce((sum, i) => sum + i.amount, 0);
+  const totalActualExpenses = actualExpenses.reduce((sum, i) => sum + i.amount, 0);
+  const actualBalance = Number((totalActualIncome - totalActualSavings - totalActualExpenses).toFixed(2));
+  const hasActuals = actualIncome.length > 0 || actualSavings.length > 0 || actualExpenses.length > 0;
 
   async function saveDraft() {
     setIsPending(true);
@@ -195,6 +253,56 @@ export function BudgetTool({
   function removeExpenseItem(id: string) {
     setExpenses((current) => current.filter((item) => item.id !== id));
   }
+
+  async function saveActuals() {
+    setIsActualsPending(true);
+    setActualsMessage(null);
+    try {
+      const response = await fetch("/api/activity", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "budget.actuals.save",
+          semesterId,
+          actualIncome,
+          actualSavings,
+          actualExpenses,
+          notes: actualsNotes
+        })
+      });
+      const json = (await response.json()) as { error?: string };
+      if (!response.ok) {
+        setActualsMessage(json.error ?? "Unable to save actuals.");
+        return;
+      }
+      setIsActualsOpen(false);
+    } finally {
+      setIsActualsPending(false);
+    }
+  }
+
+  function updateActualItem(
+    collection: ActualItem[],
+    setter: (items: ActualItem[]) => void,
+    id: string,
+    field: "label" | "amount" | "date",
+    value: string
+  ) {
+    setter(
+      collection.map((item) =>
+        item.id === id
+          ? { ...item, [field]: field === "amount" ? Number(value || "0") : value }
+          : item
+      )
+    );
+  }
+
+  function addActualIncomeItem() { setActualIncome((c) => [...c, createActualItem()]); }
+  function addActualSavingsItem() { setActualSavings((c) => [...c, createActualItem()]); }
+  function addActualExpenseItem() { setActualExpenses((c) => [...c, createActualItem()]); }
+  function removeActualIncomeItem(id: string) { setActualIncome((c) => c.filter((i) => i.id !== id)); }
+  function removeActualSavingsItem(id: string) { setActualSavings((c) => c.filter((i) => i.id !== id)); }
+  function removeActualExpenseItem(id: string) { setActualExpenses((c) => c.filter((i) => i.id !== id)); }
 
   return (
     <div className="stack">
@@ -424,6 +532,188 @@ export function BudgetTool({
               {message ? <p style={{ margin: 0, color: "var(--accent)" }}>{message}</p> : null}
             </div>
           </EndDrawer>
+          <EndDrawer
+            description="Record what you actually earned, saved, and spent — including interest, dividends, and investment returns."
+            footer={
+              <button
+                className="button"
+                disabled={isActualsPending || !semesterId}
+                type="button"
+                onClick={() => { void saveActuals(); }}
+              >
+                {isActualsPending ? "Saving..." : "Save Actuals"}
+              </button>
+            }
+            title="Record Actuals"
+            triggerLabel="Record your actual income, savings, and expenses"
+            triggerChildren={<span>Record Actuals</span>}
+            triggerClassName="btn"
+            open={isActualsOpen}
+            onOpenChange={setIsActualsOpen}
+          >
+            <div className="stack">
+              <div className="stack">
+                <h3>Actual Income</h3>
+                <p style={{ margin: "0 0 4px", color: "var(--muted)", fontSize: "0.82rem" }}>
+                  Include wages, tips, side income, interest earned, dividends, and investment returns.
+                </p>
+                {actualIncome.map((item) => (
+                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }} key={item.id}>
+                    <div className="form-grid" style={{ flex: 1 }}>
+                      <div className="field">
+                        <label>Label</label>
+                        <input
+                          placeholder="e.g. Paycheck, Dividend – AAPL"
+                          value={item.label}
+                          onChange={(event) => {
+                            updateActualItem(actualIncome, setActualIncome, item.id, "label", event.target.value);
+                          }}
+                        />
+                      </div>
+                      <div className="field">
+                        <label>Actual amount / mo</label>
+                        <input
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={item.amount === 0 ? "" : String(item.amount)}
+                          onChange={(event) => {
+                            if (/^\d*\.?\d*$/.test(event.target.value)) {
+                              updateActualItem(actualIncome, setActualIncome, item.id, "amount", event.target.value);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      aria-label={`Remove ${item.label}`}
+                      className="icon-button"
+                      style={{ marginBottom: "2px", color: "var(--danger)" }}
+                      type="button"
+                      onClick={() => removeActualIncomeItem(item.id)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                ))}
+                <button className="btn-secondary button-secondary" type="button" onClick={addActualIncomeItem}>
+                  + Add income entry
+                </button>
+              </div>
+
+              <div className="stack">
+                <h3>Actual Savings</h3>
+                <p style={{ margin: "0 0 4px", color: "var(--muted)", fontSize: "0.82rem" }}>
+                  Amounts you actually contributed to savings, investments, or goals this month.
+                </p>
+                {actualSavings.map((item) => (
+                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }} key={item.id}>
+                    <div className="form-grid" style={{ flex: 1 }}>
+                      <div className="field">
+                        <label>Label</label>
+                        <input
+                          placeholder="e.g. Emergency Fund, Roth IRA"
+                          value={item.label}
+                          onChange={(event) => {
+                            updateActualItem(actualSavings, setActualSavings, item.id, "label", event.target.value);
+                          }}
+                        />
+                      </div>
+                      <div className="field">
+                        <label>Actual amount / mo</label>
+                        <input
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={item.amount === 0 ? "" : String(item.amount)}
+                          onChange={(event) => {
+                            if (/^\d*\.?\d*$/.test(event.target.value)) {
+                              updateActualItem(actualSavings, setActualSavings, item.id, "amount", event.target.value);
+                            }
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      aria-label={`Remove ${item.label}`}
+                      className="icon-button"
+                      style={{ marginBottom: "2px", color: "var(--danger)" }}
+                      type="button"
+                      onClick={() => removeActualSavingsItem(item.id)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                ))}
+                <button className="btn-secondary button-secondary" type="button" onClick={addActualSavingsItem}>
+                  + Add savings entry
+                </button>
+              </div>
+
+              <div className="stack">
+                <h3>Actual Expenses</h3>
+                {actualExpenses.map((item) => (
+                  <div style={{ display: "flex", gap: "8px", alignItems: "flex-end" }} key={item.id}>
+                    <div className="form-grid" style={{ flex: 1 }}>
+                      <div className="field">
+                        <label>Label</label>
+                        <input
+                          placeholder="e.g. Rent, Groceries"
+                          value={item.label}
+                          onChange={(event) => {
+                            updateActualItem(actualExpenses, setActualExpenses, item.id, "label", event.target.value);
+                          }}
+                        />
+                      </div>
+                      <div className="field">
+                        <label>Actual amount / mo</label>
+                        <input
+                          inputMode="decimal"
+                          placeholder="0.00"
+                          value={item.amount === 0 ? "" : String(item.amount)}
+                          onChange={(event) => {
+                            if (/^\d*\.?\d*$/.test(event.target.value)) {
+                              updateActualItem(actualExpenses, setActualExpenses, item.id, "amount", event.target.value);
+                            }
+                          }}
+                        />
+                      </div>
+                      <div className="field">
+                        <label>Date</label>
+                        <input
+                          type="date"
+                          value={item.date ?? ""}
+                          onChange={(event) => {
+                            updateActualItem(actualExpenses, setActualExpenses, item.id, "date", event.target.value);
+                          }}
+                        />
+                      </div>
+                    </div>
+                    <button
+                      aria-label={`Remove ${item.label}`}
+                      className="icon-button"
+                      style={{ marginBottom: "2px", color: "var(--danger)" }}
+                      type="button"
+                      onClick={() => removeActualExpenseItem(item.id)}
+                    >
+                      <TrashIcon />
+                    </button>
+                  </div>
+                ))}
+                <button className="btn-secondary button-secondary" type="button" onClick={addActualExpenseItem}>
+                  + Add expense entry
+                </button>
+              </div>
+
+              <div className="field">
+                <label htmlFor="actuals-notes">Notes</label>
+                <textarea
+                  id="actuals-notes"
+                  value={actualsNotes}
+                  onChange={(event) => setActualsNotes(event.target.value)}
+                />
+              </div>
+              {actualsMessage ? <p style={{ margin: 0, color: "var(--accent)" }}>{actualsMessage}</p> : null}
+            </div>
+          </EndDrawer>
         </div>
       </div>
 
@@ -453,6 +743,17 @@ export function BudgetTool({
           </div>
           <div className="fin-stat-sub">{balancePositive ? "+" : ""}{fmtCurrency(annualBalance)} / yr</div>
         </div>
+        {hasActuals && (
+          <div className="fin-stat">
+            <div className="fin-stat-label">Actual Cash Flow</div>
+            <div className={`fin-stat-value ${actualBalance >= 0 ? "fin-positive" : "fin-negative"}`}>
+              {actualBalance >= 0 ? "+" : ""}{fmtCurrency(actualBalance)}
+            </div>
+            <div className="fin-stat-sub" style={{ color: actualBalance >= monthlyBalance ? "#0a9e74" : "var(--danger)" }}>
+              {actualBalance >= monthlyBalance ? "+" : ""}{fmtCurrency(actualBalance - monthlyBalance)} vs budget
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── P&L table ─────────────────────────────────────────── */}
@@ -490,6 +791,102 @@ export function BudgetTool({
           </span>
         </div>
       </div>
+
+      {/* ── Budget vs Actual ──────────────────────────────────── */}
+      {hasActuals && (
+        <div className="card">
+          <div className="budget-table-section-header" style={{ marginBottom: 16 }}>
+            <span>Budget vs Actual</span>
+            <span style={{ color: "var(--muted)", fontSize: "0.8rem", fontWeight: 400 }}>Monthly comparison</span>
+          </div>
+          <table className="budget-table">
+            <thead>
+              <tr>
+                <th>Category</th>
+                <th className="budget-table-num">Budget / mo</th>
+                <th className="budget-table-num">Actual / mo</th>
+                <th className="budget-table-num">Variance</th>
+              </tr>
+            </thead>
+            <tbody>
+              <BvaRow label="Income" budgeted={totalIncome} actual={totalActualIncome} higherActualIsGood={true} />
+              {(totalSavings > 0 || totalActualSavings > 0) && (
+                <BvaRow label="Savings &amp; Goals" budgeted={totalSavings} actual={totalActualSavings} higherActualIsGood={true} />
+              )}
+              <BvaRow label="Expenses" budgeted={totalExpenses} actual={totalActualExpenses} higherActualIsGood={false} />
+            </tbody>
+          </table>
+          <div className="budget-table-totals">
+            <span>Free Cash Flow</span>
+            <span>
+              <span className={monthlyBalance >= 0 ? "fin-positive" : "fin-negative"} style={{ marginRight: 20 }}>
+                Budget: {monthlyBalance >= 0 ? "+" : ""}{fmtCurrency(monthlyBalance)}
+              </span>
+              <span className={actualBalance >= 0 ? "fin-positive" : "fin-negative"}>
+                Actual: {actualBalance >= 0 ? "+" : ""}{fmtCurrency(actualBalance)}
+              </span>
+            </span>
+          </div>
+          {actualIncome.length > 0 && (
+            <div className="budget-table-section">
+              <div className="budget-table-section-header">
+                <span>Actual Income</span>
+                <span style={{ color: "#0a9e74", fontWeight: 700 }}>{fmtCurrency(totalActualIncome)} / mo</span>
+              </div>
+              <table className="budget-table">
+                <thead><tr><th>Label</th><th className="budget-table-num">Amount / mo</th></tr></thead>
+                <tbody>
+                  {actualIncome.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.label || <em style={{ color: "var(--muted)" }}>Unlabeled</em>}</td>
+                      <td className="budget-table-num" style={{ color: "#0a9e74", fontWeight: 600 }}>{fmtCurrency(item.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {actualSavings.length > 0 && (
+            <div className="budget-table-section">
+              <div className="budget-table-section-header">
+                <span>Actual Savings</span>
+                <span style={{ color: "var(--accent)", fontWeight: 700 }}>{fmtCurrency(totalActualSavings)} / mo</span>
+              </div>
+              <table className="budget-table">
+                <thead><tr><th>Label</th><th className="budget-table-num">Amount / mo</th></tr></thead>
+                <tbody>
+                  {actualSavings.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.label || <em style={{ color: "var(--muted)" }}>Unlabeled</em>}</td>
+                      <td className="budget-table-num" style={{ color: "var(--accent)", fontWeight: 600 }}>{fmtCurrency(item.amount)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {actualExpenses.length > 0 && (
+            <div className="budget-table-section">
+              <div className="budget-table-section-header">
+                <span>Actual Expenses</span>
+                <span style={{ color: "var(--ink)", fontWeight: 700 }}>{fmtCurrency(totalActualExpenses)} / mo</span>
+              </div>
+              <table className="budget-table">
+                <thead><tr><th>Label</th><th className="budget-table-num">Amount / mo</th><th className="budget-table-num">Date</th></tr></thead>
+                <tbody>
+                  {actualExpenses.map((item) => (
+                    <tr key={item.id}>
+                      <td>{item.label || <em style={{ color: "var(--muted)" }}>Unlabeled</em>}</td>
+                      <td className="budget-table-num" style={{ fontWeight: 600 }}>{fmtCurrency(item.amount)}</td>
+                      <td className="budget-table-num">{item.date ?? <em style={{ color: "var(--muted)" }}>—</em>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
 
       {message && <p style={{ margin: 0, color: "var(--accent)" }}>{message}</p>}
     </div>

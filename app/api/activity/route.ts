@@ -6,12 +6,29 @@ import {
   createActivityLog,
   getStudentEnrollment,
   listRecentActivityForStudent,
+  upsertBudgetActuals,
   upsertBudgetDraft,
   upsertDebtScenario
 } from "@/src/lib/data/repositories";
-import type { BudgetFrequency, BudgetItem } from "@/types/domain";
+import type { ActualItem, BudgetFrequency, BudgetItem } from "@/types/domain";
 
 const VALID_FREQUENCIES: BudgetFrequency[] = ["monthly", "semimonthly", "biweekly", "weekly", "annual"];
+
+function sanitizeActualItems(value: unknown): ActualItem[] {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((item) => {
+    const candidate = item as Partial<ActualItem>;
+    return {
+      id: String(candidate.id ?? Math.random().toString(36).slice(2, 8)),
+      label: String(candidate.label ?? ""),
+      amount: Number(candidate.amount ?? 0),
+      ...(candidate.date ? { date: String(candidate.date) } : {})
+    } satisfies ActualItem;
+  });
+}
 
 function sanitizeBudgetItems(value: unknown) {
   if (!Array.isArray(value)) {
@@ -157,6 +174,40 @@ export async function POST(request: Request) {
     });
 
     return NextResponse.json({ ok: true, message: "Debt scenario saved." });
+  }
+
+  if (type === "budget.actuals.save") {
+    const actualIncome = sanitizeActualItems(body.actualIncome);
+    const actualSavings = sanitizeActualItems(body.actualSavings);
+    const actualExpenses = sanitizeActualItems(body.actualExpenses);
+    const notes = String(body.notes ?? "");
+
+    await upsertBudgetActuals({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      actualIncome,
+      actualSavings,
+      actualExpenses,
+      notes
+    });
+
+    await createActivityLog({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      module: "budget",
+      action: "actuals_saved",
+      status: "completed",
+      summary: "Budget actuals recorded.",
+      payload: {
+        actualIncomeCount: actualIncome.length,
+        actualSavingsCount: actualSavings.length,
+        actualExpenseCount: actualExpenses.length
+      }
+    });
+
+    return NextResponse.json({ ok: true, message: "Actuals saved." });
   }
 
   return NextResponse.json({ error: "Unsupported activity type." }, { status: 400 });
