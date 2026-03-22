@@ -110,6 +110,21 @@ function mapStudentEnrollment(id: string, data: Record<string, unknown>) {
   } satisfies StudentEnrollment;
 }
 
+function mapActivityLog(id: string, data: Record<string, unknown>): ActivityLog {
+  return {
+    id,
+    userId: String(data.userId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    module: data.module as ActivityLog["module"],
+    action: String(data.action ?? ""),
+    status: data.status as ActivityLog["status"],
+    summary: String(data.summary ?? ""),
+    payload: (data.payload ?? {}) as Record<string, unknown>,
+    occurredAt: toIso(data.occurredAt)
+  };
+}
+
 export async function getUserProfileById(uid: string) {
   const adminDb = getAdminDb();
   const snapshot = await adminDb.collection("users").doc(uid).get();
@@ -857,22 +872,28 @@ export async function listRecentActivityForStudent(userId: string, limit = 8) {
     .limit(limit)
     .get();
 
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
+  return snapshot.docs.map((doc) => mapActivityLog(doc.id, doc.data()));
+}
 
-    return {
-      id: doc.id,
-      userId: String(data.userId ?? ""),
-      organizationId: String(data.organizationId ?? ""),
-      semesterId: String(data.semesterId ?? ""),
-      module: data.module as ActivityLog["module"],
-      action: String(data.action ?? ""),
-      status: data.status as ActivityLog["status"],
-      summary: String(data.summary ?? ""),
-      payload: (data.payload ?? {}) as Record<string, unknown>,
-      occurredAt: toIso(data.occurredAt)
-    } satisfies ActivityLog;
-  });
+export async function listActivityLogsForOrganization(
+  organizationId: string,
+  { semesterId, limit = 50 }: { semesterId?: string; limit?: number } = {}
+) {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("activity_logs")
+    .where("organizationId", "==", organizationId)
+    .orderBy("occurredAt", "desc")
+    .limit(semesterId ? 500 : limit)
+    .get();
+
+  let logs = snapshot.docs.map((doc) => mapActivityLog(doc.id, doc.data()));
+
+  if (semesterId) {
+    logs = logs.filter((log) => log.semesterId === semesterId).slice(0, limit);
+  }
+
+  return logs;
 }
 
 export async function listOrganizationStudentsWithLatestActivity(orgId: string) {
@@ -942,6 +963,7 @@ export async function getBudgetDraft(userId: string, semesterId: string) {
     organizationId: String(data.organizationId ?? ""),
     semesterId: String(data.semesterId ?? ""),
     income: (data.income ?? []) as BudgetDraft["income"],
+    savings: (data.savings ?? []) as BudgetDraft["savings"],
     expenses: (data.expenses ?? []) as BudgetDraft["expenses"],
     notes: String(data.notes ?? ""),
     monthlyBalance: Number(data.monthlyBalance ?? 0),

@@ -104,10 +104,13 @@ export interface ActivityLog {
   occurredAt: string;
 }
 
+export type BudgetFrequency = "monthly" | "weekly" | "biweekly" | "semimonthly" | "annual";
+
 export interface BudgetItem {
   id: string;
   label: string;
   amount: number;
+  frequency: BudgetFrequency;
 }
 
 export interface BudgetDraft {
@@ -116,6 +119,7 @@ export interface BudgetDraft {
   organizationId: string;
   semesterId: string;
   income: BudgetItem[];
+  savings: BudgetItem[];
   expenses: BudgetItem[];
   notes: string;
   monthlyBalance: number;

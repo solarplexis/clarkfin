@@ -573,19 +573,161 @@ const endpointGroups: EndpointGroup[] = [
         title: "Save budget or debt activity",
         auth: "Session",
         role: "STUDENT",
-        description: "Saves budget drafts or debt scenarios and writes the corresponding activity log entry.",
+        description: "Saves budget drafts or debt scenarios and writes the corresponding activity log entry. Budget items (income, savings, and expenses) each carry a `frequency` field that normalizes the amount to monthly. The `savings` section represents pay-yourself-first allocations deducted from income before expenses.",
         requestExample: `{
   "type": "budget.save",
   "semesterId": "fall-2026-fin101",
-  "income": [{"id": "job", "label": "Work study", "amount": 900}],
-  "expenses": [{"id": "rent", "label": "Rent", "amount": 600}],
+  "income": [{"id": "job", "label": "Work study", "amount": 450, "frequency": "biweekly"}],
+  "savings": [{"id": "ef", "label": "Emergency Fund", "amount": 50, "frequency": "monthly"}],
+  "expenses": [{"id": "rent", "label": "Rent", "amount": 600, "frequency": "monthly"}],
   "notes": "Initial draft",
-  "monthlyBalance": 300,
+  "monthlyBalance": 122,
   "isFinal": false
 }`,
         responseExample: `{
   "ok": true,
   "message": "Budget saved."
+}`
+      }
+    ]
+  },
+  {
+    id: "student-finance",
+    label: "Student Finance",
+    intro: "Read endpoints for the student's own budget draft, debt scenario, and activity log. All routes require a student session and verify enrollment in the target course.",
+    endpoints: [
+      {
+        id: "student-budget-read",
+        method: "GET",
+        path: "/api/student/budget",
+        title: "Get own budget draft",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Returns the student's budget draft for the specified course. Defaults to the active workspace semester when `semesterId` is omitted. `monthlyBalance` = income − savings − expenses, all normalized to monthly.",
+        responseExample: `{
+  "ok": true,
+  "budget": {
+    "semesterId": "fall-2026-fin101",
+    "income": [{"id": "job", "label": "Work study", "amount": 450, "frequency": "biweekly"}],
+    "savings": [{"id": "ef", "label": "Emergency Fund", "amount": 50, "frequency": "monthly"}],
+    "expenses": [{"id": "rent", "label": "Rent", "amount": 600, "frequency": "monthly"}],
+    "monthlyBalance": 122,
+    "isFinal": false
+  }
+}`
+      },
+      {
+        id: "student-debt-read",
+        method: "GET",
+        path: "/api/student/debt",
+        title: "Get own debt scenario",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Returns the student's debt scenario for the specified course. Defaults to the active workspace semester when `semesterId` is omitted.",
+        responseExample: `{
+  "ok": true,
+  "debt": {
+    "semesterId": "fall-2026-fin101",
+    "debtName": "Credit Card",
+    "balance": 2400,
+    "interestRate": 19.99,
+    "plannedPayment": 150,
+    "payoffMonths": 20,
+    "totalInterest": 412.30,
+    "isFinal": false
+  }
+}`
+      },
+      {
+        id: "activity-get",
+        method: "GET",
+        path: "/api/activity",
+        title: "Get own activity log",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Returns the student's recent activity log entries. Supports a `limit` query parameter (max 100, default 20).",
+        responseExample: `{
+  "ok": true,
+  "logs": [
+    {
+      "id": "log_abc",
+      "module": "budget",
+      "action": "saved",
+      "status": "draft",
+      "summary": "Budget draft saved.",
+      "occurredAt": "2026-03-22T14:00:00.000Z"
+    }
+  ]
+}`
+      }
+    ]
+  },
+  {
+    id: "org-finance",
+    label: "Instructor Finance View",
+    intro: "Read endpoints for org admins to inspect student budget drafts, debt scenarios, and activity logs across their organization.",
+    endpoints: [
+      {
+        id: "org-student-budget-read",
+        method: "GET",
+        path: "/api/org/students/{studentId}/budget",
+        title: "Get student budget draft",
+        auth: "Session",
+        role: "ORG_ADMIN",
+        description: "Returns the budget draft for a specific enrolled student. Requires a `semesterId` query parameter. Returns `null` if the student has not yet linked their account.",
+        responseExample: `{
+  "ok": true,
+  "budget": {
+    "semesterId": "fall-2026-fin101",
+    "income": [{"id": "job", "label": "Work study", "amount": 450, "frequency": "biweekly"}],
+    "savings": [{"id": "ef", "label": "Emergency Fund", "amount": 50, "frequency": "monthly"}],
+    "expenses": [{"id": "rent", "label": "Rent", "amount": 600, "frequency": "monthly"}],
+    "monthlyBalance": 122,
+    "isFinal": true
+  }
+}`
+      },
+      {
+        id: "org-student-debt-read",
+        method: "GET",
+        path: "/api/org/students/{studentId}/debt",
+        title: "Get student debt scenario",
+        auth: "Session",
+        role: "ORG_ADMIN",
+        description: "Returns the debt scenario for a specific enrolled student. Requires a `semesterId` query parameter.",
+        responseExample: `{
+  "ok": true,
+  "debt": {
+    "semesterId": "fall-2026-fin101",
+    "debtName": "Credit Card",
+    "balance": 2400,
+    "payoffMonths": 20,
+    "isFinal": true
+  }
+}`
+      },
+      {
+        id: "org-activity-get",
+        method: "GET",
+        path: "/api/org/activity",
+        title: "Get organization activity log",
+        auth: "Session",
+        role: "ORG_ADMIN",
+        description: "Returns activity log entries for the organization. Optionally filter by `semesterId`. Supports a `limit` query parameter (max 200, default 50).",
+        responseExample: `{
+  "ok": true,
+  "logs": [
+    {
+      "id": "log_abc",
+      "userId": "student_123",
+      "semesterId": "fall-2026-fin101",
+      "module": "budget",
+      "action": "submitted",
+      "status": "completed",
+      "summary": "Budget marked ready for review.",
+      "occurredAt": "2026-03-22T14:00:00.000Z"
+    }
+  ]
 }`
       }
     ]

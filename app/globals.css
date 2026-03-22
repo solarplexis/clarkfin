@@ -1700,3 +1700,465 @@ tbody tr:hover {
     font-size: 2rem;
   }
 }
+
+/* ─── Student Finance Dashboard ───────────────────────────────── */
+
+/* Color helpers */
+.fin-positive { color: #0a9e74; }
+.fin-negative { color: var(--danger); }
+
+/* Section label */
+.fin-section-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  padding-bottom: 6px;
+}
+
+/* ── Budget P&L table ─────────────────────────────────────────── */
+.budget-table-section {
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.budget-table-section:first-child {
+  padding-top: 0;
+}
+
+.budget-table-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  margin-bottom: 10px;
+}
+
+.budget-table-empty {
+  color: var(--muted);
+  font-size: 0.875rem;
+  padding: 6px 0;
+}
+
+.budget-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.budget-table th {
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 0 0 8px;
+  border-bottom: 1px solid var(--line);
+}
+
+.budget-table td {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--ink);
+}
+
+.budget-table tr:last-child td {
+  border-bottom: none;
+}
+
+.budget-table .budget-table-num {
+  text-align: right;
+}
+
+.budget-table th.budget-table-num {
+  text-align: right;
+}
+
+.budget-table-totals {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 18px 0 2px;
+  font-weight: 700;
+  font-size: 1rem;
+  border-top: 2px solid var(--line);
+  margin-top: 4px;
+}
+
+/* ── Stat strip (top 4 cards) ─────────────────────────────────── */
+.fin-stat-strip {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.fin-stat {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px 20px;
+  box-shadow: var(--shadow-sm);
+}
+
+.fin-stat-label {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.fin-stat-value {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: 6px;
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+
+.fin-stat-sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 5px;
+}
+
+.fin-stat-cta .fin-stat-value {
+  font-size: 1rem;
+}
+
+/* ── Main 2-column grid ───────────────────────────────────────── */
+.fin-main-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 800px) {
+  .fin-main-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Expense Category horizontal bar chart ────────────────────── */
+.fin-cat-list {
+  display: grid;
+  gap: 12px;
+}
+
+.fin-cat-row {
+  display: grid;
+  grid-template-columns: 130px 1fr 80px;
+  align-items: center;
+  gap: 10px;
+}
+
+.fin-cat-label {
+  font-size: 0.875rem;
+  color: var(--ink-2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fin-cat-track {
+  height: 10px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+
+.fin-cat-fill {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 400ms ease;
+}
+
+.fin-cat-amount {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+  text-align: right;
+}
+
+/* ── Cash Flow section ────────────────────────────────────────── */
+.fin-cashflow {
+  display: grid;
+  gap: 14px;
+  margin-bottom: 16px;
+}
+
+.fin-cashflow-row {
+  display: grid;
+  grid-template-columns: 70px 1fr 90px;
+  align-items: center;
+  gap: 10px;
+}
+
+.fin-cashflow-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.fin-cashflow-track {
+  height: 14px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+
+.fin-cashflow-bar {
+  height: 100%;
+  border-radius: 999px;
+  transition: width 400ms ease;
+}
+
+.fin-cashflow-income { background: #0a9e74; }
+.fin-cashflow-expense { background: var(--accent); }
+
+.fin-cashflow-amount {
+  font-size: 0.9rem;
+  font-weight: 700;
+  text-align: right;
+}
+
+.fin-balance-chip {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: var(--radius-md);
+  margin-top: 4px;
+}
+
+.fin-balance-chip-pos {
+  background: #edfaf5;
+  border: 1px solid #b7eed9;
+}
+
+.fin-balance-chip-neg {
+  background: var(--danger-soft);
+  border: 1px solid rgba(224, 62, 82, 0.2);
+}
+
+.fin-balance-chip-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.fin-balance-chip-value {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+.fin-balance-chip-pos .fin-balance-chip-value { color: #0a9e74; }
+.fin-balance-chip-neg .fin-balance-chip-value { color: var(--danger); }
+
+/* Income sources list inside cash flow card */
+.fin-source-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.fin-source-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.9rem;
+}
+
+.fin-source-row:last-child {
+  border-bottom: none;
+}
+
+/* ── Budget category cards grid ───────────────────────────────── */
+.fin-budget-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+
+.fin-budget-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  padding: 18px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  box-shadow: var(--shadow-sm);
+  transition: box-shadow 160ms;
+}
+
+.fin-budget-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.fin-budget-card-ring {
+  position: relative;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.fin-budget-card-pct {
+  position: absolute;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.fin-budget-card-info {
+  min-width: 0;
+}
+
+.fin-budget-card-name {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.fin-budget-card-amount {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: 3px;
+}
+
+.fin-budget-card-of-total {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+/* ── Debt Snapshot card ───────────────────────────────────────── */
+.fin-debt-card {
+  background: var(--surface);
+}
+
+.fin-debt-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.fin-debt-name {
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.fin-debt-balance {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--danger);
+  letter-spacing: -0.02em;
+  margin-top: 4px;
+}
+
+.fin-debt-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 12px;
+  padding: 14px 0;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.fin-debt-stat-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+}
+
+.fin-debt-stat-value {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--ink);
+  margin-top: 4px;
+}
+
+.fin-debt-progress-label {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--ink-2);
+  margin-bottom: 6px;
+}
+
+.fin-debt-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+
+.fin-debt-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: linear-gradient(90deg, #0a9e74, var(--teal));
+  transition: width 500ms ease;
+}
+
+.fin-debt-notes {
+  margin-top: 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+  font-style: italic;
+  border-left: 3px solid var(--line);
+  padding-left: 10px;
+}
+
+/* ── Activity feed ────────────────────────────────────────────── */
+.fin-activity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+}
+
+.fin-activity-item + .fin-activity-item {
+  border-top: 1px solid var(--line);
+}
+
+.fin-activity-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--line-strong);
+  margin-top: 6px;
+  flex-shrink: 0;
+}
+
+.fin-activity-dot[data-module="budget"] { background: var(--accent); }
+.fin-activity-dot[data-module="debt"] { background: var(--danger); }
+.fin-activity-dot[data-module="auth"] { background: var(--teal); }
+
+/* ── Empty budget CTA ─────────────────────────────────────────── */
+.fin-empty-budget {
+  border: 2px dashed var(--line-strong);
+  background: var(--bg-subtle);
+  box-shadow: none;
+}

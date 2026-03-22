@@ -5,10 +5,13 @@ import { calculateDebtScenario } from "@/src/lib/activity/debt";
 import {
   createActivityLog,
   getStudentEnrollment,
+  listRecentActivityForStudent,
   upsertBudgetDraft,
   upsertDebtScenario
 } from "@/src/lib/data/repositories";
-import type { BudgetItem } from "@/types/domain";
+import type { BudgetFrequency, BudgetItem } from "@/types/domain";
+
+const VALID_FREQUENCIES: BudgetFrequency[] = ["monthly", "semimonthly", "biweekly", "weekly", "annual"];
 
 function sanitizeBudgetItems(value: unknown) {
   if (!Array.isArray(value)) {
@@ -17,13 +20,37 @@ function sanitizeBudgetItems(value: unknown) {
 
   return value.map((item) => {
     const candidate = item as Partial<BudgetItem>;
+    const freq = candidate.frequency;
 
     return {
       id: String(candidate.id ?? Math.random().toString(36).slice(2, 8)),
       label: String(candidate.label ?? ""),
-      amount: Number(candidate.amount ?? 0)
+      amount: Number(candidate.amount ?? 0),
+      frequency: (freq && VALID_FREQUENCIES.includes(freq) ? freq : "monthly") as BudgetFrequency
     } satisfies BudgetItem;
   });
+}
+
+export async function GET(request: Request) {
+  try {
+    const user = await getCurrentUser();
+
+    if (!user || user.role !== "STUDENT") {
+      return NextResponse.json({ error: "Student session required." }, { status: 401 });
+    }
+
+    const { searchParams } = new URL(request.url);
+    const limit = Math.min(Number(searchParams.get("limit") ?? "20"), 100);
+
+    const logs = await listRecentActivityForStudent(user.uid, limit);
+
+    return NextResponse.json({ ok: true, logs });
+  } catch (error) {
+    return NextResponse.json(
+      { error: error instanceof Error ? error.message : "Unable to load activity." },
+      { status: 500 }
+    );
+  }
 }
 
 export async function POST(request: Request) {
@@ -49,6 +76,7 @@ export async function POST(request: Request) {
 
   if (type === "budget.save") {
     const income = sanitizeBudgetItems(body.income);
+    const savings = sanitizeBudgetItems(body.savings);
     const expenses = sanitizeBudgetItems(body.expenses);
     const notes = String(body.notes ?? "");
     const isFinal = Boolean(body.isFinal ?? false);
@@ -59,6 +87,7 @@ export async function POST(request: Request) {
       organizationId: user.organizationId,
       semesterId,
       income,
+      savings,
       expenses,
       notes,
       monthlyBalance,
@@ -75,6 +104,7 @@ export async function POST(request: Request) {
       summary: isFinal ? "Budget marked ready for review." : "Budget draft saved.",
       payload: {
         incomeCount: income.length,
+        savingsCount: savings.length,
         expenseCount: expenses.length,
         monthlyBalance
       }
