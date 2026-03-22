@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 
 import { EndDrawer } from "@/components/end-drawer";
 import type { ActualItem, BudgetActuals, BudgetDraft, BudgetFrequency, BudgetItem } from "@/types/domain";
@@ -160,6 +160,8 @@ export function BudgetTool({
   );
   const [actualsNotes, setActualsNotes] = useState(initialActuals?.notes ?? "");
   const [isActualsOpen, setIsActualsOpen] = useState(false);
+  const [isReceiptScanning, setIsReceiptScanning] = useState(false);
+  const receiptInputRef = useRef<HTMLInputElement>(null);
   const [isActualsPending, setIsActualsPending] = useState(false);
   const [actualsMessage, setActualsMessage] = useState<string | null>(null);
 
@@ -285,7 +287,7 @@ export function BudgetTool({
     collection: ActualItem[],
     setter: (items: ActualItem[]) => void,
     id: string,
-    field: "label" | "amount" | "date",
+    field: "label" | "amount" | "date" | "category",
     value: string
   ) {
     setter(
@@ -300,6 +302,35 @@ export function BudgetTool({
   function addActualIncomeItem() { setActualIncome((c) => [...c, createActualItem()]); }
   function addActualSavingsItem() { setActualSavings((c) => [...c, createActualItem()]); }
   function addActualExpenseItem() { setActualExpenses((c) => [...c, createActualItem()]); }
+
+  async function handleReceiptUpload(event: React.ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    event.target.value = ""; // reset so the same file can be re-selected
+    setIsReceiptScanning(true);
+    setActualsMessage("");
+    try {
+      const fd = new FormData();
+      fd.append("receipt", file);
+      const budgetLabels = expenses.map((e) => e.label).filter(Boolean);
+      if (budgetLabels.length > 0) fd.append("budgetLabels", JSON.stringify(budgetLabels));
+      const res = await fetch("/api/student/budget/actuals/receipt", { method: "POST", body: fd });
+      const json = await res.json() as { ok?: boolean; label?: string; amount?: number; category?: string; error?: string };
+      if (!res.ok || !json.ok) {
+        setActualsMessage(json.error ?? "Receipt scan failed.");
+        return;
+      }
+      const newItem: ActualItem = {
+        id: Math.random().toString(36).slice(2, 8),
+        label: json.label ?? "",
+        amount: json.amount ?? 0,
+        ...(json.category ? { category: json.category } : {})
+      };
+      setActualExpenses((c) => [...c, newItem]);
+    } finally {
+      setIsReceiptScanning(false);
+    }
+  }
   function removeActualIncomeItem(id: string) { setActualIncome((c) => c.filter((i) => i.id !== id)); }
   function removeActualSavingsItem(id: string) { setActualSavings((c) => c.filter((i) => i.id !== id)); }
   function removeActualExpenseItem(id: string) { setActualExpenses((c) => c.filter((i) => i.id !== id)); }
@@ -686,6 +717,21 @@ export function BudgetTool({
                           }}
                         />
                       </div>
+                      <div className="field">
+                        <label>Budget category</label>
+                        <select
+                          value={item.category ?? ""}
+                          onChange={(event) => {
+                            updateActualItem(actualExpenses, setActualExpenses, item.id, "category", event.target.value);
+                          }}
+                        >
+                          <option value="">— Unassigned —</option>
+                          {expenses.filter((e) => e.label).map((e) => (
+                            <option key={e.id} value={e.label}>{e.label}</option>
+                          ))}
+                          <option value="Other">Other</option>
+                        </select>
+                      </div>
                     </div>
                     <button
                       aria-label={`Remove ${item.label}`}
@@ -698,9 +744,26 @@ export function BudgetTool({
                     </button>
                   </div>
                 ))}
-                <button className="btn-secondary button-secondary" type="button" onClick={addActualExpenseItem}>
-                  + Add expense entry
-                </button>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <button className="btn-secondary button-secondary" type="button" onClick={addActualExpenseItem}>
+                    + Add expense entry
+                  </button>
+                  <button
+                    className="btn-secondary button-secondary"
+                    type="button"
+                    disabled={isReceiptScanning}
+                    onClick={() => receiptInputRef.current?.click()}
+                  >
+                    {isReceiptScanning ? "Scanning…" : "📷 Scan receipt"}
+                  </button>
+                  <input
+                    ref={receiptInputRef}
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp"
+                    style={{ display: "none" }}
+                    onChange={handleReceiptUpload}
+                  />
+                </div>
               </div>
 
               <div className="field">
@@ -813,7 +876,27 @@ export function BudgetTool({
               {(totalSavings > 0 || totalActualSavings > 0) && (
                 <BvaRow label="Savings &amp; Goals" budgeted={totalSavings} actual={totalActualSavings} higherActualIsGood={true} />
               )}
-              <BvaRow label="Expenses" budgeted={totalExpenses} actual={totalActualExpenses} higherActualIsGood={false} />
+              {expenses.length > 0 ? (
+                expenses.map((expItem) => {
+                  const budgeted = toMonthly(expItem);
+                  const actual = actualExpenses
+                    .filter((a) => a.category === expItem.label)
+                    .reduce((s, a) => s + a.amount, 0);
+                  return actual > 0 || budgeted > 0 ? (
+                    <BvaRow key={expItem.id} label={expItem.label || "Unlabeled"} budgeted={budgeted} actual={actual} higherActualIsGood={false} />
+                  ) : null;
+                })
+              ) : (
+                <BvaRow label="Expenses" budgeted={totalExpenses} actual={totalActualExpenses} higherActualIsGood={false} />
+              )}
+              {actualExpenses.filter((a) => !a.category || a.category === "Other" || !expenses.find((e) => e.label === a.category)).length > 0 && (
+                <BvaRow
+                  label="Other / Unassigned"
+                  budgeted={0}
+                  actual={actualExpenses.filter((a) => !a.category || a.category === "Other" || !expenses.find((e) => e.label === a.category)).reduce((s, a) => s + a.amount, 0)}
+                  higherActualIsGood={false}
+                />
+              )}
             </tbody>
           </table>
           <div className="budget-table-totals">
@@ -872,11 +955,12 @@ export function BudgetTool({
                 <span style={{ color: "var(--ink)", fontWeight: 700 }}>{fmtCurrency(totalActualExpenses)} / mo</span>
               </div>
               <table className="budget-table">
-                <thead><tr><th>Label</th><th className="budget-table-num">Amount / mo</th><th className="budget-table-num">Date</th></tr></thead>
+                <thead><tr><th>Label</th><th>Category</th><th className="budget-table-num">Amount / mo</th><th className="budget-table-num">Date</th></tr></thead>
                 <tbody>
                   {actualExpenses.map((item) => (
                     <tr key={item.id}>
                       <td>{item.label || <em style={{ color: "var(--muted)" }}>Unlabeled</em>}</td>
+                      <td>{item.category ?? <em style={{ color: "var(--muted)" }}>—</em>}</td>
                       <td className="budget-table-num" style={{ fontWeight: 600 }}>{fmtCurrency(item.amount)}</td>
                       <td className="budget-table-num">{item.date ?? <em style={{ color: "var(--muted)" }}>—</em>}</td>
                     </tr>

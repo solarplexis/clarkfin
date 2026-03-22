@@ -54,6 +54,12 @@ export function getAppUrl() {
   return process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 }
 
+export function getOpenAIKey(): string {
+  const key = process.env.OPEN_AI_KEY ?? "";
+  if (!key) throw new Error("OPEN_AI_KEY is not configured.");
+  return key;
+}
+
 export function getFirebaseApiKey() {
   return process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "";
 }

@@ -134,6 +134,8 @@ export interface ActualItem {
   amount: number;
   /** ISO date string for when the expense occurred, e.g. "2026-03-15" (expenses only) */
   date?: string;
+  /** Spending category for grouping and budget comparison (expenses only) */
+  category?: string;
 }
 
 export interface BudgetActuals {

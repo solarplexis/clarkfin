@@ -237,16 +237,54 @@ export function StudentFinanceDashboard({
                     </td>
                   </tr>
                 )}
-                <tr>
-                  <td>Expenses</td>
-                  <td className="budget-table-num">{fmtExact(totalExpenses)}</td>
-                  <td className="budget-table-num">{fmtExact(totalActualExpenses)}</td>
-                  <td className="budget-table-num">
-                    <span style={{ color: totalActualExpenses <= totalExpenses ? "var(--teal)" : "var(--danger)", fontWeight: 600 }}>
-                      {totalActualExpenses > totalExpenses ? "+" : ""}{fmtExact(totalActualExpenses - totalExpenses)}
-                    </span>
-                  </td>
-                </tr>
+                {(budget?.expenses ?? []).length > 0 ? (
+                  (budget!.expenses).map((expItem) => {
+                    const budgeted = toMonthly(expItem);
+                    const actual = (actuals?.actualExpenses ?? [])
+                      .filter((a) => a.category === expItem.label)
+                      .reduce((s, a) => s + a.amount, 0);
+                    if (budgeted === 0 && actual === 0) return null;
+                    return (
+                      <tr key={expItem.id}>
+                        <td>{expItem.label || "Unlabeled"}</td>
+                        <td className="budget-table-num">{fmtExact(budgeted)}</td>
+                        <td className="budget-table-num">{fmtExact(actual)}</td>
+                        <td className="budget-table-num">
+                          <span style={{ color: actual <= budgeted ? "var(--teal)" : "var(--danger)", fontWeight: 600 }}>
+                            {actual > budgeted ? "+" : ""}{fmtExact(actual - budgeted)}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  <tr>
+                    <td>Expenses</td>
+                    <td className="budget-table-num">{fmtExact(totalExpenses)}</td>
+                    <td className="budget-table-num">{fmtExact(totalActualExpenses)}</td>
+                    <td className="budget-table-num">
+                      <span style={{ color: totalActualExpenses <= totalExpenses ? "var(--teal)" : "var(--danger)", fontWeight: 600 }}>
+                        {totalActualExpenses > totalExpenses ? "+" : ""}{fmtExact(totalActualExpenses - totalExpenses)}
+                      </span>
+                    </td>
+                  </tr>
+                )}
+                {(() => {
+                  const expenseLabels = new Set((budget?.expenses ?? []).map((e) => e.label));
+                  const unmatchedTotal = (actuals?.actualExpenses ?? [])
+                    .filter((a) => !a.category || a.category === "Other" || !expenseLabels.has(a.category))
+                    .reduce((s, a) => s + a.amount, 0);
+                  return unmatchedTotal > 0 ? (
+                    <tr>
+                      <td>Other / Unassigned</td>
+                      <td className="budget-table-num">{fmtExact(0)}</td>
+                      <td className="budget-table-num">{fmtExact(unmatchedTotal)}</td>
+                      <td className="budget-table-num">
+                        <span style={{ color: "var(--danger)", fontWeight: 600 }}>+{fmtExact(unmatchedTotal)}</span>
+                      </td>
+                    </tr>
+                  ) : null;
+                })()}
                 <tr style={{ fontWeight: 700, borderTop: "2px solid var(--line)" }}>
                   <td>Free Cash Flow</td>
                   <td className="budget-table-num">{fmtExact(balance)}</td>

@@ -25,7 +25,8 @@ function sanitizeActualItems(value: unknown): ActualItem[] {
       id: String(candidate.id ?? Math.random().toString(36).slice(2, 8)),
       label: String(candidate.label ?? ""),
       amount: Number(candidate.amount ?? 0),
-      ...(candidate.date ? { date: String(candidate.date) } : {})
+      ...(candidate.date ? { date: String(candidate.date) } : {}),
+      ...(candidate.category ? { category: String(candidate.category) } : {})
     } satisfies ActualItem;
   });
 }
