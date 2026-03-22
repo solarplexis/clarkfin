@@ -713,6 +713,7 @@ th {
   letter-spacing: 0.06em;
   color: var(--muted);
   white-space: nowrap;
+  vertical-align: middle;
 }
 
 td {
@@ -1731,11 +1732,11 @@ tbody tr:hover {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  font-size: 0.78rem;
+  font-size: 1.1rem;
   font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--muted);
+  letter-spacing: 0.01em;
+  color: var(--ink);
+  height: 40px;
   margin-bottom: 10px;
 }
 
@@ -1751,13 +1752,18 @@ tbody tr:hover {
   font-size: 0.9rem;
 }
 
+.budget-table thead {
+  background: transparent;
+}
+
 .budget-table th {
   text-align: left;
   font-size: 0.75rem;
   font-weight: 600;
   color: var(--muted);
-  padding: 0 0 8px;
+  padding: 10px 0;
   border-bottom: 1px solid var(--line);
+  vertical-align: middle;
 }
 
 .budget-table td {
