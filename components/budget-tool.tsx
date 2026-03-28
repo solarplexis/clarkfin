@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 
+import { BudgetAssistantDrawer } from "@/components/budget-assistant-drawer";
 import { EndDrawer } from "@/components/end-drawer";
 import type { ActualItem, BudgetActuals, BudgetDraft, BudgetFrequency, BudgetItem } from "@/types/domain";
 
@@ -334,6 +335,30 @@ export function BudgetTool({
   function removeActualIncomeItem(id: string) { setActualIncome((c) => c.filter((i) => i.id !== id)); }
   function removeActualSavingsItem(id: string) { setActualSavings((c) => c.filter((i) => i.id !== id)); }
   function removeActualExpenseItem(id: string) { setActualExpenses((c) => c.filter((i) => i.id !== id)); }
+
+  async function refreshBudget() {
+    if (!semesterId) return;
+    try {
+      const res = await fetch(`/api/student/budget?semesterId=${encodeURIComponent(semesterId)}`);
+      if (!res.ok) return;
+      const json = (await res.json()) as { budget?: BudgetDraft | null; actuals?: BudgetActuals | null };
+      if (json.budget) {
+        setIncome(json.budget.income ?? []);
+        setSavings(json.budget.savings ?? []);
+        setExpenses(json.budget.expenses ?? []);
+        setNotes(json.budget.notes ?? "");
+        setIsFinal(Boolean(json.budget.isFinal));
+      }
+      if (json.actuals) {
+        setActualIncome(json.actuals.actualIncome ?? []);
+        setActualSavings(json.actuals.actualSavings ?? []);
+        setActualExpenses(json.actuals.actualExpenses ?? []);
+        setActualsNotes(json.actuals.notes ?? "");
+      }
+    } catch {
+      // silent — assistant will still work
+    }
+  }
 
   return (
     <div className="stack">
@@ -777,6 +802,20 @@ export function BudgetTool({
               {actualsMessage ? <p style={{ margin: 0, color: "var(--accent)" }}>{actualsMessage}</p> : null}
             </div>
           </EndDrawer>
+          <BudgetAssistantDrawer
+            budget={{
+              income,
+              savings,
+              expenses,
+              notes,
+              monthlyBalance,
+              actualIncome,
+              actualSavings,
+              actualExpenses
+            }}
+            semesterId={semesterId}
+            onBudgetUpdated={() => { void refreshBudget(); }}
+          />
         </div>
       </div>
 

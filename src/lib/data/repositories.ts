@@ -5,6 +5,8 @@ import type {
   ActualItem,
   BudgetActuals,
   BudgetDraft,
+  ChatConversation,
+  ChatMessage,
   DebtScenario,
   ExportRecord,
   Organization,
@@ -1119,4 +1121,63 @@ export async function buildExportFeedForOrganization(orgId: string) {
       payload: (data.payload ?? {}) as Record<string, unknown>
     } satisfies ExportRecord;
   });
+}
+
+// ─── Chat conversations ───────────────────────────────────────
+
+export async function listChatConversations(
+  userId: string,
+  semesterId: string,
+  limit = 10
+): Promise<ChatConversation[]> {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("chat_conversations")
+    .where("userId", "==", userId)
+    .where("semesterId", "==", semesterId)
+    .orderBy("updatedAt", "desc")
+    .limit(limit)
+    .get();
+
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as Record<string, unknown>;
+    return mapDoc<ChatConversation>(doc.id, {
+      userId: String(data.userId ?? ""),
+      organizationId: String(data.organizationId ?? ""),
+      semesterId: String(data.semesterId ?? ""),
+      title: String(data.title ?? ""),
+      messages: (data.messages ?? []) as ChatMessage[],
+      createdAt: toIso(data.createdAt),
+      updatedAt: toIso(data.updatedAt)
+    });
+  });
+}
+
+export async function createChatConversation(
+  conversation: Omit<ChatConversation, "id" | "createdAt" | "updatedAt">
+): Promise<string> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("chat_conversations").doc();
+  await ref.set({
+    ...conversation,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  });
+  return ref.id;
+}
+
+export async function updateChatConversation(
+  id: string,
+  messages: ChatMessage[]
+): Promise<void> {
+  const adminDb = getAdminDb();
+  await adminDb.collection("chat_conversations").doc(id).update({
+    messages,
+    updatedAt: FieldValue.serverTimestamp()
+  });
+}
+
+export async function deleteChatConversation(id: string): Promise<void> {
+  const adminDb = getAdminDb();
+  await adminDb.collection("chat_conversations").doc(id).delete();
 }

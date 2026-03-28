@@ -185,6 +185,22 @@ export interface ExportRecord {
   payload: Record<string, unknown>;
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+export interface ChatConversation {
+  id: string;
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  title: string;
+  messages: ChatMessage[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface OrganizationCreationResult {
   organization: Organization;
   orgAdmin: Pick<UserProfile, "uid" | "fullName" | "email" | "role" | "organizationId">;
