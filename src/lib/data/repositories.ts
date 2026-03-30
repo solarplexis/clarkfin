@@ -276,6 +276,20 @@ export async function findOrganizationByApiKeyHash(apiKeyHash: string) {
   return getOrganizationById(snapshot.docs[0].id);
 }
 
+export async function rotateOrganizationApiKey(orgId: string) {
+  const adminDb = getAdminDb();
+  const apiKey = generateApiKey();
+  await adminDb.collection("organizations").doc(orgId).set(
+    {
+      apiKeyHash: sha256(apiKey),
+      apiKeyPreview: previewSecret(apiKey),
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+  return { apiKey, apiKeyPreview: previewSecret(apiKey) };
+}
+
 export async function updateUserProfile(input: {
   uid: string;
   fullName: string;

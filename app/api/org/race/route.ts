@@ -4,10 +4,15 @@ import { findOrganizationByApiKeyHash, getRaceProgress } from "@/src/lib/data/re
 import { sha256 } from "@/src/lib/security/hash";
 
 export async function GET(request: Request) {
-  const apiKey = request.headers.get("x-api-key");
+  const xApiKey = request.headers.get("x-api-key");
+  const bearerToken = request.headers.get("authorization")?.replace(/^Bearer\s+/i, "") ?? null;
+  const apiKey = xApiKey ?? bearerToken;
 
   if (!apiKey) {
-    return NextResponse.json({ error: "Missing X-API-KEY header." }, { status: 401 });
+    return NextResponse.json(
+      { error: "Provide the API key via X-API-KEY header or Authorization: Bearer <key>." },
+      { status: 401 }
+    );
   }
 
   const organization = await findOrganizationByApiKeyHash(sha256(apiKey));

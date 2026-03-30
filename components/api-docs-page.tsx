@@ -774,6 +774,21 @@ const endpointGroups: EndpointGroup[] = [
     intro: "Server-to-server consumers should use the organization API key. This feed is the main bridge for systems like n8n, agent tools, and institutional data pipelines.",
     endpoints: [
       {
+        id: "api-key-rotate",
+        method: "POST",
+        path: "/api/org/api-key/rotate",
+        title: "Rotate organization API key",
+        auth: "Session",
+        role: "ORG_ADMIN",
+        description: "Generates a new API key for the organization, immediately invalidating the previous one. The full key is returned once in this response and cannot be retrieved again — save it immediately. The `apiKeyPreview` (e.g. `ck_live_...9d2a`) is visible in the organization profile afterward.",
+        responseExample: `{
+  "ok": true,
+  "apiKey": "ck_live_...",
+  "apiKeyPreview": "ck_live_...9d2a",
+  "message": "API key rotated. Save the key now — it will not be shown again."
+}`
+      },
+      {
         id: "export-feed",
         method: "GET",
         path: "/api/export",
@@ -802,7 +817,7 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/org/race",
         title: "Get course progress",
         auth: "API Key",
-        description: "Returns milestone progress for every enrolled student in a course, sorted alphabetically by last name then first name. Each student has 6 static milestones plus one milestone per calendar month spanned by the course's start and end dates. The monthly actuals milestone is complete when the student has recorded both income and expense entries with dates in that month. Designed for instructor dashboards and external AI-agent race visualizations.",
+        description: "Returns milestone progress for every enrolled student in a course, sorted alphabetically by last name then first name. Each student has 6 static milestones plus one milestone per calendar month spanned by the course's start and end dates. The monthly actuals milestone is complete when the student has recorded both income and expense entries with dates in that month. Authenticate with either `X-API-KEY: <key>` or `Authorization: Bearer <key>`. Designed for instructor dashboards and external AI-agent visualizations.",
         responseExample: `{
   "semesterId": "fall-2026-fin101",
   "courseCode": "FIN101",
