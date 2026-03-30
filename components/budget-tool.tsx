@@ -651,6 +651,16 @@ export function BudgetTool({
                           }}
                         />
                       </div>
+                      <div className="field">
+                        <label>Date received</label>
+                        <input
+                          type="date"
+                          value={item.date ?? ""}
+                          onChange={(event) => {
+                            updateActualItem(actualIncome, setActualIncome, item.id, "date", event.target.value);
+                          }}
+                        />
+                      </div>
                     </div>
                     <button
                       aria-label={`Remove ${item.label}`}

@@ -795,6 +795,52 @@ const endpointGroups: EndpointGroup[] = [
     }
   ]
 }`
+      },
+      {
+        id: "race-progress",
+        method: "GET",
+        path: "/api/org/race",
+        title: "Get course progress",
+        auth: "API Key",
+        description: "Returns milestone progress for every enrolled student in a course, sorted alphabetically by last name then first name. Each student has 6 static milestones plus one milestone per calendar month spanned by the course's start and end dates. The monthly actuals milestone is complete when the student has recorded both income and expense entries with dates in that month. Designed for instructor dashboards and external AI-agent race visualizations.",
+        responseExample: `{
+  "semesterId": "fall-2026-fin101",
+  "courseCode": "FIN101",
+  "title": "Fall 2026 Personal Finance",
+  "maxScore": 11,
+  "staticMilestones": [
+    "enrolled",
+    "budget_started",
+    "budget_submitted",
+    "debt_started",
+    "debt_submitted",
+    "assistant_used"
+  ],
+  "actualMonths": ["2026-08", "2026-09", "2026-10", "2026-11", "2026-12"],
+  "students": [
+    {
+      "studentId": "uid_abc",
+      "firstName": "Alex",
+      "lastName": "Rivera",
+      "score": 8,
+      "milestones": {
+        "enrolled": true,
+        "budget_started": true,
+        "budget_submitted": true,
+        "debt_started": true,
+        "debt_submitted": false,
+        "assistant_used": true,
+        "actuals": {
+          "2026-08": true,
+          "2026-09": true,
+          "2026-10": false,
+          "2026-11": false,
+          "2026-12": false
+        }
+      }
+    }
+  ]
+}`
       }
     ]
   }

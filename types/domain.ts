@@ -132,7 +132,9 @@ export interface ActualItem {
   label: string;
   /** Monthly dollar amount actually received / spent / saved */
   amount: number;
-  /** ISO date string for when the expense occurred, e.g. "2026-03-15" (expenses only) */
+  /** ISO date string for when this item occurred, e.g. "2026-03-15".
+   *  Required for income and expense items to enable monthly milestone tracking.
+   *  Optional for savings. */
   date?: string;
   /** Spending category for grouping and budget comparison (expenses only) */
   category?: string;

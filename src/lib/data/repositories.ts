@@ -1261,3 +1261,104 @@ export async function deleteChatConversation(id: string): Promise<void> {
   const adminDb = getAdminDb();
   await adminDb.collection("chat_conversations").doc(id).delete();
 }
+
+function buildActualMonths(startsAt?: string, endsAt?: string): string[] {
+  if (!startsAt || !endsAt) return [];
+  const end = new Date(endsAt);
+  const months: string[] = [];
+  const current = new Date(new Date(startsAt).getFullYear(), new Date(startsAt).getMonth(), 1);
+  while (current <= end) {
+    months.push(`${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`);
+    current.setMonth(current.getMonth() + 1);
+  }
+  return months;
+}
+
+export async function getRaceProgress(semesterId: string, organizationId: string) {
+  const adminDb = getAdminDb();
+
+  const semester = await getSemesterById(semesterId);
+  if (!semester || semester.orgId !== organizationId) return null;
+
+  const enrollmentsSnap = await adminDb
+    .collection("student_enrollments")
+    .where("semesterId", "==", semesterId)
+    .where("organizationId", "==", organizationId)
+    .get();
+
+  const enrollments = enrollmentsSnap.docs.map((doc) => ({
+    userId: String(doc.data().userId ?? "")
+  }));
+
+  const actualMonths = buildActualMonths(semester.startsAt, semester.endsAt);
+  const maxScore = 6 + actualMonths.length;
+
+  const students = await Promise.all(
+    enrollments.map(async ({ userId }) => {
+      const [userSnap, budgetSnap, debtSnap, actualsSnap, chatSnap] = await Promise.all([
+        adminDb.collection("users").doc(userId).get(),
+        adminDb.collection("budget_drafts").doc(`${semesterId}_${userId}`).get(),
+        adminDb.collection("debt_scenarios").doc(`${semesterId}_${userId}`).get(),
+        adminDb.collection("budget_actuals").doc(`${semesterId}_${userId}`).get(),
+        adminDb
+          .collection("chat_conversations")
+          .where("userId", "==", userId)
+          .where("semesterId", "==", semesterId)
+          .limit(1)
+          .get()
+      ]);
+
+      const budgetData = budgetSnap.data() as Record<string, unknown> | undefined;
+      const debtData = debtSnap.data() as Record<string, unknown> | undefined;
+      const actualsData = actualsSnap.data() as Record<string, unknown> | undefined;
+
+      const hasIncome = Array.isArray(budgetData?.income) && (budgetData.income as unknown[]).length > 0;
+      const hasExpenses = Array.isArray(budgetData?.expenses) && (budgetData.expenses as unknown[]).length > 0;
+
+      const actualIncomeItems = (actualsData?.actualIncome ?? []) as Array<{ date?: string }>;
+      const actualExpenseItems = (actualsData?.actualExpenses ?? []) as Array<{ date?: string }>;
+
+      const actualsProgress: Record<string, boolean> = {};
+      for (const month of actualMonths) {
+        actualsProgress[month] =
+          actualIncomeItems.some((i) => i.date?.startsWith(month)) &&
+          actualExpenseItems.some((i) => i.date?.startsWith(month));
+      }
+
+      const staticFlags = {
+        enrolled: true,
+        budget_started: budgetSnap.exists && (hasIncome || hasExpenses),
+        budget_submitted: budgetSnap.exists && Boolean(budgetData?.isFinal),
+        debt_started: debtSnap.exists,
+        debt_submitted: debtSnap.exists && Boolean(debtData?.isFinal),
+        assistant_used: !chatSnap.empty
+      };
+
+      const score =
+        Object.values(staticFlags).filter(Boolean).length +
+        Object.values(actualsProgress).filter(Boolean).length;
+
+      const fullName = String(userSnap.data()?.fullName ?? "");
+      const spaceIdx = fullName.indexOf(" ");
+      const firstName = spaceIdx > -1 ? fullName.slice(0, spaceIdx) : fullName;
+      const lastName = spaceIdx > -1 ? fullName.slice(spaceIdx + 1) : "";
+
+      return {
+        studentId: userId,
+        firstName,
+        lastName,
+        score,
+        milestones: { ...staticFlags, actuals: actualsProgress }
+      };
+    })
+  );
+
+  return {
+    semester,
+    actualMonths,
+    maxScore,
+    students: students.sort((a, b) =>
+      a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
+    )
+  };
+}
