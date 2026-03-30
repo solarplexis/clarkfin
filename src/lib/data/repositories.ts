@@ -340,6 +340,20 @@ export async function getStudentRecordById(studentId: string) {
   return mapStudentRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
 }
 
+export async function getStudentRecordByEmail(organizationId: string, email: string) {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("students")
+    .where("organizationId", "==", organizationId)
+    .where("email", "==", email.trim().toLowerCase())
+    .limit(1)
+    .get();
+
+  if (snapshot.empty) return null;
+
+  return mapStudentRecord(snapshot.docs[0].id, snapshot.docs[0].data() as Record<string, unknown>);
+}
+
 export async function listStudentsForOrganization(organizationId: string) {
   const adminDb = getAdminDb();
   const snapshot = await adminDb

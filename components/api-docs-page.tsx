@@ -733,6 +733,42 @@ const endpointGroups: EndpointGroup[] = [
     ]
   },
   {
+    id: "enrollment",
+    label: "Auto-Enrollment",
+    intro: "Server-to-server endpoint for bulk-enrolling students into a course. Accepts the organization API key so external agents can call it directly without a browser session. Each enrolled student receives a unique auto-login URL that signs them into the app without a manual login.",
+    endpoints: [
+      {
+        id: "enroll-bulk",
+        method: "POST",
+        path: "/api/org/enroll",
+        title: "Bulk enroll students",
+        auth: "API Key",
+        description: "Idempotently provisions student accounts and course enrollments, then returns a unique auto-login URL per student. Re-posting the same student and course is a no-op. Partial success is supported — `enrolled` and `errors` are both always present in the response.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "students": [
+    { "firstName": "Alex", "lastName": "Rivera", "email": "alex@college.edu" },
+    { "firstName": "Jordan", "lastName": "Lee", "email": "jordan@college.edu" }
+  ]
+}`,
+        responseExample: `{
+  "ok": true,
+  "enrolled": [
+    {
+      "email": "alex@college.edu",
+      "autoLoginUrl": "https://app.clarkfin.com/api/auto-login?t=<token>"
+    },
+    {
+      "email": "jordan@college.edu",
+      "autoLoginUrl": "https://app.clarkfin.com/api/auto-login?t=<token>"
+    }
+  ],
+  "errors": []
+}`
+      }
+    ]
+  },
+  {
     id: "exports",
     label: "Exports",
     intro: "Server-to-server consumers should use the organization API key. This feed is the main bridge for systems like n8n, agent tools, and institutional data pipelines.",
