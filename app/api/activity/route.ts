@@ -6,7 +6,7 @@ import {
   createActivityLog,
   getStudentEnrollment,
   listRecentActivityForStudent,
-  upsertBudgetActuals,
+  upsertBudgetActualsByMonth,
   upsertBudgetDraft,
   upsertDebtScenario
 } from "@/src/lib/data/repositories";
@@ -182,8 +182,13 @@ export async function POST(request: Request) {
     const actualSavings = sanitizeActualItems(body.actualSavings);
     const actualExpenses = sanitizeActualItems(body.actualExpenses);
     const notes = String(body.notes ?? "");
+    const month = String(body.month ?? "").trim();
 
-    await upsertBudgetActuals({
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return NextResponse.json({ error: "month is required (format: YYYY-MM)." }, { status: 400 });
+    }
+
+    await upsertBudgetActualsByMonth({
       userId: user.uid,
       organizationId: user.organizationId,
       semesterId,
@@ -191,7 +196,7 @@ export async function POST(request: Request) {
       actualSavings,
       actualExpenses,
       notes
-    });
+    }, month);
 
     await createActivityLog({
       userId: user.uid,

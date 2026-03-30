@@ -3,9 +3,9 @@ import { NextResponse } from "next/server";
 import { getCurrentUser } from "@/src/lib/auth/session";
 import {
   createActivityLog,
-  getBudgetActuals,
+  getBudgetActualsByMonth,
   getStudentEnrollment,
-  upsertBudgetActuals
+  upsertBudgetActualsByMonth
 } from "@/src/lib/data/repositories";
 import type { ActualItem } from "@/types/domain";
 
@@ -33,6 +33,7 @@ export async function GET(request: Request) {
 
     const { searchParams } = new URL(request.url);
     const semesterId = (searchParams.get("semesterId") ?? user.activeSemesterId ?? "").trim();
+    const month = (searchParams.get("month") ?? "").trim();
 
     if (!semesterId) {
       return NextResponse.json(
@@ -41,13 +42,17 @@ export async function GET(request: Request) {
       );
     }
 
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return NextResponse.json({ error: "month is required (format: YYYY-MM)." }, { status: 400 });
+    }
+
     const enrollment = await getStudentEnrollment(user.uid, semesterId);
 
     if (!enrollment || enrollment.organizationId !== user.organizationId) {
       return NextResponse.json({ error: "You are not enrolled in that course." }, { status: 403 });
     }
 
-    const actuals = await getBudgetActuals(user.uid, semesterId);
+    const actuals = await getBudgetActualsByMonth(user.uid, semesterId, month);
 
     return NextResponse.json({ ok: true, actuals });
   } catch (error) {
@@ -68,12 +73,17 @@ export async function PUT(request: Request) {
 
     const body = (await request.json()) as Record<string, unknown>;
     const semesterId = String(body.semesterId ?? user.activeSemesterId ?? "").trim();
+    const month = String(body.month ?? "").trim();
 
     if (!semesterId) {
       return NextResponse.json(
         { error: "semesterId is required (or set an active workspace first)." },
         { status: 400 }
       );
+    }
+
+    if (!month || !/^\d{4}-\d{2}$/.test(month)) {
+      return NextResponse.json({ error: "month is required (format: YYYY-MM)." }, { status: 400 });
     }
 
     const enrollment = await getStudentEnrollment(user.uid, semesterId);
@@ -87,7 +97,7 @@ export async function PUT(request: Request) {
     const actualExpenses = sanitizeActualItems(body.actualExpenses);
     const notes = String(body.notes ?? "");
 
-    await upsertBudgetActuals({
+    await upsertBudgetActualsByMonth({
       userId: user.uid,
       organizationId: user.organizationId,
       semesterId,
@@ -95,7 +105,7 @@ export async function PUT(request: Request) {
       actualSavings,
       actualExpenses,
       notes
-    });
+    }, month);
 
     await createActivityLog({
       userId: user.uid,
@@ -112,7 +122,7 @@ export async function PUT(request: Request) {
       }
     });
 
-    const actuals = await getBudgetActuals(user.uid, semesterId);
+    const actuals = await getBudgetActualsByMonth(user.uid, semesterId, month);
 
     return NextResponse.json({ ok: true, actuals });
   } catch (error) {

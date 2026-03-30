@@ -124,6 +124,11 @@ function SectionTable({ title, items, sectionTotal, accentColor, emptyMessage }:
   );
 }
 
+function currentMonthKey(): string {
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+}
+
 export function BudgetTool({
   initialDraft,
   initialActuals,
@@ -267,6 +272,7 @@ export function BudgetTool({
         body: JSON.stringify({
           type: "budget.actuals.save",
           semesterId,
+          month: currentMonthKey(),
           actualIncome,
           actualSavings,
           actualExpenses,
@@ -339,21 +345,27 @@ export function BudgetTool({
   async function refreshBudget() {
     if (!semesterId) return;
     try {
-      const res = await fetch(`/api/student/budget?semesterId=${encodeURIComponent(semesterId)}`);
-      if (!res.ok) return;
-      const json = (await res.json()) as { budget?: BudgetDraft | null; actuals?: BudgetActuals | null };
-      if (json.budget) {
-        setIncome(json.budget.income ?? []);
-        setSavings(json.budget.savings ?? []);
-        setExpenses(json.budget.expenses ?? []);
-        setNotes(json.budget.notes ?? "");
-        setIsFinal(Boolean(json.budget.isFinal));
+      const month = currentMonthKey();
+      const [budgetRes, actualsRes] = await Promise.all([
+        fetch(`/api/student/budget?semesterId=${encodeURIComponent(semesterId)}`),
+        fetch(`/api/student/budget/actuals?semesterId=${encodeURIComponent(semesterId)}&month=${encodeURIComponent(month)}`)
+      ]);
+      if (budgetRes.ok) {
+        const json = (await budgetRes.json()) as { budget?: BudgetDraft | null };
+        if (json.budget) {
+          setIncome(json.budget.income ?? []);
+          setSavings(json.budget.savings ?? []);
+          setExpenses(json.budget.expenses ?? []);
+          setNotes(json.budget.notes ?? "");
+          setIsFinal(Boolean(json.budget.isFinal));
+        }
       }
-      if (json.actuals) {
-        setActualIncome(json.actuals.actualIncome ?? []);
-        setActualSavings(json.actuals.actualSavings ?? []);
-        setActualExpenses(json.actuals.actualExpenses ?? []);
-        setActualsNotes(json.actuals.notes ?? "");
+      if (actualsRes.ok) {
+        const json = (await actualsRes.json()) as { actuals?: BudgetActuals | null };
+        setActualIncome(json.actuals?.actualIncome ?? []);
+        setActualSavings(json.actuals?.actualSavings ?? []);
+        setActualExpenses(json.actuals?.actualExpenses ?? []);
+        setActualsNotes(json.actuals?.notes ?? "");
       }
     } catch {
       // silent — assistant will still work

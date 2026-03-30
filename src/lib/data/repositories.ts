@@ -1036,6 +1036,72 @@ export async function upsertBudgetActuals(
   });
 }
 
+export async function getBudgetActualsByMonth(userId: string, semesterId: string, monthKey: string) {
+  const adminDb = getAdminDb();
+  const monthlySnapshot = await adminDb
+    .collection("budget_actuals_monthly")
+    .doc(`${semesterId}_${userId}_${monthKey}`)
+    .get();
+
+  if (monthlySnapshot.exists) {
+    const data = monthlySnapshot.data() as Record<string, unknown>;
+    return mapDoc<BudgetActuals>(monthlySnapshot.id, {
+      userId: String(data.userId ?? ""),
+      organizationId: String(data.organizationId ?? ""),
+      semesterId: String(data.semesterId ?? ""),
+      actualIncome: (data.actualIncome ?? []) as ActualItem[],
+      actualSavings: (data.actualSavings ?? []) as ActualItem[],
+      actualExpenses: (data.actualExpenses ?? []) as ActualItem[],
+      notes: String(data.notes ?? ""),
+      updatedAt: toIso(data.updatedAt)
+    });
+  }
+
+  // Fall back to the legacy single-doc actuals only for the current month
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  if (monthKey !== currentMonthKey) {
+    return null;
+  }
+
+  const legacySnapshot = await adminDb
+    .collection("budget_actuals")
+    .doc(`${semesterId}_${userId}`)
+    .get();
+
+  if (!legacySnapshot.exists) {
+    return null;
+  }
+
+  const data = legacySnapshot.data() as Record<string, unknown>;
+  return mapDoc<BudgetActuals>(legacySnapshot.id, {
+    userId: String(data.userId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    actualIncome: (data.actualIncome ?? []) as ActualItem[],
+    actualSavings: (data.actualSavings ?? []) as ActualItem[],
+    actualExpenses: (data.actualExpenses ?? []) as ActualItem[],
+    notes: String(data.notes ?? ""),
+    updatedAt: toIso(data.updatedAt)
+  });
+}
+
+export async function upsertBudgetActualsByMonth(
+  actuals: Omit<BudgetActuals, "id" | "updatedAt">,
+  monthKey: string
+) {
+  const adminDb = getAdminDb();
+  const ref = adminDb
+    .collection("budget_actuals_monthly")
+    .doc(`${actuals.semesterId}_${actuals.userId}_${monthKey}`);
+
+  await ref.set({
+    ...actuals,
+    monthKey,
+    updatedAt: FieldValue.serverTimestamp()
+  });
+}
+
 export async function getDebtScenario(userId: string, semesterId: string) {
   const adminDb = getAdminDb();
   const snapshot = await adminDb

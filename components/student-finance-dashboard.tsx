@@ -1,4 +1,7 @@
+"use client";
+
 import Link from "next/link";
+import { useState } from "react";
 
 import { StudentWorkspaceSwitcher } from "@/components/student-workspace-switcher";
 import type { ActivityLog, BudgetActuals, BudgetDraft, BudgetItem, DebtScenario, UserProfile } from "@/types/domain";
@@ -18,11 +21,24 @@ interface EnrollmentOption {
 interface Props {
   user: UserProfile;
   budget: BudgetDraft | null;
-  actuals: BudgetActuals | null;
+  initialActuals: BudgetActuals | null;
+  initialMonth: string;
+  semesterId?: string;
   debt: DebtScenario | null;
   recentActivity: ActivityLog[];
   workspace: Workspace | null;
   enrollmentOptions: EnrollmentOption[];
+}
+
+function formatMonthDisplay(monthKey: string): string {
+  const [year, month] = monthKey.split("-").map(Number);
+  return new Date(year, month - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
+}
+
+function shiftMonth(monthKey: string, delta: number): string {
+  const [year, month] = monthKey.split("-").map(Number);
+  const d = new Date(year, month - 1 + delta, 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 }
 
 const FREQ_TO_MONTHLY: Record<string, number> = {
@@ -97,12 +113,33 @@ function CategoryBar({ amount, max, label }: { amount: number; max: number; labe
 export function StudentFinanceDashboard({
   user,
   budget,
-  actuals,
+  initialActuals,
+  initialMonth,
+  semesterId,
   debt,
   recentActivity,
   workspace,
   enrollmentOptions
 }: Props) {
+  const [selectedMonth, setSelectedMonth] = useState(initialMonth);
+  const [actuals, setActuals] = useState<BudgetActuals | null>(initialActuals);
+  const [isLoadingActuals, setIsLoadingActuals] = useState(false);
+
+  async function loadActualsForMonth(monthKey: string) {
+    if (!semesterId) return;
+    setIsLoadingActuals(true);
+    try {
+      const res = await fetch(
+        `/api/student/budget/actuals?semesterId=${encodeURIComponent(semesterId)}&month=${encodeURIComponent(monthKey)}`
+      );
+      if (!res.ok) return;
+      const json = (await res.json()) as { actuals?: BudgetActuals | null };
+      setActuals(json.actuals ?? null);
+    } finally {
+      setIsLoadingActuals(false);
+    }
+  }
+
   const totalIncome = budget?.income.reduce((s, i) => s + toMonthly(i), 0) ?? 0;
   const totalSavings = (budget?.savings ?? []).reduce((s, i) => s + toMonthly(i), 0);
   const totalExpenses = budget?.expenses.reduce((s, i) => s + toMonthly(i), 0) ?? 0;
@@ -113,9 +150,6 @@ export function StudentFinanceDashboard({
   const totalActualSavings = (actuals?.actualSavings ?? []).reduce((s, i) => s + i.amount, 0);
   const totalActualExpenses = (actuals?.actualExpenses ?? []).reduce((s, i) => s + i.amount, 0);
   const actualFCF = totalActualIncome - totalActualSavings - totalActualExpenses;
-  const hasActuals = actuals !== null && (
-    actuals.actualIncome.length > 0 || actuals.actualExpenses.length > 0 || actuals.actualSavings.length > 0
-  );
 
   const expensesSorted = [...(budget?.expenses ?? [])].sort((a, b) => toMonthly(b) - toMonthly(a));
   const maxExpense = expensesSorted.length > 0 ? toMonthly(expensesSorted[0]) : 0;
@@ -137,7 +171,35 @@ export function StudentFinanceDashboard({
           <h1>My Finances</h1>
           <p>{courseLabel ?? "No active course — select one below"}</p>
         </div>
-
+        <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Previous month"
+            onClick={() => {
+              const prev = shiftMonth(selectedMonth, -1);
+              setSelectedMonth(prev);
+              void loadActualsForMonth(prev);
+            }}
+          >
+            ←
+          </button>
+          <span style={{ fontSize: "0.85rem", fontWeight: 600, minWidth: 110, textAlign: "center", opacity: isLoadingActuals ? 0.5 : 1 }}>
+            {formatMonthDisplay(selectedMonth)}
+          </span>
+          <button
+            className="icon-button"
+            type="button"
+            aria-label="Next month"
+            onClick={() => {
+              const next = shiftMonth(selectedMonth, 1);
+              setSelectedMonth(next);
+              void loadActualsForMonth(next);
+            }}
+          >
+            →
+          </button>
+        </div>
       </div>
 
       {/* ── Top stat strip ──────────────────────────────────────── */}
@@ -145,25 +207,19 @@ export function StudentFinanceDashboard({
         <div className="fin-stat">
           <div className="fin-stat-label">Monthly Income</div>
           <div className="fin-stat-value fin-positive">{fmt(totalIncome)}</div>
-          <div className="fin-stat-sub">
-            {hasActuals ? `Actual: ${fmtExact(totalActualIncome)}` : budget ? `${budget.income.length} source${budget.income.length !== 1 ? "s" : ""}` : "—"}
-          </div>
+          <div className="fin-stat-sub">{hasBudget ? `Actual: ${fmtExact(totalActualIncome)}` : "—"}</div>
         </div>
         {totalSavings > 0 && (
           <div className="fin-stat">
             <div className="fin-stat-label">Monthly Savings</div>
             <div className="fin-stat-value" style={{ color: "var(--accent)" }}>{fmt(totalSavings)}</div>
-            <div className="fin-stat-sub">
-              {hasActuals ? `Actual: ${fmtExact(totalActualSavings)}` : `${(budget?.savings ?? []).length} goal${(budget?.savings ?? []).length !== 1 ? "s" : ""}`}
-            </div>
+            <div className="fin-stat-sub">{`Actual: ${fmtExact(totalActualSavings)}`}</div>
           </div>
         )}
         <div className="fin-stat">
           <div className="fin-stat-label">Monthly Expenses</div>
           <div className="fin-stat-value">{fmt(totalExpenses)}</div>
-          <div className="fin-stat-sub">
-            {hasActuals ? `Actual: ${fmtExact(totalActualExpenses)}` : budget ? `${budget.expenses.length} categor${budget.expenses.length !== 1 ? "ies" : "y"}` : "—"}
-          </div>
+          <div className="fin-stat-sub">{hasBudget ? `Actual: ${fmtExact(totalActualExpenses)}` : "—"}</div>
         </div>
         <div className="fin-stat">
           <div className="fin-stat-label">Free Cash Flow</div>
@@ -171,13 +227,7 @@ export function StudentFinanceDashboard({
             {balancePositive ? "+" : ""}{fmt(balance)}
           </div>
           <div className="fin-stat-sub">
-            {hasActuals
-              ? `Actual: ${actualFCF >= 0 ? "+" : ""}${fmtExact(actualFCF)}`
-              : hasBudget
-                ? balancePositive
-                  ? "Surplus — you're on track"
-                  : "Deficit — review expenses"
-                : "—"}
+            {hasBudget ? `Actual: ${actualFCF >= 0 ? "+" : ""}${fmtExact(actualFCF)}` : "—"}
           </div>
         </div>
         {hasDebt && (
@@ -201,9 +251,9 @@ export function StudentFinanceDashboard({
       </div>
 
       {/* ── Budget vs Actual ────────────────────────────────────── */}
-      {hasBudget && hasActuals && (
+      {hasBudget && (
         <>
-          <div className="fin-section-label">Budget vs Actual</div>
+          <div className="fin-section-label">Budget vs Actual — {formatMonthDisplay(selectedMonth)}</div>
           <div className="card">
             <table className="budget-table" style={{ width: "100%" }}>
               <thead>
