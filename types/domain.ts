@@ -87,6 +87,9 @@ export interface UserProfile {
   role: UserRole;
   organizationId?: string;
   activeSemesterId?: string;
+  currentAge?: number;
+  targetRetirementAge?: number;
+  retirementNetWorthTarget?: number;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -207,4 +210,118 @@ export interface OrganizationCreationResult {
   organization: Organization;
   orgAdmin: Pick<UserProfile, "uid" | "fullName" | "email" | "role" | "organizationId">;
   apiKey: string;
+}
+
+// ─── Goals ────────────────────────────────────────────────────
+
+export type GoalType = "short_term" | "long_term" | "emergency_fund" | "retirement";
+
+export interface Goal {
+  id: string;
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  label: string;
+  goalType: GoalType;
+  targetAmount: number;
+  targetDate?: string;
+  savedToDate: number;
+  priorityOrder: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Debts ────────────────────────────────────────────────────
+
+export type DebtCategory = "student_loan" | "mortgage" | "credit_card" | "car" | "other";
+
+export interface Debt {
+  id: string;
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  category: DebtCategory;
+  label: string;
+  originalBalance: number;
+  currentBalance: number;
+  monthlyPayment: number;
+  /** Annual interest rate as a percentage, e.g. 5.5 for 5.5%. */
+  interestRate: number;
+  repaymentGoalDate?: string;
+  isCreditCard: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Income Statement entries ─────────────────────────────────
+
+export type IncomeEntryCategory = "gross_pay" | "taxes" | "bonus" | "interest" | "other";
+
+export interface IncomeEntry {
+  id: string;
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  /** Calendar year, e.g. 2026. Use 0 for the Month 0 baseline. */
+  periodYear: number;
+  /** Calendar month 1–12. Use 0 for the Month 0 baseline. */
+  periodMonth: number;
+  /** 0 = whole-month entry; 1–4 = week number. */
+  periodWeek: number;
+  category: IncomeEntryCategory;
+  label: string;
+  amount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Expense Statement entries ────────────────────────────────
+
+export type ExpenseCategory = "essential" | "debt" | "discretionary";
+
+export interface ExpenseEntry {
+  id: string;
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  periodYear: number;
+  periodMonth: number;
+  periodWeek: number;
+  category: ExpenseCategory;
+  label: string;
+  amount: number;
+  isRecurring: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Assets ───────────────────────────────────────────────────
+
+export type AssetCategory = "liquid" | "investment" | "property" | "retirement" | "other";
+
+export interface Asset {
+  id: string;
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  category: AssetCategory;
+  label: string;
+  currentValue: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// ─── Allocation Target ────────────────────────────────────────
+
+export interface AllocationTarget {
+  id: string;
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  /** All four percentages must sum to 100. */
+  essentialPct: number;
+  debtPct: number;
+  discretionaryPct: number;
+  savingsPct: number;
+  updatedAt: string;
 }

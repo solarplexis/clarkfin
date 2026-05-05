@@ -78,6 +78,16 @@ const endpointGroups: EndpointGroup[] = [
         responseExample: `{
   "ok": true
 }`
+      },
+      {
+        id: "session-refresh",
+        method: "GET",
+        path: "/api/session/refresh",
+        title: "Refresh session cookie",
+        auth: "Session",
+        description: "Renews the session cookie for another 14 days without requiring Firebase re-authentication. Accepts a `next` query parameter for a post-refresh redirect path. Redirects to `/login` when no valid session cookie exists.",
+        responseExample: `// 302 redirect to ?next= path (default: /app/student)
+// Sets a renewed session cookie with 14-day expiry`
       }
     ]
   },
@@ -541,6 +551,508 @@ const endpointGroups: EndpointGroup[] = [
 }`,
         responseExample: `{
   "ok": true
+}`
+      }
+    ]
+  },
+  {
+    id: "student-financial-plan",
+    label: "Student Financial Plan",
+    intro: "CRUD endpoints for the student's enrollment-scoped financial data: allocation targets, goals, debts, assets, and the income/expense statement. All routes require a student session and verify enrollment in the target course. Pass `semesterId` in the request body (mutating) or as a query parameter (reading). Omitting `semesterId` falls back to the student's active workspace.",
+    endpoints: [
+      {
+        id: "allocation-get",
+        method: "GET",
+        path: "/api/student/allocation",
+        title: "Get allocation target",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Returns the student's budget allocation target for the course. The four percentages — essential, debt, discretionary, and savings — must sum to 100.",
+        responseExample: `{
+  "ok": true,
+  "allocation": {
+    "essentialPct": 50,
+    "debtPct": 20,
+    "discretionaryPct": 15,
+    "savingsPct": 15
+  }
+}`
+      },
+      {
+        id: "allocation-put",
+        method: "PUT" as HttpMethod,
+        path: "/api/student/allocation",
+        title: "Set allocation target",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Creates or replaces the student's budget allocation target. All four percentages are required and must sum to 100.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "essentialPct": 50,
+  "debtPct": 20,
+  "discretionaryPct": 15,
+  "savingsPct": 15
+}`,
+        responseExample: `{
+  "ok": true,
+  "allocation": {
+    "essentialPct": 50,
+    "debtPct": 20,
+    "discretionaryPct": 15,
+    "savingsPct": 15
+  }
+}`
+      },
+      {
+        id: "goals-list",
+        method: "GET",
+        path: "/api/student/goals",
+        title: "List goals",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Returns the student's financial goals for the course, ordered by `priorityOrder`. Goal types: `short_term`, `long_term`, `emergency_fund`, `retirement`.",
+        responseExample: `{
+  "ok": true,
+  "goals": [
+    {
+      "id": "goal_abc",
+      "label": "Emergency Fund",
+      "goalType": "emergency_fund",
+      "targetAmount": 6000,
+      "savedToDate": 1200,
+      "priorityOrder": 1,
+      "targetDate": "2027-06"
+    }
+  ]
+}`
+      },
+      {
+        id: "goals-create",
+        method: "POST",
+        path: "/api/student/goals",
+        title: "Create goal",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Creates a new financial goal for the student's enrollment.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "label": "Emergency Fund",
+  "goalType": "emergency_fund",
+  "targetAmount": 6000,
+  "savedToDate": 0,
+  "priorityOrder": 1,
+  "targetDate": "2027-06"
+}`,
+        responseExample: `{
+  "ok": true,
+  "goal": {
+    "id": "goal_abc",
+    "label": "Emergency Fund",
+    "goalType": "emergency_fund",
+    "targetAmount": 6000,
+    "priorityOrder": 1
+  }
+}`
+      },
+      {
+        id: "goals-update",
+        method: "PUT" as HttpMethod,
+        path: "/api/student/goals/{goalId}",
+        title: "Update goal",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Replaces all mutable fields on a goal. All fields shown in the request are required.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "label": "Emergency Fund",
+  "goalType": "emergency_fund",
+  "targetAmount": 6000,
+  "savedToDate": 1200,
+  "priorityOrder": 1,
+  "targetDate": "2027-06"
+}`,
+        responseExample: `{
+  "ok": true,
+  "goal": { "id": "goal_abc", "savedToDate": 1200 }
+}`
+      },
+      {
+        id: "goals-delete",
+        method: "DELETE",
+        path: "/api/student/goals/{goalId}",
+        title: "Delete goal",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Permanently deletes a goal. The enrollment-ownership check is enforced server-side.",
+        responseExample: `{ "ok": true }`
+      },
+      {
+        id: "debts-list",
+        method: "GET",
+        path: "/api/student/debts",
+        title: "List debts",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Returns the student's debt records for the course. Debt categories: `student_loan`, `credit_card`, `auto`, `personal`, `mortgage`, `other`. `isCreditCard` is derived from category.",
+        responseExample: `{
+  "ok": true,
+  "debts": [
+    {
+      "id": "debt_xyz",
+      "label": "Visa Card",
+      "category": "credit_card",
+      "isCreditCard": true,
+      "originalBalance": 3000,
+      "currentBalance": 2400,
+      "monthlyPayment": 150,
+      "interestRate": 21.99
+    }
+  ]
+}`
+      },
+      {
+        id: "debts-create",
+        method: "POST",
+        path: "/api/student/debts",
+        title: "Create debt",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Creates a new debt record.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "label": "Visa Card",
+  "category": "credit_card",
+  "originalBalance": 3000,
+  "currentBalance": 2400,
+  "monthlyPayment": 150,
+  "interestRate": 21.99
+}`,
+        responseExample: `{
+  "ok": true,
+  "debt": { "id": "debt_xyz", "label": "Visa Card" }
+}`
+      },
+      {
+        id: "debts-update",
+        method: "PUT" as HttpMethod,
+        path: "/api/student/debts/{debtId}",
+        title: "Update debt",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Replaces all mutable fields on a debt record.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "label": "Visa Card",
+  "category": "credit_card",
+  "originalBalance": 3000,
+  "currentBalance": 2200,
+  "monthlyPayment": 200,
+  "interestRate": 21.99
+}`,
+        responseExample: `{
+  "ok": true,
+  "debt": { "id": "debt_xyz", "currentBalance": 2200 }
+}`
+      },
+      {
+        id: "debts-delete",
+        method: "DELETE",
+        path: "/api/student/debts/{debtId}",
+        title: "Delete debt",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Permanently deletes a debt record.",
+        responseExample: `{ "ok": true }`
+      },
+      {
+        id: "assets-list",
+        method: "GET",
+        path: "/api/student/assets",
+        title: "List assets",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Returns the student's asset records for the course. Asset categories: `liquid`, `investment`, `property`, `retirement`, `other`.",
+        responseExample: `{
+  "ok": true,
+  "assets": [
+    {
+      "id": "asset_q1",
+      "label": "Checking Account",
+      "category": "liquid",
+      "currentValue": 1800
+    }
+  ]
+}`
+      },
+      {
+        id: "assets-create",
+        method: "POST",
+        path: "/api/student/assets",
+        title: "Create asset",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Creates a new asset record.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "label": "Checking Account",
+  "category": "liquid",
+  "currentValue": 1800
+}`,
+        responseExample: `{
+  "ok": true,
+  "asset": { "id": "asset_q1", "label": "Checking Account" }
+}`
+      },
+      {
+        id: "assets-update",
+        method: "PUT" as HttpMethod,
+        path: "/api/student/assets/{assetId}",
+        title: "Update asset",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Replaces all mutable fields on an asset record.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "label": "Checking Account",
+  "category": "liquid",
+  "currentValue": 2100
+}`,
+        responseExample: `{
+  "ok": true,
+  "asset": { "id": "asset_q1", "currentValue": 2100 }
+}`
+      },
+      {
+        id: "assets-delete",
+        method: "DELETE",
+        path: "/api/student/assets/{assetId}",
+        title: "Delete asset",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Permanently deletes an asset record.",
+        responseExample: `{ "ok": true }`
+      },
+      {
+        id: "income-entries-list",
+        method: "GET",
+        path: "/api/student/income-entries",
+        title: "List income entries",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Returns income statement entries for the course. Filter by `periodYear` and `periodMonth`. Use `periodYear=0&periodMonth=0` for baseline (onboarding) entries. Income entry categories: `gross_pay`, `taxes`, `other`.",
+        responseExample: `{
+  "ok": true,
+  "entries": [
+    {
+      "id": "inc_abc",
+      "category": "gross_pay",
+      "label": "Work Study",
+      "amount": 1200,
+      "periodYear": 2026,
+      "periodMonth": 10,
+      "periodWeek": 0
+    }
+  ]
+}`
+      },
+      {
+        id: "income-entries-create",
+        method: "POST",
+        path: "/api/student/income-entries",
+        title: "Create income entry",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Creates an income statement entry. `periodWeek` 0 = whole-month entry; 1–4 = week number. Use `periodYear=0, periodMonth=0` for baseline entries.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "category": "gross_pay",
+  "label": "Work Study",
+  "amount": 1200,
+  "periodYear": 2026,
+  "periodMonth": 10,
+  "periodWeek": 0
+}`,
+        responseExample: `{
+  "ok": true,
+  "entry": { "id": "inc_abc", "category": "gross_pay", "amount": 1200 }
+}`
+      },
+      {
+        id: "income-entries-update",
+        method: "PUT" as HttpMethod,
+        path: "/api/student/income-entries/{entryId}",
+        title: "Update income entry",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Replaces all mutable fields on an income entry.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "category": "gross_pay",
+  "label": "Work Study",
+  "amount": 1400,
+  "periodYear": 2026,
+  "periodMonth": 10,
+  "periodWeek": 0
+}`,
+        responseExample: `{
+  "ok": true,
+  "entry": { "id": "inc_abc", "amount": 1400 }
+}`
+      },
+      {
+        id: "income-entries-delete",
+        method: "DELETE",
+        path: "/api/student/income-entries/{entryId}",
+        title: "Delete income entry",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Permanently deletes an income entry.",
+        responseExample: `{ "ok": true }`
+      },
+      {
+        id: "expense-entries-list",
+        method: "GET",
+        path: "/api/student/expense-entries",
+        title: "List expense entries",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Returns expense statement entries for the course. Filter by `periodYear` and `periodMonth`. Expense categories: `essential`, `debt`, `discretionary`. `isRecurring` flags subscription entries.",
+        responseExample: `{
+  "ok": true,
+  "entries": [
+    {
+      "id": "exp_abc",
+      "category": "discretionary",
+      "label": "Spotify",
+      "amount": 11,
+      "isRecurring": true,
+      "periodYear": 2026,
+      "periodMonth": 10,
+      "periodWeek": 2
+    }
+  ]
+}`
+      },
+      {
+        id: "expense-entries-create",
+        method: "POST",
+        path: "/api/student/expense-entries",
+        title: "Create expense entry",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Creates an expense statement entry. Discretionary entries with a `periodWeek` of 1–4 appear in the Weekly Budget Planner. Set `isRecurring: true` to flag subscription charges.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "category": "discretionary",
+  "label": "Spotify",
+  "amount": 11,
+  "isRecurring": true,
+  "periodYear": 2026,
+  "periodMonth": 10,
+  "periodWeek": 2
+}`,
+        responseExample: `{
+  "ok": true,
+  "entry": { "id": "exp_abc", "isRecurring": true }
+}`
+      },
+      {
+        id: "expense-entries-update",
+        method: "PUT" as HttpMethod,
+        path: "/api/student/expense-entries/{entryId}",
+        title: "Update expense entry",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Replaces all mutable fields on an expense entry.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "category": "discretionary",
+  "label": "Spotify",
+  "amount": 11,
+  "isRecurring": true,
+  "periodYear": 2026,
+  "periodMonth": 10,
+  "periodWeek": 2
+}`,
+        responseExample: `{
+  "ok": true,
+  "entry": { "id": "exp_abc", "amount": 11 }
+}`
+      },
+      {
+        id: "expense-entries-delete",
+        method: "DELETE",
+        path: "/api/student/expense-entries/{entryId}",
+        title: "Delete expense entry",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Permanently deletes an expense entry.",
+        responseExample: `{ "ok": true }`
+      }
+    ]
+  },
+  {
+    id: "ai-assistant",
+    label: "AI Finance Assistant",
+    intro: "Conversational AI assistant that reads the student's budget draft and actuals, interprets natural-language questions, and can update the budget using tool calls. Uses the OpenAI API server-side; the student session is required.",
+    endpoints: [
+      {
+        id: "conversations-list",
+        method: "GET",
+        path: "/api/student/budget/conversations",
+        title: "List conversations",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Returns all AI assistant conversation stubs for the student's enrollment, ordered by most recent.",
+        responseExample: `{
+  "ok": true,
+  "conversations": [
+    {
+      "id": "conv_abc",
+      "title": "How do I pay off my credit card faster?",
+      "createdAt": "2026-10-01T12:00:00Z"
+    }
+  ]
+}`
+      },
+      {
+        id: "conversations-read",
+        method: "GET",
+        path: "/api/student/budget/conversations/{id}",
+        title: "Get conversation",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Returns a full conversation including its message history.",
+        responseExample: `{
+  "ok": true,
+  "conversation": {
+    "id": "conv_abc",
+    "title": "How do I pay off my credit card faster?",
+    "messages": [
+      { "role": "user", "content": "How do I pay off my credit card faster?" },
+      { "role": "assistant", "content": "Increasing your monthly payment..." }
+    ]
+  }
+}`
+      },
+      {
+        id: "assistant-send",
+        method: "POST",
+        path: "/api/student/budget/assistant",
+        title: "Send message to assistant",
+        auth: "Session",
+        role: "STUDENT",
+        description: "Sends a user message to the AI finance assistant and returns the assistant reply along with any budget mutations applied via tool calls. Provide `conversationId` to continue an existing conversation, or omit to start a new one.",
+        requestExample: `{
+  "semesterId": "fall-2026-fin101",
+  "message": "Add $1,200 monthly gross pay from my work-study job.",
+  "conversationId": "conv_abc"
+}`,
+        responseExample: `{
+  "ok": true,
+  "reply": "Done — I've added Work Study ($1,200/mo) to your income.",
+  "conversationId": "conv_abc",
+  "budgetUpdated": true
 }`
       }
     ]

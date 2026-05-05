@@ -1,30 +1,61 @@
+import { redirect } from "next/navigation";
+
 import { DashboardShell } from "@/components/dashboard-shell";
-import { StudentFinanceDashboard } from "@/components/student-finance-dashboard";
+import { StudentDashboard } from "@/components/student-dashboard";
 import { requireRole, resolveStudentWorkspace } from "@/src/lib/auth/session";
 import {
-  getBudgetActualsByMonth,
-  getBudgetDraft,
-  getDebtScenario,
+  getAllocationTarget,
   getSemesterById,
-  listRecentActivityForStudent
+  listAssets,
+  listDebts,
+  listExpenseEntries,
+  listGoals,
+  listIncomeEntries
 } from "@/src/lib/data/repositories";
 
-function currentMonthKey() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December"
+];
 
 export default async function StudentHomePage() {
   const user = await requireRole("STUDENT");
+
+  if (!user.currentAge) {
+    redirect("/app/student/onboarding");
+  }
+
   const workspace = await resolveStudentWorkspace(user);
   const semesterId = workspace?.activeEnrollment?.semesterId;
-  const initialMonth = currentMonthKey();
 
-  const [recentActivity, budget, actuals, debt, enrollmentOptions] = await Promise.all([
-    listRecentActivityForStudent(user.uid),
-    semesterId ? getBudgetDraft(user.uid, semesterId) : Promise.resolve(null),
-    semesterId ? getBudgetActualsByMonth(user.uid, semesterId, initialMonth) : Promise.resolve(null),
-    semesterId ? getDebtScenario(user.uid, semesterId) : Promise.resolve(null),
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
+  const currentMonthLabel = `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`;
+
+  const [
+    goals,
+    debts,
+    assets,
+    allocationTarget,
+    currentMonthIncomeEntries,
+    currentMonthExpenseEntries,
+    baselineEntries,
+    enrollmentOptions
+  ] = await Promise.all([
+    semesterId ? listGoals(user.uid, semesterId) : Promise.resolve([]),
+    semesterId ? listDebts(user.uid, semesterId) : Promise.resolve([]),
+    semesterId ? listAssets(user.uid, semesterId) : Promise.resolve([]),
+    semesterId ? getAllocationTarget(user.uid, semesterId) : Promise.resolve(null),
+    semesterId
+      ? listIncomeEntries(user.uid, semesterId, { periodYear: currentYear, periodMonth: currentMonth })
+      : Promise.resolve([]),
+    semesterId
+      ? listExpenseEntries(user.uid, semesterId, { periodYear: currentYear, periodMonth: currentMonth })
+      : Promise.resolve([]),
+    semesterId
+      ? listIncomeEntries(user.uid, semesterId, { periodYear: 0, periodMonth: 0 })
+      : Promise.resolve([]),
     Promise.all(
       (workspace?.enrollments ?? []).map(async (enrollment) => {
         const semester = await getSemesterById(enrollment.semesterId);
@@ -38,16 +69,19 @@ export default async function StudentHomePage() {
 
   return (
     <DashboardShell user={user}>
-      <StudentFinanceDashboard
+      <StudentDashboard
         user={user}
-        budget={budget}
-        initialActuals={actuals}
-        initialMonth={initialMonth}
-        debt={debt}
-        recentActivity={recentActivity}
+        goals={goals}
+        debts={debts}
+        totalAssets={assets.reduce((s, a) => s + a.currentValue, 0)}
+        allocationTarget={allocationTarget}
+        currentMonthIncomeEntries={currentMonthIncomeEntries}
+        currentMonthExpenseEntries={currentMonthExpenseEntries}
+        baselineEntries={baselineEntries}
         workspace={workspace}
         enrollmentOptions={enrollmentOptions}
         semesterId={semesterId}
+        currentMonthLabel={currentMonthLabel}
       />
     </DashboardShell>
   );

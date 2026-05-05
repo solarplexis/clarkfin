@@ -20,7 +20,10 @@ export function DashboardShell({
           {user.role === "STUDENT" && (
             <>
               <Link href="/app/student"><span>Home</span></Link>
-              <Link href="/app/student/budget"><span>Budget</span></Link>
+              <Link href="/app/student/budget"><span>Income</span></Link>
+              <Link href="/app/student/planner"><span>Planner</span></Link>
+              <Link href="/app/student/balance-sheet"><span>Balance</span></Link>
+              <Link href="/app/student/goals"><span>Goals</span></Link>
               <Link href="/app/student/debt"><span>Debt</span></Link>
             </>
           )}

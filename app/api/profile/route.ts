@@ -49,6 +49,9 @@ export async function PATCH(request: Request) {
     const body = (await request.json()) as {
       fullName?: string;
       avatarUrl?: string;
+      currentAge?: number;
+      targetRetirementAge?: number;
+      retirementNetWorthTarget?: number;
     };
 
     const fullName = String(body.fullName ?? "").trim();
@@ -57,10 +60,17 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: "Full name is required." }, { status: 400 });
     }
 
+    const currentAge = body.currentAge != null ? Number(body.currentAge) : undefined;
+    const targetRetirementAge = body.targetRetirementAge != null ? Number(body.targetRetirementAge) : undefined;
+    const retirementNetWorthTarget = body.retirementNetWorthTarget != null ? Number(body.retirementNetWorthTarget) : undefined;
+
     const profile = await updateUserProfile({
       uid: user.uid,
       fullName,
-      avatarUrl: normalizeImageDataUrl(body.avatarUrl)
+      avatarUrl: normalizeImageDataUrl(body.avatarUrl),
+      currentAge,
+      targetRetirementAge,
+      retirementNetWorthTarget
     });
 
     return NextResponse.json({ ok: true, profile });

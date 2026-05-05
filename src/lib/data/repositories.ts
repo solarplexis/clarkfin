@@ -3,12 +3,23 @@ import { FieldValue, Timestamp } from "firebase-admin/firestore";
 import type {
   ActivityLog,
   ActualItem,
+  AllocationTarget,
+  Asset,
+  AssetCategory,
   BudgetActuals,
   BudgetDraft,
   ChatConversation,
   ChatMessage,
+  Debt,
+  DebtCategory,
   DebtScenario,
+  ExpenseCategory,
+  ExpenseEntry,
   ExportRecord,
+  Goal,
+  GoalType,
+  IncomeEntry,
+  IncomeEntryCategory,
   Organization,
   OrganizationCreationResult,
   Semester,
@@ -147,6 +158,9 @@ export async function getUserProfileById(uid: string) {
     role: data.role as UserProfile["role"],
     organizationId: data.organizationId ? String(data.organizationId) : undefined,
     activeSemesterId: data.activeSemesterId ? String(data.activeSemesterId) : undefined,
+    currentAge: data.currentAge != null ? Number(data.currentAge) : undefined,
+    targetRetirementAge: data.targetRetirementAge != null ? Number(data.targetRetirementAge) : undefined,
+    retirementNetWorthTarget: data.retirementNetWorthTarget != null ? Number(data.retirementNetWorthTarget) : undefined,
     createdAt: toIso(data.createdAt),
     updatedAt: toIso(data.updatedAt)
   } satisfies UserProfile;
@@ -294,12 +308,18 @@ export async function updateUserProfile(input: {
   uid: string;
   fullName: string;
   avatarUrl?: string;
+  currentAge?: number;
+  targetRetirementAge?: number;
+  retirementNetWorthTarget?: number;
 }) {
   const adminDb = getAdminDb();
   await adminDb.collection("users").doc(input.uid).set(
     {
       fullName: input.fullName,
       avatarUrl: input.avatarUrl || null,
+      currentAge: input.currentAge ?? null,
+      targetRetirementAge: input.targetRetirementAge ?? null,
+      retirementNetWorthTarget: input.retirementNetWorthTarget ?? null,
       updatedAt: FieldValue.serverTimestamp()
     },
     { merge: true }
@@ -1375,4 +1395,602 @@ export async function getRaceProgress(semesterId: string, organizationId: string
       a.lastName.localeCompare(b.lastName) || a.firstName.localeCompare(b.firstName)
     )
   };
+}
+
+// ─── Goals ────────────────────────────────────────────────────
+
+const VALID_GOAL_TYPES: GoalType[] = ["short_term", "long_term", "emergency_fund", "retirement"];
+
+function mapGoal(id: string, data: Record<string, unknown>): Goal {
+  return {
+    id,
+    userId: String(data.userId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    label: String(data.label ?? ""),
+    goalType: (data.goalType as GoalType) ?? "short_term",
+    targetAmount: Number(data.targetAmount ?? 0),
+    targetDate: data.targetDate ? String(data.targetDate) : undefined,
+    savedToDate: Number(data.savedToDate ?? 0),
+    priorityOrder: Number(data.priorityOrder ?? 0),
+    createdAt: toIso(data.createdAt),
+    updatedAt: toIso(data.updatedAt)
+  };
+}
+
+export async function listGoals(userId: string, semesterId: string): Promise<Goal[]> {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("goals")
+    .where("userId", "==", userId)
+    .where("semesterId", "==", semesterId)
+    .orderBy("priorityOrder")
+    .get();
+  return snapshot.docs.map((doc) => mapGoal(doc.id, doc.data()));
+}
+
+export async function createGoal(input: {
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  label: string;
+  goalType: GoalType;
+  targetAmount: number;
+  targetDate?: string;
+  savedToDate?: number;
+}): Promise<Goal> {
+  const adminDb = getAdminDb();
+  const existing = await listGoals(input.userId, input.semesterId);
+  const ref = adminDb.collection("goals").doc();
+  await ref.set({
+    userId: input.userId,
+    organizationId: input.organizationId,
+    semesterId: input.semesterId,
+    label: input.label,
+    goalType: input.goalType,
+    targetAmount: input.targetAmount,
+    targetDate: input.targetDate || null,
+    savedToDate: input.savedToDate ?? 0,
+    priorityOrder: existing.length,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  });
+  const snapshot = await ref.get();
+  return mapGoal(ref.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function updateGoal(input: {
+  goalId: string;
+  userId: string;
+  semesterId: string;
+  label: string;
+  goalType: GoalType;
+  targetAmount: number;
+  targetDate?: string;
+  savedToDate: number;
+  priorityOrder: number;
+}): Promise<Goal> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("goals").doc(input.goalId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new Error("Goal not found.");
+  const current = mapGoal(snapshot.id, snapshot.data() as Record<string, unknown>);
+  if (current.userId !== input.userId || current.semesterId !== input.semesterId) {
+    throw new Error("That goal does not belong to this enrollment.");
+  }
+  await ref.set(
+    {
+      label: input.label,
+      goalType: input.goalType,
+      targetAmount: input.targetAmount,
+      targetDate: input.targetDate || null,
+      savedToDate: input.savedToDate,
+      priorityOrder: input.priorityOrder,
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+  const updated = await ref.get();
+  return mapGoal(ref.id, updated.data() as Record<string, unknown>);
+}
+
+export async function deleteGoal(goalId: string, userId: string, semesterId: string): Promise<void> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("goals").doc(goalId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new Error("Goal not found.");
+  const current = mapGoal(snapshot.id, snapshot.data() as Record<string, unknown>);
+  if (current.userId !== userId || current.semesterId !== semesterId) {
+    throw new Error("That goal does not belong to this enrollment.");
+  }
+  await ref.delete();
+}
+
+export { VALID_GOAL_TYPES };
+
+// ─── Debts ────────────────────────────────────────────────────
+
+const VALID_DEBT_CATEGORIES: DebtCategory[] = [
+  "student_loan", "mortgage", "credit_card", "car", "other"
+];
+
+function mapDebt(id: string, data: Record<string, unknown>): Debt {
+  const category = data.category as DebtCategory;
+  return {
+    id,
+    userId: String(data.userId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    category,
+    label: String(data.label ?? ""),
+    originalBalance: Number(data.originalBalance ?? 0),
+    currentBalance: Number(data.currentBalance ?? 0),
+    monthlyPayment: Number(data.monthlyPayment ?? 0),
+    interestRate: Number(data.interestRate ?? 0),
+    repaymentGoalDate: data.repaymentGoalDate ? String(data.repaymentGoalDate) : undefined,
+    isCreditCard: category === "credit_card" || Boolean(data.isCreditCard),
+    createdAt: toIso(data.createdAt),
+    updatedAt: toIso(data.updatedAt)
+  };
+}
+
+export async function listDebts(userId: string, semesterId: string): Promise<Debt[]> {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("debts")
+    .where("userId", "==", userId)
+    .where("semesterId", "==", semesterId)
+    .orderBy("createdAt")
+    .get();
+  return snapshot.docs.map((doc) => mapDebt(doc.id, doc.data()));
+}
+
+export async function createDebt(input: {
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  category: DebtCategory;
+  label: string;
+  originalBalance: number;
+  currentBalance: number;
+  monthlyPayment: number;
+  interestRate?: number;
+  repaymentGoalDate?: string;
+}): Promise<Debt> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("debts").doc();
+  await ref.set({
+    userId: input.userId,
+    organizationId: input.organizationId,
+    semesterId: input.semesterId,
+    category: input.category,
+    label: input.label,
+    originalBalance: input.originalBalance,
+    currentBalance: input.currentBalance,
+    monthlyPayment: input.monthlyPayment,
+    interestRate: input.interestRate ?? 0,
+    repaymentGoalDate: input.repaymentGoalDate || null,
+    isCreditCard: input.category === "credit_card",
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  });
+  const snapshot = await ref.get();
+  return mapDebt(ref.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function updateDebt(input: {
+  debtId: string;
+  userId: string;
+  semesterId: string;
+  category: DebtCategory;
+  label: string;
+  originalBalance: number;
+  currentBalance: number;
+  monthlyPayment: number;
+  interestRate?: number;
+  repaymentGoalDate?: string;
+}): Promise<Debt> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("debts").doc(input.debtId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new Error("Debt not found.");
+  const current = mapDebt(snapshot.id, snapshot.data() as Record<string, unknown>);
+  if (current.userId !== input.userId || current.semesterId !== input.semesterId) {
+    throw new Error("That debt does not belong to this enrollment.");
+  }
+  await ref.set(
+    {
+      category: input.category,
+      label: input.label,
+      originalBalance: input.originalBalance,
+      currentBalance: input.currentBalance,
+      monthlyPayment: input.monthlyPayment,
+      interestRate: input.interestRate ?? 0,
+      repaymentGoalDate: input.repaymentGoalDate || null,
+      isCreditCard: input.category === "credit_card",
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+  const updated = await ref.get();
+  return mapDebt(ref.id, updated.data() as Record<string, unknown>);
+}
+
+export async function deleteDebt(debtId: string, userId: string, semesterId: string): Promise<void> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("debts").doc(debtId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new Error("Debt not found.");
+  const current = mapDebt(snapshot.id, snapshot.data() as Record<string, unknown>);
+  if (current.userId !== userId || current.semesterId !== semesterId) {
+    throw new Error("That debt does not belong to this enrollment.");
+  }
+  await ref.delete();
+}
+
+export { VALID_DEBT_CATEGORIES };
+
+// ─── Income Entries ───────────────────────────────────────────
+
+const VALID_INCOME_CATEGORIES: IncomeEntryCategory[] = [
+  "gross_pay", "taxes", "bonus", "interest", "other"
+];
+
+function mapIncomeEntry(id: string, data: Record<string, unknown>): IncomeEntry {
+  return {
+    id,
+    userId: String(data.userId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    periodYear: Number(data.periodYear ?? 0),
+    periodMonth: Number(data.periodMonth ?? 0),
+    periodWeek: Number(data.periodWeek ?? 0),
+    category: (data.category as IncomeEntryCategory) ?? "other",
+    label: String(data.label ?? ""),
+    amount: Number(data.amount ?? 0),
+    createdAt: toIso(data.createdAt),
+    updatedAt: toIso(data.updatedAt)
+  };
+}
+
+export async function listIncomeEntries(
+  userId: string,
+  semesterId: string,
+  filter?: { periodYear?: number; periodMonth?: number }
+): Promise<IncomeEntry[]> {
+  const adminDb = getAdminDb();
+  let query = adminDb
+    .collection("income_entries")
+    .where("userId", "==", userId)
+    .where("semesterId", "==", semesterId);
+  if (filter?.periodYear != null) {
+    query = query.where("periodYear", "==", filter.periodYear);
+  }
+  if (filter?.periodMonth != null) {
+    query = query.where("periodMonth", "==", filter.periodMonth);
+  }
+  const snapshot = await query.orderBy("periodWeek").get();
+  return snapshot.docs.map((doc) => mapIncomeEntry(doc.id, doc.data()));
+}
+
+export async function createIncomeEntry(input: {
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  periodYear: number;
+  periodMonth: number;
+  periodWeek: number;
+  category: IncomeEntryCategory;
+  label: string;
+  amount: number;
+}): Promise<IncomeEntry> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("income_entries").doc();
+  await ref.set({
+    ...input,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  });
+  const snapshot = await ref.get();
+  return mapIncomeEntry(ref.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function updateIncomeEntry(input: {
+  entryId: string;
+  userId: string;
+  semesterId: string;
+  category: IncomeEntryCategory;
+  label: string;
+  amount: number;
+  periodYear: number;
+  periodMonth: number;
+  periodWeek: number;
+}): Promise<IncomeEntry> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("income_entries").doc(input.entryId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new Error("Income entry not found.");
+  const current = mapIncomeEntry(snapshot.id, snapshot.data() as Record<string, unknown>);
+  if (current.userId !== input.userId || current.semesterId !== input.semesterId) {
+    throw new Error("That entry does not belong to this enrollment.");
+  }
+  await ref.set(
+    {
+      category: input.category,
+      label: input.label,
+      amount: input.amount,
+      periodYear: input.periodYear,
+      periodMonth: input.periodMonth,
+      periodWeek: input.periodWeek,
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+  const updated = await ref.get();
+  return mapIncomeEntry(ref.id, updated.data() as Record<string, unknown>);
+}
+
+export async function deleteIncomeEntry(entryId: string, userId: string, semesterId: string): Promise<void> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("income_entries").doc(entryId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new Error("Income entry not found.");
+  const current = mapIncomeEntry(snapshot.id, snapshot.data() as Record<string, unknown>);
+  if (current.userId !== userId || current.semesterId !== semesterId) {
+    throw new Error("That entry does not belong to this enrollment.");
+  }
+  await ref.delete();
+}
+
+export { VALID_INCOME_CATEGORIES };
+
+// ─── Expense Entries ──────────────────────────────────────────
+
+const VALID_EXPENSE_CATEGORIES: ExpenseCategory[] = ["essential", "debt", "discretionary"];
+
+function mapExpenseEntry(id: string, data: Record<string, unknown>): ExpenseEntry {
+  return {
+    id,
+    userId: String(data.userId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    periodYear: Number(data.periodYear ?? 0),
+    periodMonth: Number(data.periodMonth ?? 0),
+    periodWeek: Number(data.periodWeek ?? 0),
+    category: (data.category as ExpenseCategory) ?? "discretionary",
+    label: String(data.label ?? ""),
+    amount: Number(data.amount ?? 0),
+    isRecurring: Boolean(data.isRecurring ?? false),
+    createdAt: toIso(data.createdAt),
+    updatedAt: toIso(data.updatedAt)
+  };
+}
+
+export async function listExpenseEntries(
+  userId: string,
+  semesterId: string,
+  filter?: { periodYear?: number; periodMonth?: number }
+): Promise<ExpenseEntry[]> {
+  const adminDb = getAdminDb();
+  let query = adminDb
+    .collection("expense_entries")
+    .where("userId", "==", userId)
+    .where("semesterId", "==", semesterId);
+  if (filter?.periodYear != null) {
+    query = query.where("periodYear", "==", filter.periodYear);
+  }
+  if (filter?.periodMonth != null) {
+    query = query.where("periodMonth", "==", filter.periodMonth);
+  }
+  const snapshot = await query.orderBy("periodWeek").get();
+  return snapshot.docs.map((doc) => mapExpenseEntry(doc.id, doc.data()));
+}
+
+export async function createExpenseEntry(input: {
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  periodYear: number;
+  periodMonth: number;
+  periodWeek: number;
+  category: ExpenseCategory;
+  label: string;
+  amount: number;
+  isRecurring?: boolean;
+}): Promise<ExpenseEntry> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("expense_entries").doc();
+  await ref.set({
+    ...input,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  });
+  const snapshot = await ref.get();
+  return mapExpenseEntry(ref.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function updateExpenseEntry(input: {
+  entryId: string;
+  userId: string;
+  semesterId: string;
+  category: ExpenseCategory;
+  label: string;
+  amount: number;
+  periodYear: number;
+  periodMonth: number;
+  periodWeek: number;
+  isRecurring?: boolean;
+}): Promise<ExpenseEntry> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("expense_entries").doc(input.entryId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new Error("Expense entry not found.");
+  const current = mapExpenseEntry(snapshot.id, snapshot.data() as Record<string, unknown>);
+  if (current.userId !== input.userId || current.semesterId !== input.semesterId) {
+    throw new Error("That entry does not belong to this enrollment.");
+  }
+  await ref.set(
+    {
+      category: input.category,
+      label: input.label,
+      amount: input.amount,
+      periodYear: input.periodYear,
+      periodMonth: input.periodMonth,
+      periodWeek: input.periodWeek,
+      isRecurring: input.isRecurring ?? false,
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+  const updated = await ref.get();
+  return mapExpenseEntry(ref.id, updated.data() as Record<string, unknown>);
+}
+
+export async function deleteExpenseEntry(entryId: string, userId: string, semesterId: string): Promise<void> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("expense_entries").doc(entryId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new Error("Expense entry not found.");
+  const current = mapExpenseEntry(snapshot.id, snapshot.data() as Record<string, unknown>);
+  if (current.userId !== userId || current.semesterId !== semesterId) {
+    throw new Error("That entry does not belong to this enrollment.");
+  }
+  await ref.delete();
+}
+
+export { VALID_EXPENSE_CATEGORIES };
+
+// ─── Assets ───────────────────────────────────────────────────
+
+const VALID_ASSET_CATEGORIES: AssetCategory[] = [
+  "liquid", "investment", "property", "retirement", "other"
+];
+
+function mapAsset(id: string, data: Record<string, unknown>): Asset {
+  return {
+    id,
+    userId: String(data.userId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    category: (data.category as AssetCategory) ?? "other",
+    label: String(data.label ?? ""),
+    currentValue: Number(data.currentValue ?? 0),
+    createdAt: toIso(data.createdAt),
+    updatedAt: toIso(data.updatedAt)
+  };
+}
+
+export async function listAssets(userId: string, semesterId: string): Promise<Asset[]> {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("assets")
+    .where("userId", "==", userId)
+    .where("semesterId", "==", semesterId)
+    .orderBy("createdAt")
+    .get();
+  return snapshot.docs.map((doc) => mapAsset(doc.id, doc.data()));
+}
+
+export async function createAsset(input: {
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  category: AssetCategory;
+  label: string;
+  currentValue: number;
+}): Promise<Asset> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("assets").doc();
+  await ref.set({
+    ...input,
+    createdAt: FieldValue.serverTimestamp(),
+    updatedAt: FieldValue.serverTimestamp()
+  });
+  const snapshot = await ref.get();
+  return mapAsset(ref.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function updateAsset(input: {
+  assetId: string;
+  userId: string;
+  semesterId: string;
+  category: AssetCategory;
+  label: string;
+  currentValue: number;
+}): Promise<Asset> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("assets").doc(input.assetId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new Error("Asset not found.");
+  const current = mapAsset(snapshot.id, snapshot.data() as Record<string, unknown>);
+  if (current.userId !== input.userId || current.semesterId !== input.semesterId) {
+    throw new Error("That asset does not belong to this enrollment.");
+  }
+  await ref.set(
+    {
+      category: input.category,
+      label: input.label,
+      currentValue: input.currentValue,
+      updatedAt: FieldValue.serverTimestamp()
+    },
+    { merge: true }
+  );
+  const updated = await ref.get();
+  return mapAsset(ref.id, updated.data() as Record<string, unknown>);
+}
+
+export async function deleteAsset(assetId: string, userId: string, semesterId: string): Promise<void> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("assets").doc(assetId);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) throw new Error("Asset not found.");
+  const current = mapAsset(snapshot.id, snapshot.data() as Record<string, unknown>);
+  if (current.userId !== userId || current.semesterId !== semesterId) {
+    throw new Error("That asset does not belong to this enrollment.");
+  }
+  await ref.delete();
+}
+
+export { VALID_ASSET_CATEGORIES };
+
+// ─── Allocation Target ────────────────────────────────────────
+
+function mapAllocationTarget(id: string, data: Record<string, unknown>): AllocationTarget {
+  return {
+    id,
+    userId: String(data.userId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    essentialPct: Number(data.essentialPct ?? 0),
+    debtPct: Number(data.debtPct ?? 0),
+    discretionaryPct: Number(data.discretionaryPct ?? 0),
+    savingsPct: Number(data.savingsPct ?? 0),
+    updatedAt: toIso(data.updatedAt)
+  };
+}
+
+export async function getAllocationTarget(
+  userId: string,
+  semesterId: string
+): Promise<AllocationTarget | null> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("allocation_targets").doc(`${semesterId}_${userId}`);
+  const snapshot = await ref.get();
+  if (!snapshot.exists) return null;
+  return mapAllocationTarget(snapshot.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function upsertAllocationTarget(
+  input: Omit<AllocationTarget, "id" | "updatedAt">
+): Promise<AllocationTarget> {
+  const adminDb = getAdminDb();
+  const ref = adminDb
+    .collection("allocation_targets")
+    .doc(`${input.semesterId}_${input.userId}`);
+  await ref.set(
+    { ...input, updatedAt: FieldValue.serverTimestamp() },
+    { merge: true }
+  );
+  const snapshot = await ref.get();
+  return mapAllocationTarget(ref.id, snapshot.data() as Record<string, unknown>);
 }

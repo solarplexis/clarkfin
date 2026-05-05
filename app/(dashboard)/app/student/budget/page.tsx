@@ -1,28 +1,44 @@
-import { BudgetTool } from "@/components/budget-tool";
+import { redirect } from "next/navigation";
+
 import { DashboardShell } from "@/components/dashboard-shell";
+import { IncomeStatementTool } from "@/components/income-statement-tool";
 import { requireRole, resolveStudentWorkspace } from "@/src/lib/auth/session";
-import { getBudgetActualsByMonth, getBudgetDraft } from "@/src/lib/data/repositories";
+import { listDebts, listExpenseEntries, listIncomeEntries } from "@/src/lib/data/repositories";
 
-function currentMonthKey() {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-}
-
-export default async function BudgetPage() {
+export default async function IncomeStatementPage() {
   const user = await requireRole("STUDENT");
+
+  if (!user.currentAge) {
+    redirect("/app/student/onboarding");
+  }
+
   const workspace = await resolveStudentWorkspace(user);
   const semesterId = workspace?.activeEnrollment?.semesterId;
-  const [draft, actuals] = await Promise.all([
-    semesterId ? getBudgetDraft(user.uid, semesterId) : null,
-    semesterId ? getBudgetActualsByMonth(user.uid, semesterId, currentMonthKey()) : null
+
+  if (!semesterId) {
+    redirect("/app/student");
+  }
+
+  const now = new Date();
+  const initialYear = now.getFullYear();
+  const initialMonth = now.getMonth() + 1;
+
+  const [incomeEntries, expenseEntries, debts] = await Promise.all([
+    listIncomeEntries(user.uid, semesterId, { periodYear: initialYear, periodMonth: initialMonth }),
+    listExpenseEntries(user.uid, semesterId, { periodYear: initialYear, periodMonth: initialMonth }),
+    listDebts(user.uid, semesterId)
   ]);
-  const semesterLabel = workspace?.activeSemester
-    ? `${workspace.activeSemester.courseCode} · ${workspace.activeSemester.title}`
-    : undefined;
 
   return (
     <DashboardShell user={user}>
-      <BudgetTool initialDraft={draft} initialActuals={actuals} semesterId={semesterId} semesterLabel={semesterLabel} />
+      <IncomeStatementTool
+        semesterId={semesterId}
+        initialYear={initialYear}
+        initialMonth={initialMonth}
+        initialIncomeEntries={incomeEntries}
+        initialExpenseEntries={expenseEntries}
+        debts={debts}
+      />
     </DashboardShell>
   );
 }
