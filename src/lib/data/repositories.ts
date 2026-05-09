@@ -313,17 +313,15 @@ export async function updateUserProfile(input: {
   retirementNetWorthTarget?: number;
 }) {
   const adminDb = getAdminDb();
-  await adminDb.collection("users").doc(input.uid).set(
-    {
-      fullName: input.fullName,
-      avatarUrl: input.avatarUrl || null,
-      currentAge: input.currentAge ?? null,
-      targetRetirementAge: input.targetRetirementAge ?? null,
-      retirementNetWorthTarget: input.retirementNetWorthTarget ?? null,
-      updatedAt: FieldValue.serverTimestamp()
-    },
-    { merge: true }
-  );
+  const data: Record<string, unknown> = {
+    fullName: input.fullName,
+    avatarUrl: input.avatarUrl || null,
+    updatedAt: FieldValue.serverTimestamp()
+  };
+  if (input.currentAge !== undefined) data.currentAge = input.currentAge;
+  if (input.targetRetirementAge !== undefined) data.targetRetirementAge = input.targetRetirementAge;
+  if (input.retirementNetWorthTarget !== undefined) data.retirementNetWorthTarget = input.retirementNetWorthTarget;
+  await adminDb.collection("users").doc(input.uid).set(data, { merge: true });
 
   return getUserProfileById(input.uid);
 }

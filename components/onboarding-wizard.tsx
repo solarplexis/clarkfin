@@ -86,6 +86,12 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function formatNumberWithCommas(value: string): string {
+  const digits = value.replace(/[^0-9]/g, "");
+  if (!digits) return "";
+  return parseInt(digits, 10).toLocaleString("en-US");
+}
+
 const DEFAULT_INCOME: LineItemDraft[] = [
   { tempId: uid(), category: "gross_pay", label: "Monthly Gross Pay", amount: "" }
 ];
@@ -128,7 +134,9 @@ export function OnboardingWizard({ user, semesterId, organizationId, initialDebt
   const [fullName, setFullName] = useState(user.fullName ?? "");
   const [currentAge, setCurrentAge] = useState(user.currentAge?.toString() ?? "");
   const [targetRetirementAge, setTargetRetirementAge] = useState(user.targetRetirementAge?.toString() ?? "65");
-  const [retirementNetWorthTarget, setRetirementNetWorthTarget] = useState(user.retirementNetWorthTarget?.toString() ?? "");
+  const [retirementNetWorthTarget, setRetirementNetWorthTarget] = useState(
+    user.retirementNetWorthTarget ? formatNumberWithCommas(user.retirementNetWorthTarget.toString()) : ""
+  );
 
   // Step 2 — Debts
   const [debts, setDebts] = useState<DebtDraft[]>(() =>
@@ -202,7 +210,7 @@ export function OnboardingWizard({ user, semesterId, organizationId, initialDebt
   async function saveStep1() {
     const age = parseInt(currentAge);
     const retAge = parseInt(targetRetirementAge);
-    const retTarget = parseFloat(retirementNetWorthTarget);
+    const retTarget = parseFloat(retirementNetWorthTarget.replace(/,/g, ""));
 
     if (!fullName.trim()) throw new Error("Full name is required.");
     if (!currentAge || isNaN(age) || age < 16 || age > 100) throw new Error("Enter a valid age (16–100).");
@@ -495,9 +503,8 @@ export function OnboardingWizard({ user, semesterId, organizationId, initialDebt
                   <input id="retirementAge" type="number" min="40" max="99" value={targetRetirementAge} onChange={(e) => setTargetRetirementAge(e.target.value)} placeholder="e.g. 65" />
                 </div>
                 <div className="field">
-                  <label htmlFor="retirementTarget">Retirement Target ($)</label>
-                  <input id="retirementTarget" type="number" min="0" value={retirementNetWorthTarget} onChange={(e) => setRetirementNetWorthTarget(e.target.value)} placeholder="e.g. 1000000" />
-                  <span className="field-hint">Net worth you want at retirement</span>
+                  <label htmlFor="retirementTarget">Retirement Net Worth Target ($)</label>
+                  <input id="retirementTarget" type="text" inputMode="numeric" value={retirementNetWorthTarget} onChange={(e) => setRetirementNetWorthTarget(formatNumberWithCommas(e.target.value))} placeholder="e.g. 1,000,000" />
                 </div>
               </div>
             </div>
@@ -603,15 +610,15 @@ export function OnboardingWizard({ user, semesterId, organizationId, initialDebt
                         <input type="text" value={goal.label} onChange={(e) => updateGoal(goal.tempId, "label", e.target.value)} placeholder="e.g. Emergency Fund, Laptop, Car" />
                       </div>
                     </div>
-                    <div className="wizard-form-2col">
+                    <div className="wizard-form-2col" style={{ alignItems: "start" }}>
                       <div className="field">
                         <label>Target Amount ($)</label>
                         <input type="number" min="0" value={goal.targetAmount} onChange={(e) => updateGoal(goal.tempId, "targetAmount", e.target.value)} placeholder="0.00" />
                       </div>
-                      <div className="field">
+                      <div className="field" style={{ minHeight: "72px" }}>
                         <label>Target Date (optional)</label>
                         <input type="date" value={goal.targetDate} onChange={(e) => updateGoal(goal.tempId, "targetDate", e.target.value)} />
-                        <span className="field-hint">Leave blank to calculate automatically</span>
+                        <span className="field-hint">ClarkFin will suggest if you are unsure</span>
                       </div>
                     </div>
                   </div>
