@@ -5,6 +5,8 @@ import { useState } from "react";
 
 import { StudentWorkspaceSwitcher } from "@/components/student-workspace-switcher";
 import { projectGoals, projectRetirement, calcNetPayFromBaseline } from "@/src/lib/calculations/timeline";
+import { getCourseWeek, getCourseMilestones } from "@/src/lib/calculations/course";
+import type { CourseMilestone } from "@/src/lib/calculations/course";
 import type {
   AllocationTarget,
   Debt,
@@ -260,6 +262,125 @@ function ActualAllocationPanel({
   );
 }
 
+// ─── Course milestone section ────────────────────────────────────
+
+const MONTH_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+
+function aggregateEntries(
+  incomeEntries: IncomeEntry[],
+  expenseEntries: ExpenseEntry[],
+  months: { year: number; month: number }[]
+) {
+  const inMonth = (e: { periodYear: number; periodMonth: number }) =>
+    e.periodYear > 0 && months.some(m => m.year === e.periodYear && m.month === e.periodMonth);
+
+  const inc = incomeEntries.filter(inMonth);
+  const exp = expenseEntries.filter(inMonth);
+
+  const gross = inc.filter(e => e.category === "gross_pay").reduce((s, e) => s + e.amount, 0);
+  const taxes = inc.filter(e => e.category === "taxes").reduce((s, e) => s + e.amount, 0);
+  const otherInc = inc.filter(e => e.category !== "gross_pay" && e.category !== "taxes").reduce((s, e) => s + e.amount, 0);
+  const totalIncome = Math.max(0, gross - taxes) + otherInc;
+  const totalExpenses = exp.reduce((s, e) => s + e.amount, 0);
+  const net = totalIncome - totalExpenses;
+  const savingsRate = totalIncome > 0 ? (net / totalIncome) * 100 : null;
+
+  return { totalIncome, totalExpenses, net, savingsRate };
+}
+
+function monthRangeLabel(months: { year: number; month: number }[]): string {
+  if (months.length === 0) return "";
+  const first = months[0];
+  const last = months[months.length - 1];
+  if (months.length === 1) return `${MONTH_SHORT[first.month - 1]} ${first.year}`;
+  return `${MONTH_SHORT[first.month - 1]}–${MONTH_SHORT[last.month - 1]} ${last.year}`;
+}
+
+function CourseMilestoneSection({
+  activeSemester,
+  allSemesterIncomeEntries,
+  allSemesterExpenseEntries
+}: {
+  activeSemester: Semester;
+  allSemesterIncomeEntries: IncomeEntry[];
+  allSemesterExpenseEntries: ExpenseEntry[];
+}) {
+  if (!activeSemester.startsAt) return null;
+
+  const currentWeek = getCourseWeek(activeSemester.startsAt);
+  const durationWeeks = activeSemester.durationWeeks;
+  const milestones = getCourseMilestones(activeSemester.startsAt, durationWeeks);
+  const unlockedMilestones = milestones.filter(m => m.isUnlocked);
+
+  if (unlockedMilestones.length === 0) return null;
+
+  const progressPct = Math.min(100, (currentWeek / durationWeeks) * 100);
+
+  return (
+    <div className="card">
+      <div className="card-header">
+        <h3>Course Reports</h3>
+        <span className="badge badge-default">
+          Week {Math.min(currentWeek, durationWeeks)} of {durationWeeks}
+        </span>
+      </div>
+
+      <div className="course-progress-bar-track">
+        <div className="course-progress-bar-fill" style={{ width: `${progressPct}%` }} />
+        {milestones.map(m => (
+          <div
+            key={m.weekNum}
+            className={`course-progress-marker${m.isUnlocked ? " course-progress-marker-done" : ""}`}
+            style={{ left: `${(m.weekNum / durationWeeks) * 100}%` }}
+            title={`Week ${m.weekNum}: ${m.label}`}
+          />
+        ))}
+      </div>
+
+      <div className="milestone-grid">
+        {unlockedMilestones.map(milestone => {
+          const stats = aggregateEntries(allSemesterIncomeEntries, allSemesterExpenseEntries, milestone.months);
+          const hasData = stats.totalIncome > 0 || stats.totalExpenses > 0;
+          return (
+            <div key={milestone.weekNum} className={`milestone-card${milestone.isFinal ? " milestone-card-final" : ""}`}>
+              <div className="milestone-card-header">
+                <span className="milestone-card-label">{milestone.label}</span>
+                <span className="milestone-card-period">{monthRangeLabel(milestone.months)}</span>
+              </div>
+              {hasData ? (
+                <div className="milestone-stat-grid">
+                  <div className="milestone-stat">
+                    <span className="milestone-stat-label">Income</span>
+                    <span className="milestone-stat-value">{fmt(stats.totalIncome)}</span>
+                  </div>
+                  <div className="milestone-stat">
+                    <span className="milestone-stat-label">Expenses</span>
+                    <span className="milestone-stat-value">{fmt(stats.totalExpenses)}</span>
+                  </div>
+                  <div className="milestone-stat">
+                    <span className="milestone-stat-label">Net</span>
+                    <span className={`milestone-stat-value ${stats.net >= 0 ? "fin-positive" : "fin-negative"}`}>
+                      {fmt(stats.net)}
+                    </span>
+                  </div>
+                  <div className="milestone-stat">
+                    <span className="milestone-stat-label">Savings Rate</span>
+                    <span className="milestone-stat-value">
+                      {stats.savingsRate !== null ? `${Math.round(stats.savingsRate)}%` : "—"}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <p className="milestone-no-data">No entries recorded for this period.</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ─── Main component ─────────────────────────────────────────────
 
 export function StudentDashboard({
@@ -271,6 +392,9 @@ export function StudentDashboard({
   currentMonthIncomeEntries,
   currentMonthExpenseEntries,
   baselineEntries,
+  activeSemester,
+  allSemesterIncomeEntries,
+  allSemesterExpenseEntries,
   workspace,
   enrollmentOptions,
   semesterId,
@@ -284,6 +408,9 @@ export function StudentDashboard({
   currentMonthIncomeEntries: IncomeEntry[];
   currentMonthExpenseEntries: ExpenseEntry[];
   baselineEntries: IncomeEntry[];
+  activeSemester?: Semester | null;
+  allSemesterIncomeEntries?: IncomeEntry[];
+  allSemesterExpenseEntries?: ExpenseEntry[];
   workspace: Workspace | null;
   enrollmentOptions: EnrollmentOption[];
   semesterId?: string;
@@ -538,6 +665,15 @@ export function StudentDashboard({
             <Link href="/app/student/goals" style={{ color: "var(--accent)" }}>full projection →</Link>
           </p>
         </div>
+      )}
+
+      {/* Course Milestone Reports */}
+      {activeSemester && allSemesterIncomeEntries && allSemesterExpenseEntries && (
+        <CourseMilestoneSection
+          activeSemester={activeSemester}
+          allSemesterIncomeEntries={allSemesterIncomeEntries}
+          allSemesterExpenseEntries={allSemesterExpenseEntries}
+        />
       )}
 
       {/* Financial Tip of the Week */}

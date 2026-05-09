@@ -3923,6 +3923,112 @@ tbody tr:hover {
   line-height: 1.55;
 }
 
+/* ─── Course Reports / Milestones ───────────────────────────── */
+
+.course-progress-bar-track {
+  position: relative;
+  height: 6px;
+  background: var(--line);
+  border-radius: 99px;
+  margin: 4px 0 20px;
+}
+
+.course-progress-bar-fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 400ms ease;
+}
+
+.course-progress-marker {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 2px solid var(--line-strong);
+  z-index: 1;
+}
+
+.course-progress-marker-done {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.milestone-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 12px;
+}
+
+.milestone-card {
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.milestone-card-final {
+  border-color: var(--accent);
+  background: var(--accent-soft, var(--surface-2));
+}
+
+.milestone-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.milestone-card-label {
+  font-weight: 600;
+  font-size: 0.875rem;
+  color: var(--ink);
+}
+
+.milestone-card-period {
+  font-size: 0.75rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.milestone-stat-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px 12px;
+}
+
+.milestone-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.milestone-stat-label {
+  font-size: 0.7rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.milestone-stat-value {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.milestone-no-data {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin: 0;
+}
+
 /* ─── Goal Milestone Banner ──────────────────────────────────── */
 .tl-milestone-banner {
   display: flex;
@@ -4095,6 +4201,12 @@ tbody tr:hover {
   gap: 10px;
   flex-wrap: wrap;
   flex-shrink: 0;
+}
+
+.snap-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
 }
 
 .snap-section {
@@ -4346,4 +4458,439 @@ tbody tr:hover {
   .snap-nw-row { gap: 12px; }
   .snap-nw-value { font-size: 1.2rem; }
   .snap-nw-total { font-size: 1.5rem; }
+}
+
+/* ─── Final Report ───────────────────────────────────────────── */
+
+.fr-trigger-card {
+  border: 2px solid var(--accent);
+}
+
+.fr-trigger-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.fr-trigger-sub {
+  font-size: 0.875rem;
+  color: var(--muted);
+  margin-top: 4px;
+}
+
+.fr-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.fr-overlay-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 24px;
+  border-bottom: 1px solid var(--line);
+  background: var(--surface);
+  flex-shrink: 0;
+}
+
+.fr-overlay-title {
+  font-weight: 600;
+  font-size: 1rem;
+}
+
+.fr-overlay-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 32px 24px;
+}
+
+.fr-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  padding: 80px 20px;
+  color: var(--muted);
+}
+
+.fr-loading-spinner {
+  width: 36px;
+  height: 36px;
+  border: 3px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: fr-spin 0.8s linear infinite;
+}
+
+@keyframes fr-spin {
+  to { transform: rotate(360deg); }
+}
+
+.fr-loading-sub {
+  font-size: 0.8rem;
+}
+
+/* ── Report document ────────────────────────────── */
+
+.fr-report {
+  max-width: 800px;
+  margin: 0 auto;
+  font-family: Georgia, serif;
+  color: #1a1a1a;
+}
+
+.fr-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 24px;
+  padding-bottom: 16px;
+  border-bottom: 2px solid #1a1a1a;
+}
+
+.fr-logo {
+  font-size: 1.5rem;
+  font-weight: 700;
+  font-family: system-ui, sans-serif;
+  letter-spacing: -0.02em;
+}
+
+.fr-header-meta {
+  text-align: right;
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
+.fr-course { font-weight: 600; }
+.fr-student { color: #444; }
+.fr-date { color: #777; }
+
+.fr-title {
+  font-size: 1.6rem;
+  font-weight: 700;
+  margin-bottom: 28px;
+  font-family: system-ui, sans-serif;
+}
+
+.fr-section {
+  margin-bottom: 28px;
+}
+
+.fr-section-title {
+  font-size: 1rem;
+  font-weight: 700;
+  font-family: system-ui, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #555;
+  margin-bottom: 14px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid #ddd;
+}
+
+.fr-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 16px;
+}
+
+.fr-stat {
+  padding: 14px;
+  background: #f7f7f7;
+  border-radius: 6px;
+}
+
+.fr-stat-label {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #777;
+  margin-bottom: 4px;
+  font-family: system-ui, sans-serif;
+}
+
+.fr-stat-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-family: system-ui, sans-serif;
+}
+
+.fr-stat-sub {
+  font-size: 0.75rem;
+  color: #888;
+  margin-top: 2px;
+  font-family: system-ui, sans-serif;
+}
+
+.fr-positive { color: #0a7c45; }
+.fr-negative { color: #c0392b; }
+
+.fr-table {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-family: system-ui, sans-serif;
+  font-size: 0.875rem;
+}
+
+.fr-table-head {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.5fr;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #777;
+  padding: 0 4px 6px;
+  border-bottom: 1px solid #ddd;
+}
+
+.fr-table-row {
+  display: grid;
+  grid-template-columns: 2fr 1fr 1fr 1.5fr;
+  gap: 8px;
+  align-items: center;
+  padding: 6px 4px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.fr-progress-track {
+  height: 6px;
+  background: #e5e5e5;
+  border-radius: 99px;
+  overflow: hidden;
+  display: inline-block;
+  width: 60px;
+  vertical-align: middle;
+  margin-right: 6px;
+}
+
+.fr-progress-fill {
+  height: 100%;
+  background: #0a7c45;
+  border-radius: 99px;
+}
+
+.fr-progress-debt {
+  background: #2563eb;
+}
+
+.fr-progress-label {
+  font-size: 0.8rem;
+  color: #555;
+}
+
+.fr-recommendations {
+  line-height: 1.7;
+  font-size: 0.95rem;
+}
+
+.fr-recommendations p {
+  margin-bottom: 14px;
+}
+
+.fr-footer {
+  margin-top: 40px;
+  padding-top: 16px;
+  border-top: 1px solid #ddd;
+  font-size: 0.75rem;
+  color: #999;
+  font-family: system-ui, sans-serif;
+  line-height: 1.5;
+}
+
+/* ── Grade badge ────────────────────────────────── */
+
+.grade-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.9375rem;
+  font-weight: 700;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border-radius: var(--radius-sm);
+  padding: 2px 8px;
+  white-space: nowrap;
+}
+
+/* ── Feedback Form ──────────────────────────────── */
+
+.fb-card {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fb-title {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.fb-sub {
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.fb-muted {
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.fb-textarea {
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1.5px solid var(--line-strong);
+  border-radius: var(--radius-sm);
+  font-size: 0.9375rem;
+  font-family: inherit;
+  color: var(--ink);
+  background: var(--surface);
+  resize: vertical;
+  line-height: 1.5;
+  transition: border-color 0.15s;
+}
+
+.fb-textarea:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.fb-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.fb-result {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.fb-grade-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.fb-grade-circle {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 88px;
+  height: 88px;
+  border-radius: 50%;
+  background: var(--accent-soft);
+  border: 3px solid var(--accent);
+  flex-shrink: 0;
+}
+
+.fb-grade-letter {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent-text);
+  line-height: 1;
+}
+
+.fb-grade-score {
+  font-size: 0.75rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.fb-grade-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 0.375rem;
+  padding-top: 0.25rem;
+}
+
+.fb-grade-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.fb-grade-item-label {
+  color: var(--muted);
+  min-width: 90px;
+}
+
+.fb-grade-item-value {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.fb-submitted-comments {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  font-size: 0.875rem;
+  color: var(--ink);
+  line-height: 1.5;
+}
+
+.fb-submitted-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.fb-sent-note {
+  font-size: 0.8125rem;
+  color: var(--muted);
+}
+
+/* ── Print styles ───────────────────────────────── */
+
+@media print {
+  .no-print,
+  .fr-overlay-bar,
+  nav,
+  header,
+  aside,
+  .dashboard-shell-nav,
+  .dashboard-shell-sidebar {
+    display: none !important;
+  }
+
+  .fr-overlay {
+    position: static;
+    overflow: visible;
+  }
+
+  .fr-overlay-body {
+    overflow: visible;
+    padding: 0;
+  }
+
+  .fr-report {
+    max-width: 100%;
+  }
+
+  .fr-stat-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  body.printing-report > *:not(.fr-overlay) {
+    display: none !important;
+  }
 }

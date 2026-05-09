@@ -49,6 +49,7 @@ export async function PATCH(
     const body = (await request.json()) as {
       title?: string;
       courseCode?: string;
+      durationWeeks?: number;
       startsAt?: string;
       endsAt?: string;
       isActive?: boolean;
@@ -56,6 +57,7 @@ export async function PATCH(
 
     const title = String(body.title ?? "").trim();
     const courseCode = String(body.courseCode ?? "").trim();
+    const durationWeeks = Number(body.durationWeeks ?? 8);
     const startsAt = String(body.startsAt ?? "").trim();
     const endsAt = String(body.endsAt ?? "").trim();
     const isActive = body.isActive !== false;
@@ -67,11 +69,16 @@ export async function PATCH(
       );
     }
 
+    if (![8, 10].includes(durationWeeks)) {
+      return NextResponse.json({ error: "Duration must be 8 or 10 weeks." }, { status: 400 });
+    }
+
     const semester = await updateSemesterForOrganization({
       semesterId,
       orgId: user.organizationId,
       title,
       courseCode,
+      durationWeeks,
       startsAt: startsAt || undefined,
       endsAt: endsAt || undefined,
       isActive

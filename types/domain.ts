@@ -25,6 +25,7 @@ export interface Semester {
   title: string;
   courseCode: string;
   isActive: boolean;
+  durationWeeks: number;
   startsAt?: string;
   endsAt?: string;
   status?: boolean;

@@ -25,6 +25,8 @@ export default async function GoalsPage() {
     redirect("/app/student");
   }
 
+  const activeSemester = workspace?.activeSemester ?? null;
+
   const [goals, debts, assets, allocationTarget, baselineEntries] = await Promise.all([
     listGoals(user.uid, semesterId),
     listDebts(user.uid, semesterId),
@@ -45,6 +47,8 @@ export default async function GoalsPage() {
         allocationTarget={allocationTarget}
         baselineEntries={baselineEntries}
         currentNetWorth={currentNetWorth}
+        activeSemester={activeSemester}
+        semesterId={semesterId}
       />
     </DashboardShell>
   );

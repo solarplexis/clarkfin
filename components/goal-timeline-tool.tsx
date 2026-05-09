@@ -2,13 +2,16 @@
 
 import { useEffect, useState } from "react";
 
-import type { AllocationTarget, Debt, Goal, IncomeEntry, UserProfile } from "@/types/domain";
+import type { AllocationTarget, Debt, Goal, IncomeEntry, Semester, UserProfile } from "@/types/domain";
 import {
   runTimeline,
   type DebtProjection,
   type GoalProjection,
   type RetirementProjection
 } from "@/src/lib/calculations/timeline";
+import { getCourseWeek } from "@/src/lib/calculations/course";
+import { FinalReportModal } from "@/components/final-report-modal";
+import { FeedbackForm } from "@/components/feedback-form";
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -180,6 +183,8 @@ function DebtCard({ debt }: { debt: DebtProjection }) {
 // ─── Retirement Card ───────────────────────────────────────────
 
 function RetirementCard({ r, netPay }: { r: RetirementProjection; netPay: number }) {
+  const noData = r.monthlyContribution === 0 && r.currentNetWorth === 0;
+
   return (
     <div className="tl-retirement-card">
       <div className="tl-retirement-stat">
@@ -191,25 +196,31 @@ function RetirementCard({ r, netPay }: { r: RetirementProjection; netPay: number
         <span className="tl-retirement-stat-value">{fmt(r.targetNetWorth)}</span>
       </div>
       <div className="tl-retirement-stat">
+        <span className="tl-retirement-stat-label">Monthly Contribution</span>
+        <span className="tl-retirement-stat-value">{fmt(r.monthlyContribution)}</span>
+      </div>
+      <div className="tl-retirement-stat">
         <span className="tl-retirement-stat-label">Projected at Age {r.retirementAge}</span>
         <span
           className="tl-retirement-stat-value"
-          style={{ color: r.isOnTrack ? "#0a9e74" : "var(--danger)" }}
+          style={{ color: noData ? "var(--muted)" : r.isOnTrack ? "#0a9e74" : "var(--danger)" }}
         >
-          {fmt(r.projectedNetWorth)}
+          {noData ? "—" : fmt(r.projectedNetWorth)}
         </span>
       </div>
-      <div className="tl-retirement-stat">
-        <span className="tl-retirement-stat-label">Status</span>
-        <span className="tl-retirement-stat-value">
-          {r.isOnTrack ? (
-            <span className="tl-badge tl-badge-success">On Track</span>
-          ) : (
-            <span className="tl-badge tl-badge-danger">Behind</span>
-          )}
-        </span>
-      </div>
-      {!r.isOnTrack && (
+      {!noData && (
+        <div className="tl-retirement-stat">
+          <span className="tl-retirement-stat-label">Status</span>
+          <span className="tl-retirement-stat-value">
+            {r.isOnTrack ? (
+              <span className="tl-badge tl-badge-success">On Track</span>
+            ) : (
+              <span className="tl-badge tl-badge-danger">Behind</span>
+            )}
+          </span>
+        </div>
+      )}
+      {!r.isOnTrack && !noData && (
         <>
           <div className="tl-retirement-stat">
             <span className="tl-retirement-stat-label">Required Monthly Savings</span>
@@ -229,8 +240,9 @@ function RetirementCard({ r, netPay }: { r: RetirementProjection; netPay: number
         className="tl-retirement-stat"
         style={{ gridColumn: "1 / -1", fontSize: "0.8rem", color: "var(--muted)", borderTop: "1px solid var(--line)", paddingTop: 8, marginTop: 4 }}
       >
-        Linear projection based on {fmt(r.monthlyContribution)}/mo savings · does not include investment returns
-        {netPay > 0 && ` · Net pay: ${fmt(netPay)}/mo`}
+        {noData
+          ? "Enter baseline income and set a savings rate to see your projection."
+          : `Compounding annually at ${fmtRate(r.annualReturnPct)} · ${netPay > 0 ? `Net pay: ${fmt(netPay)}/mo` : ""}`}
       </div>
     </div>
   );
@@ -246,7 +258,9 @@ export function GoalTimelineTool({
   debts,
   allocationTarget,
   baselineEntries,
-  currentNetWorth
+  currentNetWorth,
+  activeSemester,
+  semesterId
 }: {
   user: UserProfile;
   goals: Goal[];
@@ -254,10 +268,13 @@ export function GoalTimelineTool({
   allocationTarget: AllocationTarget | null;
   baselineEntries: IncomeEntry[];
   currentNetWorth: number;
+  activeSemester?: Semester | null;
+  semesterId?: string;
 }) {
   const defaultSavingsPct = allocationTarget?.savingsPct ?? 0;
   const [savingsPct, setSavingsPct] = useState(defaultSavingsPct);
   const [strategy, setStrategy] = useState<Strategy>("avalanche");
+  const [returnRatePct, setReturnRatePct] = useState(6);
 
   const result = runTimeline({
     baselineEntries,
@@ -268,7 +285,8 @@ export function GoalTimelineTool({
     targetRetirementAge: user.targetRetirementAge,
     retirementNetWorthTarget: user.retirementNetWorthTarget,
     currentNetWorth,
-    savingsPctOverride: savingsPct
+    savingsPctOverride: savingsPct,
+    annualReturnPct: returnRatePct
   });
 
   const { netPayMonthly, monthlySavings } = result;
@@ -381,6 +399,20 @@ export function GoalTimelineTool({
           <div className="card-header">
             <h3>Retirement Projection</h3>
           </div>
+          <div className="tl-slider-row" style={{ marginBottom: 16 }}>
+            <span className="tl-slider-label">
+              Rate of Return: <strong>{fmtRate(returnRatePct)}</strong>
+            </span>
+            <input
+              className="tl-slider"
+              type="range"
+              min={0}
+              max={15}
+              step={0.5}
+              value={returnRatePct}
+              onChange={e => setReturnRatePct(Number(e.target.value))}
+            />
+          </div>
           <RetirementCard r={result.retirement} netPay={netPayMonthly} />
         </div>
       )}
@@ -391,6 +423,18 @@ export function GoalTimelineTool({
             Complete your profile (current age, retirement age, and net worth target) to see a retirement projection.
           </p>
         </div>
+      )}
+
+      {/* Final Report — unlocks in the last week of the course */}
+      {semesterId && activeSemester?.startsAt &&
+        getCourseWeek(activeSemester.startsAt) >= activeSemester.durationWeeks && (
+        <FinalReportModal semesterId={semesterId} />
+      )}
+
+      {/* Feedback Form — unlocks in the last week of the course */}
+      {semesterId && activeSemester?.startsAt &&
+        getCourseWeek(activeSemester.startsAt) >= activeSemester.durationWeeks && (
+        <FeedbackForm semesterId={semesterId} />
       )}
     </div>
   );

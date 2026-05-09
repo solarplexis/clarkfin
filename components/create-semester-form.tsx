@@ -10,6 +10,7 @@ type SemesterRow = {
   title: string;
   courseCode: string;
   isActive: boolean;
+  durationWeeks: number;
   startsAt?: string;
   endsAt?: string;
 };
@@ -43,6 +44,7 @@ export function EditSemesterDrawer({ semester }: { semester: SemesterRow }) {
         body: JSON.stringify({
           title: String(formData.get("title") ?? ""),
           courseCode: String(formData.get("courseCode") ?? ""),
+          durationWeeks: Number(formData.get("durationWeeks") ?? 8),
           startsAt: String(formData.get("startsAt") ?? ""),
           endsAt: String(formData.get("endsAt") ?? ""),
           isActive: formData.get("isActive") === "on"
@@ -95,6 +97,13 @@ export function EditSemesterDrawer({ semester }: { semester: SemesterRow }) {
             <input defaultValue={semester.courseCode} id={`${formId}-courseCode`} name="courseCode" required />
           </div>
           <div className="field">
+            <label htmlFor={`${formId}-durationWeeks`}>Duration (weeks)</label>
+            <select defaultValue={semester.durationWeeks} id={`${formId}-durationWeeks`} name="durationWeeks">
+              <option value={8}>8 weeks</option>
+              <option value={10}>10 weeks</option>
+            </select>
+          </div>
+          <div className="field">
             <label htmlFor={`${formId}-startsAt`}>Start date</label>
             <input defaultValue={semester.startsAt?.slice(0, 10)} id={`${formId}-startsAt`} name="startsAt" type="date" />
           </div>
@@ -132,6 +141,7 @@ export function CreateSemesterForm() {
           semesterId: String(formData.get("semesterId") ?? ""),
           title: String(formData.get("title") ?? ""),
           courseCode: String(formData.get("courseCode") ?? ""),
+          durationWeeks: Number(formData.get("durationWeeks") ?? 8),
           startsAt: String(formData.get("startsAt") ?? ""),
           endsAt: String(formData.get("endsAt") ?? ""),
           isActive: formData.get("isActive") === "on"
@@ -183,6 +193,13 @@ export function CreateSemesterForm() {
           <div className="field">
             <label htmlFor={`${formId}-courseCode`}>Course code</label>
             <input id={`${formId}-courseCode`} name="courseCode" placeholder="FIN101" required />
+          </div>
+          <div className="field">
+            <label htmlFor={`${formId}-durationWeeks`}>Duration (weeks)</label>
+            <select defaultValue={8} id={`${formId}-durationWeeks`} name="durationWeeks">
+              <option value={8}>8 weeks</option>
+              <option value={10}>10 weeks</option>
+            </select>
           </div>
           <div className="field">
             <label htmlFor={`${formId}-startsAt`}>Start date</label>

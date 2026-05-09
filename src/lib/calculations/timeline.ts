@@ -43,6 +43,7 @@ export type RetirementProjection = {
   targetNetWorth: number;
   currentNetWorth: number;
   monthlyContribution: number;
+  annualReturnPct: number;
   projectedNetWorth: number;
   isOnTrack: boolean;
   requiredMonthlySavings: number;
@@ -220,15 +221,34 @@ export function projectRetirement(
   targetNetWorth: number,
   currentNetWorth: number,
   monthlySavings: number,
-  netPayMonthly: number
+  netPayMonthly: number,
+  annualReturnPct: number = 6
 ): RetirementProjection {
   const yearsRemaining = Math.max(0, retirementAge - currentAge);
-  const monthsRemaining = yearsRemaining * 12;
-  const projectedNetWorth = currentNetWorth + monthlySavings * monthsRemaining;
-  const isOnTrack = projectedNetWorth >= targetNetWorth;
+  const r = annualReturnPct / 100;
+  const annualContribution = monthlySavings * 12;
 
-  const gap = Math.max(0, targetNetWorth - currentNetWorth);
-  const requiredMonthlySavings = monthsRemaining > 0 ? gap / monthsRemaining : 0;
+  let projectedNetWorth: number;
+  let requiredMonthlySavings: number;
+
+  if (r < 0.0001 || yearsRemaining === 0) {
+    projectedNetWorth = currentNetWorth + annualContribution * yearsRemaining;
+    requiredMonthlySavings =
+      yearsRemaining > 0
+        ? Math.max(0, targetNetWorth - currentNetWorth) / (yearsRemaining * 12)
+        : 0;
+  } else {
+    const growth = Math.pow(1 + r, yearsRemaining);
+    // FV of current net worth + FV of annual contributions (end-of-year)
+    projectedNetWorth = currentNetWorth * growth + annualContribution * (growth - 1) / r;
+    // Required annual contribution to hit target, solved from FV formula
+    const fvOfCurrentNW = currentNetWorth * growth;
+    const gap = Math.max(0, targetNetWorth - fvOfCurrentNW);
+    const requiredAnnual = gap > 0 ? gap * r / (growth - 1) : 0;
+    requiredMonthlySavings = requiredAnnual / 12;
+  }
+
+  const isOnTrack = projectedNetWorth >= targetNetWorth;
   const requiredSavingsRate =
     netPayMonthly > 0 ? (requiredMonthlySavings / netPayMonthly) * 100 : 0;
 
@@ -239,6 +259,7 @@ export function projectRetirement(
     targetNetWorth,
     currentNetWorth,
     monthlyContribution: monthlySavings,
+    annualReturnPct,
     projectedNetWorth,
     isOnTrack,
     requiredMonthlySavings,
@@ -257,7 +278,8 @@ export function runTimeline({
   targetRetirementAge,
   retirementNetWorthTarget,
   currentNetWorth,
-  savingsPctOverride
+  savingsPctOverride,
+  annualReturnPct
 }: {
   baselineEntries: IncomeEntry[];
   goals: Goal[];
@@ -268,6 +290,7 @@ export function runTimeline({
   retirementNetWorthTarget?: number;
   currentNetWorth: number;
   savingsPctOverride?: number;
+  annualReturnPct?: number;
 }): TimelineResult {
   const netPayMonthly = calcNetPayFromBaseline(baselineEntries);
   const savingsPct =
@@ -288,7 +311,8 @@ export function runTimeline({
       retirementNetWorthTarget,
       currentNetWorth,
       monthlySavings,
-      netPayMonthly
+      netPayMonthly,
+      annualReturnPct ?? 6
     );
   }
 

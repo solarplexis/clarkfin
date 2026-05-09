@@ -60,6 +60,10 @@ export function getOpenAIKey(): string {
   return key;
 }
 
+export function getResendKey(): string | null {
+  return process.env.RESEND_API_KEY ?? null;
+}
+
 export function getFirebaseApiKey() {
   return process.env.NEXT_PUBLIC_FIREBASE_API_KEY ?? "";
 }

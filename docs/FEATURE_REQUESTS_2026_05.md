@@ -24,14 +24,14 @@
 - Each week's spending update API links to a Canvas grade assignment
 - Scope and rubric TBD — to be discussed separately
 
-### 6. Replace API Docs with Help Section (Student view)
-- Rename nav item from "API Docs" to "Help"
+### 6. Add Help Section (Students and Course Admins)
+- Add a **Help** nav item visible to both students and course admins
 - Content: Claude-generated FAQs on usability and step-by-step instructions
 - Include a **demo / walkthrough** for first-time users
 
-### 7. Rename API Docs → Admin (Teacher view)
-- Rename "API Docs" to "Admin" in the teacher navigation
-- Nest existing API Docs content under Admin
+### 7. Rename API Docs → Admin (Course Admins / Admins only)
+- Rename "API Docs" to "Admin" in the course admin / admin navigation
+- Nest existing API Docs content under Admin — API Docs remain accessible to course admins and admins, not students
 - Future: settings and other admin functions added here as they come up
 
 ---
@@ -64,6 +64,7 @@
 - Recommend scoping as a separate phase
 
 ### Help Section
+- Visible to both students and course admins; API Docs remain under Admin (course admins / admins only)
 - Static FAQ page vs. dynamically generated content?
 - First-time walkthrough: step-by-step overlay tour, or a dedicated getting-started page?
 

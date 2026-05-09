@@ -70,6 +70,7 @@ function mapSemester(id: string, data: Record<string, unknown>) {
     title: String(data.title ?? ""),
     courseCode: String(data.courseCode ?? ""),
     isActive: Boolean(data.isActive ?? true),
+    durationWeeks: typeof data.durationWeeks === "number" ? data.durationWeeks : 8,
     startsAt: data.startsAt ? toIso(data.startsAt) : undefined,
     endsAt: data.endsAt ? toIso(data.endsAt) : undefined,
     status: data.status ? Boolean(data.status) : undefined,
@@ -549,6 +550,7 @@ export async function updateSemesterForOrganization(input: {
   orgId: string;
   title: string;
   courseCode: string;
+  durationWeeks: number;
   startsAt?: string;
   endsAt?: string;
   isActive: boolean;
@@ -572,6 +574,7 @@ export async function updateSemesterForOrganization(input: {
       title: input.title,
       courseCode: input.courseCode.toUpperCase(),
       isActive: input.isActive,
+      durationWeeks: input.durationWeeks,
       startsAt: input.startsAt || null,
       endsAt: input.endsAt || null,
       updatedAt: FieldValue.serverTimestamp()
@@ -689,6 +692,7 @@ export async function createSemesterForOrganization(input: {
   semesterId: string;
   title: string;
   courseCode: string;
+  durationWeeks: number;
   startsAt?: string;
   endsAt?: string;
   isActive?: boolean;
@@ -706,6 +710,7 @@ export async function createSemesterForOrganization(input: {
     title: input.title,
     courseCode: input.courseCode,
     isActive: input.isActive ?? true,
+    durationWeeks: input.durationWeeks,
     startsAt: input.startsAt || null,
     endsAt: input.endsAt || null,
     createdAt: FieldValue.serverTimestamp(),
@@ -718,6 +723,7 @@ export async function createSemesterForOrganization(input: {
     title: input.title,
     courseCode: input.courseCode,
     isActive: input.isActive ?? true,
+    durationWeeks: input.durationWeeks,
     startsAt: input.startsAt,
     endsAt: input.endsAt
   } satisfies Semester;
@@ -1991,4 +1997,62 @@ export async function upsertAllocationTarget(
   );
   const snapshot = await ref.get();
   return mapAllocationTarget(ref.id, snapshot.data() as Record<string, unknown>);
+}
+
+export interface StudentFeedback {
+  id: string;
+  userId: string;
+  organizationId: string;
+  semesterId: string;
+  comments: string;
+  grade: number;
+  gradeLetter: string;
+  gradeBreakdown: { engagement: number; savings: number; goals: number };
+  emailSent: boolean;
+  submittedAt: string;
+}
+
+function mapFeedback(id: string, data: Record<string, unknown>): StudentFeedback {
+  return {
+    id,
+    userId: String(data.userId ?? ""),
+    organizationId: String(data.organizationId ?? ""),
+    semesterId: String(data.semesterId ?? ""),
+    comments: String(data.comments ?? ""),
+    grade: Number(data.grade ?? 0),
+    gradeLetter: String(data.gradeLetter ?? ""),
+    gradeBreakdown: (data.gradeBreakdown ?? { engagement: 0, savings: 0, goals: 0 }) as StudentFeedback["gradeBreakdown"],
+    emailSent: Boolean(data.emailSent ?? false),
+    submittedAt: toIso(data.submittedAt) ?? ""
+  };
+}
+
+export async function getStudentFeedback(userId: string, semesterId: string): Promise<StudentFeedback | null> {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("student_feedback")
+    .where("userId", "==", userId)
+    .where("semesterId", "==", semesterId)
+    .limit(1)
+    .get();
+  if (snapshot.empty) return null;
+  return mapFeedback(snapshot.docs[0].id, snapshot.docs[0].data());
+}
+
+export async function createStudentFeedback(input: Omit<StudentFeedback, "id" | "submittedAt">): Promise<StudentFeedback> {
+  const adminDb = getAdminDb();
+  const ref = adminDb.collection("student_feedback").doc();
+  await ref.set({ ...input, submittedAt: FieldValue.serverTimestamp() });
+  const snapshot = await ref.get();
+  return mapFeedback(ref.id, snapshot.data() as Record<string, unknown>);
+}
+
+export async function listStudentFeedbacksForOrganization(orgId: string): Promise<StudentFeedback[]> {
+  const adminDb = getAdminDb();
+  const snapshot = await adminDb
+    .collection("student_feedback")
+    .where("organizationId", "==", orgId)
+    .orderBy("submittedAt", "desc")
+    .get();
+  return snapshot.docs.map(doc => mapFeedback(doc.id, doc.data()));
 }

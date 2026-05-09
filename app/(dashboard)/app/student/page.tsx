@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { StudentDashboard } from "@/components/student-dashboard";
 import { requireRole, resolveStudentWorkspace } from "@/src/lib/auth/session";
+import { getCourseMilestones } from "@/src/lib/calculations/course";
 import {
   getAllocationTarget,
   getSemesterById,
@@ -27,11 +28,16 @@ export default async function StudentHomePage() {
 
   const workspace = await resolveStudentWorkspace(user);
   const semesterId = workspace?.activeEnrollment?.semesterId;
+  const activeSemester = workspace?.activeSemester ?? null;
 
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
   const currentMonthLabel = `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`;
+
+  const anyMilestonePassed = activeSemester?.startsAt
+    ? getCourseMilestones(activeSemester.startsAt, activeSemester.durationWeeks).some(m => m.isUnlocked)
+    : false;
 
   const [
     goals,
@@ -41,6 +47,8 @@ export default async function StudentHomePage() {
     currentMonthIncomeEntries,
     currentMonthExpenseEntries,
     baselineEntries,
+    allSemesterIncomeEntries,
+    allSemesterExpenseEntries,
     enrollmentOptions
   ] = await Promise.all([
     semesterId ? listGoals(user.uid, semesterId) : Promise.resolve([]),
@@ -56,6 +64,8 @@ export default async function StudentHomePage() {
     semesterId
       ? listIncomeEntries(user.uid, semesterId, { periodYear: 0, periodMonth: 0 })
       : Promise.resolve([]),
+    semesterId && anyMilestonePassed ? listIncomeEntries(user.uid, semesterId) : Promise.resolve([]),
+    semesterId && anyMilestonePassed ? listExpenseEntries(user.uid, semesterId) : Promise.resolve([]),
     Promise.all(
       (workspace?.enrollments ?? []).map(async (enrollment) => {
         const semester = await getSemesterById(enrollment.semesterId);
@@ -78,6 +88,9 @@ export default async function StudentHomePage() {
         currentMonthIncomeEntries={currentMonthIncomeEntries}
         currentMonthExpenseEntries={currentMonthExpenseEntries}
         baselineEntries={baselineEntries}
+        activeSemester={activeSemester}
+        allSemesterIncomeEntries={allSemesterIncomeEntries}
+        allSemesterExpenseEntries={allSemesterExpenseEntries}
         workspace={workspace}
         enrollmentOptions={enrollmentOptions}
         semesterId={semesterId}
