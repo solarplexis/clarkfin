@@ -11,13 +11,14 @@ interface FeedbackData {
   submittedAt: string;
 }
 
-export function FeedbackForm({ semesterId }: { semesterId: string }) {
+export function FeedbackForm({ semesterId, isOpen = true }: { semesterId: string; isOpen?: boolean }) {
   const [state, setState] = useState<"loading" | "idle" | "submitting" | "done" | "error">("loading");
   const [comments, setComments] = useState("");
   const [feedback, setFeedback] = useState<FeedbackData | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
 
   useEffect(() => {
+    if (!isOpen) { setState("idle"); return; }
     void fetch(`/api/student/feedback?semesterId=${encodeURIComponent(semesterId)}`)
       .then(r => r.json())
       .then((data: { feedback?: FeedbackData }) => {
@@ -29,7 +30,7 @@ export function FeedbackForm({ semesterId }: { semesterId: string }) {
         }
       })
       .catch(() => setState("idle"));
-  }, [semesterId]);
+  }, [semesterId, isOpen]);
 
   async function submit() {
     if (!comments.trim()) {
@@ -74,16 +75,20 @@ export function FeedbackForm({ semesterId }: { semesterId: string }) {
             value={comments}
             onChange={e => setComments(e.target.value)}
             rows={5}
-            disabled={state === "submitting"}
+            disabled={!isOpen || state === "submitting"}
           />
           {errorMsg && <p className="error-msg">{errorMsg}</p>}
-          <button
-            className="button"
-            onClick={submit}
-            disabled={state === "submitting"}
-          >
-            {state === "submitting" ? "Submitting…" : "Submit Feedback"}
-          </button>
+          {isOpen ? (
+            <button
+              className="button"
+              onClick={submit}
+              disabled={state === "submitting"}
+            >
+              {state === "submitting" ? "Submitting…" : "Submit Feedback"}
+            </button>
+          ) : (
+            <p className="fb-muted">Available in the final week of the course.</p>
+          )}
         </>
       )}
 

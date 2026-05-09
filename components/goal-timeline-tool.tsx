@@ -431,10 +431,13 @@ export function GoalTimelineTool({
         <FinalReportModal semesterId={semesterId} />
       )}
 
-      {/* Feedback Form — unlocks in the last week of the course */}
-      {semesterId && activeSemester?.startsAt &&
-        getCourseWeek(activeSemester.startsAt) >= activeSemester.durationWeeks && (
-        <FeedbackForm semesterId={semesterId} />
+      {/* Feedback Form — always visible; submission unlocks in the final week */}
+      {semesterId && (
+        <FeedbackForm
+          semesterId={semesterId}
+          isOpen={!!(activeSemester?.startsAt &&
+            getCourseWeek(activeSemester.startsAt) >= activeSemester.durationWeeks)}
+        />
       )}
     </div>
   );
