@@ -325,13 +325,32 @@ const endpointGroups: EndpointGroup[] = [
 }`
       },
       {
+        id: "students-delete-bulk",
+        method: "DELETE",
+        path: "/api/org/students",
+        title: "Bulk delete roster students",
+        auth: "Session",
+        role: "ORG_ADMIN",
+        description: "Fully deletes multiple roster students in one request, including linked user data and account access.",
+        requestExample: `{
+  "studentIds": ["stu_123", "stu_456"]
+}`,
+        responseExample: `{
+  "ok": true,
+  "deletedCount": 2,
+  "deletedIds": ["stu_123", "stu_456"],
+  "skippedCount": 0,
+  "skipped": []
+}`
+      },
+      {
         id: "students-delete",
         method: "DELETE",
         path: "/api/org/students/{studentId}",
         title: "Delete roster student",
         auth: "Session",
         role: "ORG_ADMIN",
-        description: "Deletes an unlinked roster record. Linked students must be marked inactive instead.",
+          description: "Fully deletes one roster student, including enrollments, invites, workspace data, and linked account access.",
         responseExample: `{
   "ok": true
 }`

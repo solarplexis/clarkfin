@@ -29,11 +29,6 @@
 - Content: Claude-generated FAQs on usability and step-by-step instructions
 - Include a **demo / walkthrough** for first-time users
 
-### 7. Rename API Docs → Admin (Course Admins / Admins only)
-- Rename "API Docs" to "Admin" in the course admin / admin navigation
-- Nest existing API Docs content under Admin — API Docs remain accessible to course admins and admins, not students
-- Future: settings and other admin functions added here as they come up
-
 ---
 
 ## Analysis & Open Questions

@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useId, useState } from "react";
+import { startTransition, useEffect, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { EndDrawer } from "@/components/end-drawer";
@@ -219,7 +219,15 @@ function EditStudentDrawer({ student }: { student: StudentRow }) {
   );
 }
 
-function DeleteStudentButton({ student }: { student: StudentRow }) {
+function DeleteStudentButton({
+  student,
+  disabled,
+  onDeleted
+}: {
+  student: StudentRow;
+  disabled?: boolean;
+  onDeleted?: (studentId: string) => void;
+}) {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
@@ -237,6 +245,7 @@ function DeleteStudentButton({ student }: { student: StudentRow }) {
         return;
       }
 
+      onDeleted?.(student.studentId);
       startTransition(() => { router.refresh(); });
     } finally {
       setIsPending(false);
@@ -247,8 +256,8 @@ function DeleteStudentButton({ student }: { student: StudentRow }) {
     <div className="stack-sm" style={{ alignItems: "flex-end" }}>
       <button
         className="icon-button icon-button-danger"
-        data-tooltip={student.authUserId ? "Linked students cannot be deleted" : "Delete student"}
-        disabled={isPending || Boolean(student.authUserId)}
+        data-tooltip={student.authUserId ? "Delete student and linked account" : "Delete student"}
+        disabled={isPending || Boolean(disabled)}
         type="button"
         onClick={() => { void removeStudent(); }}
       >
@@ -260,6 +269,88 @@ function DeleteStudentButton({ student }: { student: StudentRow }) {
 }
 
 export function StudentRosterManager({ students }: { students: StudentRow[] }) {
+  const router = useRouter();
+  const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
+  const [bulkError, setBulkError] = useState<string | null>(null);
+  const [bulkSuccess, setBulkSuccess] = useState<string | null>(null);
+  const [isBulkPending, setIsBulkPending] = useState(false);
+  const studentIds = useMemo(() => new Set(students.map((student) => student.studentId)), [students]);
+  const hasSelection = selectedStudentIds.length > 0;
+  const allStudentsSelected =
+    students.length > 0 && selectedStudentIds.length === students.length;
+
+  useEffect(() => {
+    setSelectedStudentIds((current) => current.filter((studentId) => studentIds.has(studentId)));
+  }, [studentIds]);
+
+  function toggleStudent(studentId: string) {
+    setSelectedStudentIds((current) =>
+      current.includes(studentId)
+        ? current.filter((id) => id !== studentId)
+        : [...current, studentId]
+    );
+  }
+
+  function toggleAllDeletable() {
+    if (allStudentsSelected) {
+      setSelectedStudentIds([]);
+      return;
+    }
+
+    setSelectedStudentIds(students.map((student) => student.studentId));
+  }
+
+  async function deleteSelectedStudents() {
+    if (!hasSelection) {
+      return;
+    }
+
+    const confirmMessage = `Fully delete ${selectedStudentIds.length} selected student${selectedStudentIds.length === 1 ? "" : "s"}? This removes linked enrollments, activity, workspace data, and account access.`;
+    if (!window.confirm(confirmMessage)) {
+      return;
+    }
+
+    setIsBulkPending(true);
+    setBulkError(null);
+    setBulkSuccess(null);
+
+    try {
+      const response = await fetch("/api/org/students", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studentIds: selectedStudentIds })
+      });
+      const json = (await response.json()) as {
+        error?: string;
+        deletedCount?: number;
+        skippedCount?: number;
+      };
+
+      if (!response.ok) {
+        setBulkError(json.error ?? "Unable to delete selected students.");
+        return;
+      }
+
+      const deletedCount = Number(json.deletedCount ?? 0);
+      const skippedCount = Number(json.skippedCount ?? 0);
+
+      setSelectedStudentIds([]);
+      if (deletedCount > 0) {
+        setBulkSuccess(
+          skippedCount > 0
+            ? `Deleted ${deletedCount} students. ${skippedCount} could not be deleted.`
+            : `Deleted ${deletedCount} students.`
+        );
+      } else {
+        setBulkError("None of the selected students could be deleted.");
+      }
+
+      startTransition(() => { router.refresh(); });
+    } finally {
+      setIsBulkPending(false);
+    }
+  }
+
   return (
     <div className="card">
       <div className="card-header">
@@ -269,13 +360,39 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
             Manage student records first, then create invites from this list.
           </p>
         </div>
-        <CreateStudentDrawer />
+        <div style={{ alignItems: "center", display: "flex", gap: 10, flexWrap: "wrap" }}>
+          {hasSelection ? (
+            <button
+              className="button-danger"
+              disabled={isBulkPending}
+              type="button"
+              onClick={() => { void deleteSelectedStudents(); }}
+            >
+              {isBulkPending
+                ? "Deleting..."
+                : `Delete selected (${selectedStudentIds.length})`}
+            </button>
+          ) : null}
+          <CreateStudentDrawer />
+        </div>
       </div>
+
+      {bulkError ? <p className="error-msg" style={{ margin: "0 0 12px" }}>{bulkError}</p> : null}
+      {bulkSuccess ? <p className="success-msg" style={{ margin: "0 0 12px" }}>{bulkSuccess}</p> : null}
 
       <div className="table-wrap">
         <table>
           <thead>
             <tr>
+              <th style={{ width: 36 }}>
+                <input
+                  aria-label="Select all students"
+                  checked={allStudentsSelected}
+                  disabled={isBulkPending || students.length === 0}
+                  type="checkbox"
+                  onChange={toggleAllDeletable}
+                />
+              </th>
               <th>Name</th>
               <th>Email</th>
               <th>Status</th>
@@ -286,13 +403,22 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
           <tbody>
             {students.length === 0 ? (
               <tr>
-                <td colSpan={5} style={{ color: "var(--muted)", textAlign: "center" }}>
+                <td colSpan={6} style={{ color: "var(--muted)", textAlign: "center" }}>
                   No students in the roster yet.
                 </td>
               </tr>
             ) : (
               students.map((student) => (
                 <tr key={student.studentId}>
+                  <td>
+                    <input
+                      aria-label={`Select ${student.firstName} ${student.lastName}`}
+                      checked={selectedStudentIds.includes(student.studentId)}
+                      disabled={isBulkPending}
+                      type="checkbox"
+                      onChange={() => { toggleStudent(student.studentId); }}
+                    />
+                  </td>
                   <td>{student.firstName} {student.lastName}</td>
                   <td>{student.email}</td>
                   <td>
@@ -310,7 +436,14 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
                   <td>
                     <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
                       <EditStudentDrawer student={student} />
-                      <DeleteStudentButton student={student} />
+                      <DeleteStudentButton
+                        disabled={isBulkPending}
+                        student={student}
+                        onDeleted={(studentId) => {
+                          setSelectedStudentIds((current) => current.filter((id) => id !== studentId));
+                          setBulkSuccess(null);
+                        }}
+                      />
                     </div>
                   </td>
                 </tr>

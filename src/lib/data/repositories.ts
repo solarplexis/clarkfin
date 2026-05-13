@@ -28,7 +28,7 @@ import type {
   StudentInvite,
   UserProfile
 } from "@/types/domain";
-import { getAdminDb } from "@/src/lib/firebase/admin";
+import { getAdminAuth, getAdminDb } from "@/src/lib/firebase/admin";
 import {
   generateApiKey,
   generateInviteCode,
@@ -139,6 +139,63 @@ function mapActivityLog(id: string, data: Record<string, unknown>): ActivityLog 
     payload: (data.payload ?? {}) as Record<string, unknown>,
     occurredAt: toIso(data.occurredAt)
   };
+}
+
+const USER_SCOPED_COLLECTIONS = [
+  "student_enrollments",
+  "activity_logs",
+  "budget_drafts",
+  "budget_actuals",
+  "budget_actuals_monthly",
+  "debt_scenarios",
+  "chat_conversations",
+  "goals",
+  "debts",
+  "income_entries",
+  "expense_entries",
+  "assets",
+  "allocation_targets",
+  "student_feedback"
+] as const;
+
+async function deleteCollectionByField(input: {
+  collectionName: string;
+  fieldName: string;
+  fieldValue: string;
+}) {
+  const adminDb = getAdminDb();
+
+  if (!input.fieldValue) {
+    return 0;
+  }
+
+  let totalDeleted = 0;
+  const pageSize = 400;
+
+  while (true) {
+    const snapshot = await adminDb
+      .collection(input.collectionName)
+      .where(input.fieldName, "==", input.fieldValue)
+      .limit(pageSize)
+      .get();
+
+    if (snapshot.empty) {
+      break;
+    }
+
+    const batch = adminDb.batch();
+    for (const doc of snapshot.docs) {
+      batch.delete(doc.ref);
+    }
+    await batch.commit();
+    totalDeleted += snapshot.size;
+
+    if (snapshot.size < pageSize) {
+      break;
+    }
+  }
+
+  return totalDeleted;
 }
 
 export async function getUserProfileById(uid: string) {
@@ -493,17 +550,107 @@ export async function updateStudentRecord(input: {
 
 export async function deleteStudentRecord(studentId: string, organizationId: string) {
   const adminDb = getAdminDb();
-  const student = await getStudentRecordById(studentId);
+  const studentRef = adminDb.collection("students").doc(studentId);
+  const snapshot = await studentRef.get();
+
+  if (!snapshot.exists) {
+    throw new Error("That student could not be found.");
+  }
+
+  const student = mapStudentRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
 
   if (!student || student.organizationId !== organizationId) {
     throw new Error("That student could not be found.");
   }
 
+  await deleteCollectionByField({
+    collectionName: "student_invites",
+    fieldName: "studentId",
+    fieldValue: student.studentId
+  });
+
   if (student.authUserId) {
-    throw new Error("Linked students cannot be deleted. Mark them inactive instead.");
+    const uid = student.authUserId;
+
+    for (const collectionName of USER_SCOPED_COLLECTIONS) {
+      await deleteCollectionByField({
+        collectionName,
+        fieldName: "userId",
+        fieldValue: uid
+      });
+    }
+
+    await deleteCollectionByField({
+      collectionName: "student_invites",
+      fieldName: "redeemedByUid",
+      fieldValue: uid
+    });
+
+    try {
+      await getAdminAuth().deleteUser(uid);
+    } catch (error) {
+      const authErrorCode =
+        typeof error === "object" && error !== null && "code" in error
+          ? String((error as { code?: string }).code ?? "")
+          : "";
+
+      if (authErrorCode !== "auth/user-not-found") {
+        throw error;
+      }
+    }
+
+    await adminDb.collection("users").doc(uid).delete();
   }
 
-  await adminDb.collection("students").doc(studentId).delete();
+  await studentRef.delete();
+}
+
+export async function deleteStudentRecordsBulk(input: {
+  organizationId: string;
+  studentIds: string[];
+}) {
+  const adminDb = getAdminDb();
+  const uniqueStudentIds = Array.from(
+    new Set(input.studentIds.map((studentId) => studentId.trim()).filter(Boolean))
+  );
+
+  if (uniqueStudentIds.length === 0) {
+    return {
+      deletedIds: [] as string[],
+      skipped: [] as Array<{ studentId: string; reason: string }>
+    };
+  }
+
+  const refs = uniqueStudentIds.map((studentId) => adminDb.collection("students").doc(studentId));
+  const snapshots = await adminDb.getAll(...refs);
+  const deletedIds: string[] = [];
+  const skipped: Array<{ studentId: string; reason: string }> = [];
+
+  for (const snapshot of snapshots) {
+    if (!snapshot.exists) {
+      skipped.push({ studentId: snapshot.id, reason: "Student not found." });
+      continue;
+    }
+
+    const student = mapStudentRecord(snapshot.id, snapshot.data() as Record<string, unknown>);
+
+    if (student.organizationId !== input.organizationId) {
+      skipped.push({ studentId: student.studentId, reason: "Student does not belong to this organization." });
+      continue;
+    }
+
+    try {
+      await deleteStudentRecord(student.studentId, input.organizationId);
+      deletedIds.push(student.studentId);
+    } catch (error) {
+      skipped.push({
+        studentId: student.studentId,
+        reason: error instanceof Error ? error.message : "Unable to delete student."
+      });
+    }
+  }
+
+  return { deletedIds, skipped };
 }
 
 export async function linkStudentRecordToAuthUser(input: {
