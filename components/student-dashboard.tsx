@@ -507,7 +507,9 @@ export function StudentDashboard({
   }, [semesterId]);
 
   useEffect(() => {
-    if (!semesterId) {
+    const activeSemesterId = semesterId;
+
+    if (!activeSemesterId) {
       setCourseProgress(null);
       setSelectedProgressWeek(null);
       setCourseProgressError(null);
@@ -521,7 +523,8 @@ export function StudentDashboard({
       setCourseProgressError(null);
 
       try {
-        const params = new URLSearchParams({ semesterId });
+        const params = new URLSearchParams();
+        params.set("semesterId", activeSemesterId);
         if (selectedProgressWeek !== null) {
           params.set("week", String(selectedProgressWeek));
         }
