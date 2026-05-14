@@ -53,6 +53,7 @@ This project is configured for deployment on **Netlify**. Ensure `NEXT_PUBLIC_FI
 - **Roles:** `ADMIN`, `ORG_ADMIN`, `STUDENT`
 - **Student tools:** Budget builder and debt simulator, both persisting drafts and writing activity logs
 - **Admin views:** System admin overview plus organization creation UI that also provisions the default `ORG_ADMIN`
+- **Org admin grading:** Weekly course pass/fail grid for enrolled students, with week-major API output for external grade workflows
 - **Export API:** `GET /api/export` protected by `X-API-KEY`, scoped per organization
 
 ## API-first expectation

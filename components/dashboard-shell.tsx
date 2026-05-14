@@ -28,7 +28,10 @@ export function DashboardShell({
             </>
           )}
           {user.role === "ORG_ADMIN" && (
-            <Link href="/app/org"><span>Dashboard</span></Link>
+            <>
+              <Link href="/app/org"><span>Dashboard</span></Link>
+              <a href="/app/org/course-grid"><span>Course Progress</span></a>
+            </>
           )}
           {user.role === "ADMIN" && (
             <Link href="/app/admin"><span>System Admin</span></Link>
