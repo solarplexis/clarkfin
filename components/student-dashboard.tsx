@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { StudentWorkspaceSwitcher } from "@/components/student-workspace-switcher";
 import { projectGoals, projectRetirement, calcNetPayFromBaseline } from "@/src/lib/calculations/timeline";
@@ -30,6 +30,38 @@ interface EnrollmentOption {
   semesterId: string;
   label: string;
 }
+
+type StudentCourseProgressResponse = {
+  ok: true;
+  semester: {
+    semesterId: string;
+    title: string;
+    courseCode: string;
+    durationWeeks: number;
+    startsAt: string;
+  };
+  week: {
+    weekNumber: number;
+    currentWeekNumber: number;
+    label: string;
+    startsAt: string;
+    endsAt: string;
+    availability: "available" | "future";
+  };
+  threshold: {
+    model: "score-threshold";
+    passScore: number;
+    maxScore: number;
+  };
+  score: number;
+  status: "pass" | "fail" | "unavailable";
+  criteria: Array<{
+    key: string;
+    points: number;
+    description: string;
+    met: boolean;
+  }>;
+};
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -205,19 +237,23 @@ function ActualAllocationPanel({
 }) {
   const grossPay = incomeEntries.filter(e => e.category === "gross_pay").reduce((s, e) => s + e.amount, 0);
   const taxes = incomeEntries.filter(e => e.category === "taxes").reduce((s, e) => s + e.amount, 0);
+  const otherIncome = incomeEntries
+    .filter(e => e.category !== "gross_pay" && e.category !== "taxes")
+    .reduce((s, e) => s + e.amount, 0);
   const netPay = Math.max(0, grossPay - taxes);
+  const totalIncome = netPay + otherIncome;
 
   const essential = expenseEntries.filter(e => e.category === "essential").reduce((s, e) => s + e.amount, 0);
   const debtPayments = expenseEntries.filter(e => e.category === "debt").reduce((s, e) => s + e.amount, 0);
   const discretionary = expenseEntries.filter(e => e.category === "discretionary").reduce((s, e) => s + e.amount, 0);
   const totalExpenses = essential + debtPayments + discretionary;
-  const savings = Math.max(0, netPay - totalExpenses);
+  const savings = Math.max(0, totalIncome - totalExpenses);
 
   const rows: Array<{ label: string; actual: number; target: number; color: string }> = [
-    { label: "Essential", actual: netPay > 0 ? (essential / netPay) * 100 : 0, target: targetAllocation?.essentialPct ?? 50, color: ALLOC_COLORS.Essential },
-    { label: "Debt", actual: netPay > 0 ? (debtPayments / netPay) * 100 : 0, target: targetAllocation?.debtPct ?? 20, color: ALLOC_COLORS.Debt },
-    { label: "Discretionary", actual: netPay > 0 ? (discretionary / netPay) * 100 : 0, target: targetAllocation?.discretionaryPct ?? 15, color: ALLOC_COLORS.Discretionary },
-    { label: "Savings", actual: netPay > 0 ? (savings / netPay) * 100 : 0, target: targetAllocation?.savingsPct ?? 15, color: ALLOC_COLORS.Savings }
+    { label: "Essential", actual: totalIncome > 0 ? (essential / totalIncome) * 100 : 0, target: targetAllocation?.essentialPct ?? 50, color: ALLOC_COLORS.Essential },
+    { label: "Debt", actual: totalIncome > 0 ? (debtPayments / totalIncome) * 100 : 0, target: targetAllocation?.debtPct ?? 20, color: ALLOC_COLORS.Debt },
+    { label: "Discretionary", actual: totalIncome > 0 ? (discretionary / totalIncome) * 100 : 0, target: targetAllocation?.discretionaryPct ?? 15, color: ALLOC_COLORS.Discretionary },
+    { label: "Savings", actual: totalIncome > 0 ? (savings / totalIncome) * 100 : 0, target: targetAllocation?.savingsPct ?? 15, color: ALLOC_COLORS.Savings }
   ];
 
   const amounts: Record<string, number> = { Essential: essential, Debt: debtPayments, Discretionary: discretionary, Savings: savings };
@@ -229,7 +265,7 @@ function ActualAllocationPanel({
         <span style={{ fontSize: "0.78rem", color: "var(--muted)" }}>{monthYear}</span>
       </div>
 
-      {netPay === 0 ? (
+      {totalIncome === 0 ? (
         <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
           No income data yet for this month.{" "}
           <Link href="/app/student/budget" style={{ color: "var(--accent)" }}>Add income →</Link>
@@ -237,7 +273,7 @@ function ActualAllocationPanel({
       ) : (
         <>
           <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: 12 }}>
-            Net Pay: {fmt(netPay)}/mo
+            Total Income: {fmt(totalIncome)}/mo
           </p>
           {rows.map(({ label, actual, target, color }) => {
             const isOver = actual > target * 1.1;
@@ -425,9 +461,13 @@ export function StudentDashboard({
   // Current month actuals
   const grossPayActual = currentMonthIncomeEntries.filter(e => e.category === "gross_pay").reduce((s, e) => s + e.amount, 0);
   const taxesActual = currentMonthIncomeEntries.filter(e => e.category === "taxes").reduce((s, e) => s + e.amount, 0);
+  const otherIncomeActual = currentMonthIncomeEntries
+    .filter(e => e.category !== "gross_pay" && e.category !== "taxes")
+    .reduce((s, e) => s + e.amount, 0);
   const netPayActual = Math.max(0, grossPayActual - taxesActual);
+  const totalIncomeActual = netPayActual + otherIncomeActual;
   const totalExpensesActual = currentMonthExpenseEntries.reduce((s, e) => s + e.amount, 0);
-  const netIncomeActual = netPayActual - totalExpensesActual;
+  const netIncomeActual = totalIncomeActual - totalExpensesActual;
 
   const totalDebt = debts.reduce((s, d) => s + d.currentBalance, 0);
   const netWorth = totalAssets - totalDebt;
@@ -456,6 +496,66 @@ export function StudentDashboard({
   const courseLabel = workspace?.activeSemester
     ? `${workspace.activeSemester.courseCode} · ${workspace.activeSemester.title}`
     : null;
+
+  const [courseProgress, setCourseProgress] = useState<StudentCourseProgressResponse | null>(null);
+  const [selectedProgressWeek, setSelectedProgressWeek] = useState<number | null>(null);
+  const [courseProgressLoading, setCourseProgressLoading] = useState(false);
+  const [courseProgressError, setCourseProgressError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setSelectedProgressWeek(null);
+  }, [semesterId]);
+
+  useEffect(() => {
+    if (!semesterId) {
+      setCourseProgress(null);
+      setSelectedProgressWeek(null);
+      setCourseProgressError(null);
+      return;
+    }
+
+    const activeSemesterId = semesterId;
+
+    let cancelled = false;
+
+    async function loadCourseProgress() {
+      setCourseProgressLoading(true);
+      setCourseProgressError(null);
+
+      try {
+        const params = new URLSearchParams();
+        params.set("semesterId", activeSemesterId);
+        if (selectedProgressWeek !== null) {
+          params.set("week", String(selectedProgressWeek));
+        }
+        const response = await fetch(`/api/student/course-progress?${params.toString()}`);
+        const json = (await response.json()) as StudentCourseProgressResponse | { error?: string };
+
+        if (!response.ok) {
+          throw new Error((json as { error?: string }).error ?? "Unable to load weekly course progress.");
+        }
+
+        if (!cancelled) {
+          setCourseProgress(json as StudentCourseProgressResponse);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setCourseProgress(null);
+          setCourseProgressError(error instanceof Error ? error.message : "Unable to load weekly course progress.");
+        }
+      } finally {
+        if (!cancelled) {
+          setCourseProgressLoading(false);
+        }
+      }
+    }
+
+    void loadCourseProgress();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [semesterId, selectedProgressWeek]);
 
   return (
     <>
@@ -488,6 +588,97 @@ export function StudentDashboard({
         </div>
       )}
 
+      {/* Weekly Course Progress */}
+      {semesterId && (
+        <div className="card">
+          <div className="card-header">
+            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+              <h3>Weekly Course Progress</h3>
+              {courseProgress && courseProgress.week.weekNumber === courseProgress.week.currentWeekNumber && (
+                <span className="badge badge-default">This Week</span>
+              )}
+            </div>
+            {courseProgress && (
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Previous week"
+                  disabled={courseProgress.week.weekNumber <= 1 || courseProgressLoading}
+                  onClick={() => setSelectedProgressWeek(courseProgress.week.weekNumber - 1)}
+                >
+                  ←
+                </button>
+                <span className={`badge ${courseProgress.status === "pass" ? "badge-teal" : courseProgress.status === "unavailable" ? "badge-default" : "badge-accent"}`}>
+                  {courseProgress.status === "pass"
+                    ? "PASSING"
+                    : courseProgress.status === "unavailable"
+                      ? "NOT STARTED"
+                      : "NOT PASSING"}
+                </span>
+                <button
+                  type="button"
+                  className="icon-button"
+                  aria-label="Next week"
+                  disabled={courseProgress.week.weekNumber >= courseProgress.semester.durationWeeks || courseProgressLoading}
+                  onClick={() => setSelectedProgressWeek(courseProgress.week.weekNumber + 1)}
+                >
+                  →
+                </button>
+              </div>
+            )}
+          </div>
+
+          {courseProgressLoading && (
+            <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>Loading weekly progress...</p>
+          )}
+
+          {!courseProgressLoading && courseProgressError && (
+            <p style={{ color: "var(--danger)", fontSize: "0.875rem" }}>{courseProgressError}</p>
+          )}
+
+          {!courseProgressLoading && !courseProgressError && courseProgress && (
+            <>
+              <p style={{ color: "var(--muted)", fontSize: "0.82rem", marginBottom: 12 }}>
+                {courseProgress.week.label} · Score {courseProgress.score}/{courseProgress.threshold.maxScore} · Passing threshold {courseProgress.threshold.passScore}
+              </p>
+              {courseProgress.week.availability === "future" ? (
+                <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
+                  This week has not started yet.
+                </p>
+              ) : (
+                <div className="stack-sm">
+                  {courseProgress.criteria.map((criterion) => (
+                    <div
+                      key={criterion.key}
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        gap: 10,
+                        border: "1px solid var(--line)",
+                        borderRadius: 10,
+                        padding: "10px 12px"
+                      }}
+                    >
+                      <div style={{ minWidth: 0 }}>
+                        <div style={{ fontWeight: 600, fontSize: "0.88rem" }}>{criterion.description}</div>
+                        <div style={{ color: "var(--muted)", fontSize: "0.78rem", marginTop: 2 }}>
+                          {criterion.points} point{criterion.points === 1 ? "" : "s"}
+                        </div>
+                      </div>
+                      <span className={`badge ${criterion.met ? "badge-teal" : "badge-accent"}`}>
+                        {criterion.met ? "PASSING" : "NOT PASSING"}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
       {/* KPI Strip */}
       <div className="fin-stat-strip">
         <div className="fin-stat">
@@ -504,11 +695,11 @@ export function StudentDashboard({
         <div className="fin-stat">
           <div className="fin-stat-label">Net Income</div>
           <div className={`fin-stat-value ${netIncomeActual >= 0 ? "fin-positive" : "fin-negative"}`}>
-            {netPayActual > 0 ? fmt(netIncomeActual) : "—"}
+            {totalIncomeActual > 0 ? fmt(netIncomeActual) : "—"}
           </div>
           <div className="fin-stat-sub">
-            {netPayActual > 0
-              ? `${currentMonthLabel} · net pay ${fmt(netPayActual)}`
+            {totalIncomeActual > 0
+              ? `${currentMonthLabel} · income ${fmt(totalIncomeActual)}`
               : "No income entries this month"}
           </div>
         </div>

@@ -5,6 +5,13 @@ import { useRouter } from "next/navigation";
 
 import { EndDrawer } from "@/components/end-drawer";
 
+function computeEndDate(startsAt: string, durationWeeks: number): string {
+  if (!startsAt || !durationWeeks) return "";
+  const d = new Date(startsAt);
+  d.setUTCDate(d.getUTCDate() + durationWeeks * 7);
+  return d.toISOString().slice(0, 10);
+}
+
 type SemesterRow = {
   semesterId: string;
   title: string;
@@ -32,6 +39,25 @@ export function EditSemesterDrawer({ semester }: { semester: SemesterRow }) {
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [startsAt, setStartsAt] = useState(semester.startsAt?.slice(0, 10) ?? "");
+  const [durationWeeks, setDurationWeeks] = useState(semester.durationWeeks);
+  const [endsAt, setEndsAt] = useState(semester.endsAt?.slice(0, 10) ?? "");
+  const [endDateUserEdited, setEndDateUserEdited] = useState(false);
+
+  function handleStartsAtChange(val: string) {
+    setStartsAt(val);
+    if (!endDateUserEdited) setEndsAt(computeEndDate(val, durationWeeks));
+  }
+
+  function handleDurationChange(val: number) {
+    setDurationWeeks(val);
+    if (!endDateUserEdited) setEndsAt(computeEndDate(startsAt, val));
+  }
+
+  function handleEndsAtChange(val: string) {
+    setEndDateUserEdited(true);
+    setEndsAt(val);
+  }
 
   async function submit(formData: FormData) {
     setIsPending(true);
@@ -98,18 +124,15 @@ export function EditSemesterDrawer({ semester }: { semester: SemesterRow }) {
           </div>
           <div className="field">
             <label htmlFor={`${formId}-durationWeeks`}>Duration (weeks)</label>
-            <select defaultValue={semester.durationWeeks} id={`${formId}-durationWeeks`} name="durationWeeks">
-              <option value={8}>8 weeks</option>
-              <option value={10}>10 weeks</option>
-            </select>
+            <input id={`${formId}-durationWeeks`} min={1} name="durationWeeks" type="number" value={durationWeeks} onChange={(e) => handleDurationChange(Number(e.target.value))} />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-startsAt`}>Start date</label>
-            <input defaultValue={semester.startsAt?.slice(0, 10)} id={`${formId}-startsAt`} name="startsAt" type="date" />
+            <input id={`${formId}-startsAt`} name="startsAt" type="date" value={startsAt} onChange={(e) => handleStartsAtChange(e.target.value)} />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-endsAt`}>End date</label>
-            <input defaultValue={semester.endsAt?.slice(0, 10)} id={`${formId}-endsAt`} name="endsAt" type="date" />
+            <input id={`${formId}-endsAt`} name="endsAt" type="date" value={endsAt} onChange={(e) => handleEndsAtChange(e.target.value)} />
           </div>
         </div>
         <label className="row" style={{ alignItems: "center" }}>
@@ -128,6 +151,25 @@ export function CreateSemesterForm() {
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
+  const [startsAt, setStartsAt] = useState("");
+  const [durationWeeks, setDurationWeeks] = useState(8);
+  const [endsAt, setEndsAt] = useState("");
+  const [endDateUserEdited, setEndDateUserEdited] = useState(false);
+
+  function handleStartsAtChange(val: string) {
+    setStartsAt(val);
+    if (!endDateUserEdited) setEndsAt(computeEndDate(val, durationWeeks));
+  }
+
+  function handleDurationChange(val: number) {
+    setDurationWeeks(val);
+    if (!endDateUserEdited) setEndsAt(computeEndDate(startsAt, val));
+  }
+
+  function handleEndsAtChange(val: string) {
+    setEndDateUserEdited(true);
+    setEndsAt(val);
+  }
 
   async function submit(formData: FormData) {
     setIsPending(true);
@@ -196,18 +238,15 @@ export function CreateSemesterForm() {
           </div>
           <div className="field">
             <label htmlFor={`${formId}-durationWeeks`}>Duration (weeks)</label>
-            <select defaultValue={8} id={`${formId}-durationWeeks`} name="durationWeeks">
-              <option value={8}>8 weeks</option>
-              <option value={10}>10 weeks</option>
-            </select>
+            <input id={`${formId}-durationWeeks`} min={1} name="durationWeeks" type="number" value={durationWeeks} onChange={(e) => handleDurationChange(Number(e.target.value))} />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-startsAt`}>Start date</label>
-            <input id={`${formId}-startsAt`} name="startsAt" type="date" />
+            <input id={`${formId}-startsAt`} name="startsAt" type="date" value={startsAt} onChange={(e) => handleStartsAtChange(e.target.value)} />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-endsAt`}>End date</label>
-            <input id={`${formId}-endsAt`} name="endsAt" type="date" />
+            <input id={`${formId}-endsAt`} name="endsAt" type="date" value={endsAt} onChange={(e) => handleEndsAtChange(e.target.value)} />
           </div>
         </div>
         <label className="row" style={{ alignItems: "center" }}>

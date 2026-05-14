@@ -456,6 +456,48 @@ const endpointGroups: EndpointGroup[] = [
         responseExample: `{
   "ok": true
 }`
+      },
+      {
+        id: "courses-weekly-grid",
+        method: "GET",
+        path: "/api/org/course-grid",
+        title: "Get weekly pass/fail grid",
+        auth: "API Key",
+        role: "ORG_ADMIN",
+        description: "Returns week-major pass/fail results for enrolled students in a course. Accepts either an `ORG_ADMIN` session cookie or an org-scoped `X-API-KEY` / `Authorization: Bearer <key>` header (for external tools such as Claude Cowork). Query params: `semesterId` (required); `week` (optional, course week number — omit to return all weeks).",
+        responseExample: `{
+  "ok": true,
+  "semester": {
+    "semesterId": "fall-2026-fin101",
+    "courseCode": "FIN101",
+    "title": "Fall 2026 Personal Finance"
+  },
+  "threshold": {
+    "model": "score-threshold",
+    "passScore": 2,
+    "maxScore": 3,
+    "rubric": [
+      { "key": "budget_touched", "points": 1 },
+      { "key": "debt_touched", "points": 1 },
+      { "key": "activity_volume", "points": 1 }
+    ]
+  },
+  "weeks": [
+    {
+      "weekNumber": 3,
+      "label": "Week 3",
+      "availability": "available",
+      "students": [
+        {
+          "userId": "student_123",
+          "fullName": "Alex Rivera",
+          "email": "alex@college.edu",
+          "status": "pass"
+        }
+      ]
+    }
+  ]
+}`
       }
     ]
   },
@@ -1167,6 +1209,43 @@ const endpointGroups: EndpointGroup[] = [
     "totalInterest": 412.30,
     "isFinal": false
   }
+}`
+      },
+      {
+        id: "student-course-progress-read",
+        method: "GET",
+        path: "/api/student/course-progress",
+        title: "Get own current-week course progress",
+        auth: "Session",
+        role: "STUDENT",
+          description: "Returns the student's course-week progress for the active (or selected) course, including overall pass/not-passing status and itemized rubric criteria. Supports optional `semesterId` (defaults to active workspace semester) and optional `week` to navigate to a specific week.",
+        responseExample: `{
+  "ok": true,
+  "semester": {
+    "semesterId": "fall-2026-fin101",
+    "courseCode": "FIN101",
+    "title": "Fall 2026 Personal Finance",
+    "durationWeeks": 10,
+    "startsAt": "2026-09-01"
+  },
+  "week": {
+    "weekNumber": 3,
+    "currentWeekNumber": 3,
+    "label": "Week 3",
+    "availability": "available"
+  },
+  "threshold": {
+    "model": "score-threshold",
+    "passScore": 2,
+    "maxScore": 3
+  },
+  "score": 2,
+  "status": "pass",
+  "criteria": [
+    { "key": "budget_touched", "points": 1, "met": true },
+    { "key": "debt_touched", "points": 1, "met": false },
+    { "key": "activity_volume", "points": 1, "met": true }
+  ]
 }`
       },
       {
