@@ -507,14 +507,14 @@ export function StudentDashboard({
   }, [semesterId]);
 
   useEffect(() => {
-    const activeSemesterId = semesterId;
-
-    if (!activeSemesterId) {
+    if (!semesterId) {
       setCourseProgress(null);
       setSelectedProgressWeek(null);
       setCourseProgressError(null);
       return;
     }
+
+    const activeSemesterId = semesterId;
 
     let cancelled = false;
 
