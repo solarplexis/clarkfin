@@ -33,6 +33,9 @@ export default async function OrganizationDashboardPage() {
           <h1>{organization?.name ?? orgId}</h1>
           <p>Manage courses, invites, and student engagement.</p>
         </div>
+        <a className="button-secondary" href="/app/org/course-grid">
+          Open Course Progress
+        </a>
       </div>
 
       <div className="stat-grid">
@@ -116,6 +119,8 @@ export default async function OrganizationDashboardPage() {
                 <th>Title</th>
                 <th>Course code</th>
                 <th>ID</th>
+                <th>Start date</th>
+                <th>Duration</th>
                 <th>Status</th>
                 <th></th>
               </tr>
@@ -123,7 +128,7 @@ export default async function OrganizationDashboardPage() {
             <tbody>
               {semesters.length === 0 ? (
                 <tr>
-                  <td colSpan={5} style={{ textAlign: "center", color: "var(--muted)" }}>
+                  <td colSpan={7} style={{ textAlign: "center", color: "var(--muted)" }}>
                     No courses yet. Create one before inviting students.
                   </td>
                 </tr>
@@ -133,6 +138,16 @@ export default async function OrganizationDashboardPage() {
                     <td>{semester.title}</td>
                     <td>{semester.courseCode}</td>
                     <td><span className="semester-card-code">{semester.semesterId}</span></td>
+                    <td>
+                      {semester.startsAt
+                        ? new Date(semester.startsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" })
+                        : <span style={{ color: "var(--muted)" }}>—</span>}
+                    </td>
+                    <td>
+                      {semester.durationWeeks
+                        ? `${semester.durationWeeks}w`
+                        : <span style={{ color: "var(--muted)" }}>—</span>}
+                    </td>
                     <td>
                       <span className={`badge ${semester.isActive ? "badge-teal" : "badge-default"}`}>
                         {semester.isActive ? "Active" : "Inactive"}
