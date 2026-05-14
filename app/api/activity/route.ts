@@ -131,6 +131,33 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: true, message: "Budget saved." });
   }
 
+  if (type === "debt.update") {
+    const action = String(body.action ?? "edit");
+    const label = String(body.label ?? "");
+    const category = String(body.category ?? "");
+    const currentBalance = Number(body.currentBalance ?? 0);
+    const monthlyPayment = Number(body.monthlyPayment ?? 0);
+
+    const summaryMap: Record<string, string> = {
+      add: `Debt added: ${label}`,
+      edit: `Debt updated: ${label}`,
+      delete: `Debt removed: ${label}`
+    };
+
+    await createActivityLog({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      module: "debt",
+      action,
+      status: "completed",
+      summary: summaryMap[action] ?? `Debt ${action}: ${label}`,
+      payload: { debtId: body.debtId, label, category, currentBalance, monthlyPayment }
+    });
+
+    return NextResponse.json({ ok: true });
+  }
+
   if (type === "debt.save") {
     const debtName = String(body.debtName ?? "");
     const balance = Number(body.balance ?? 0);

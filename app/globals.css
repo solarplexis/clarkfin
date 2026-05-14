@@ -3337,6 +3337,95 @@ tbody tr:hover {
 
 .tl-cc-warning strong { color: #92400e; }
 
+/* ── Debt Manager ─────────────────────────────────────────────── */
+
+.dm-summary {
+  display: flex;
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.dm-summary-item {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 18px;
+  border-right: 1px solid var(--line);
+}
+
+.dm-summary-item:last-child {
+  border-right: none;
+}
+
+.dm-summary-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+.dm-summary-value {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.dm-summary-danger {
+  color: var(--danger);
+}
+
+.dm-card-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.dm-delete-btn {
+  color: var(--danger);
+}
+
+.dm-delete-btn:hover {
+  color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.dm-edit-label {
+  font-weight: 600;
+  font-size: 0.9rem;
+  color: var(--ink);
+  margin-bottom: 12px;
+}
+
+.dm-edit-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dm-form-actions {
+  display: flex;
+  gap: 10px;
+  padding-top: 4px;
+}
+
+.dm-error {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: var(--danger);
+}
+
+.dm-empty {
+  text-align: center;
+  color: var(--muted);
+  padding: 32px !important;
+}
+
 .tl-retirement-card {
   border: 1px solid var(--line);
   border-radius: var(--radius-md);

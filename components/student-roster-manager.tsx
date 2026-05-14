@@ -17,6 +17,13 @@ const TrashIcon = () => (
   </svg>
 );
 
+const CopyIcon = () => (
+  <svg fill="none" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg">
+    <path d="M6 2.75h5.25A1.75 1.75 0 0 1 13 4.5v6.75A1.75 1.75 0 0 1 11.25 13H6A1.75 1.75 0 0 1 4.25 11.25V4.5A1.75 1.75 0 0 1 6 2.75Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+    <path d="M4.25 5.5H3.5A1.5 1.5 0 0 0 2 7v5.5A1.5 1.5 0 0 0 3.5 14h5.5A1.5 1.5 0 0 0 10.5 12.5v-.75" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+  </svg>
+);
+
 type StudentStatus = "prospect" | "invited" | "active" | "inactive";
 
 type StudentRow = {
@@ -396,7 +403,7 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
               <th>Name</th>
               <th>Email</th>
               <th>Status</th>
-              <th>Auth user</th>
+              <th>Student ID</th>
               <th>Actions</th>
             </tr>
           </thead>
@@ -432,7 +439,21 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
                       {student.status}
                     </span>
                   </td>
-                  <td>{student.authUserId ?? "Not linked yet"}</td>
+                  <td>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                      <code style={{ fontSize: "0.85rem", color: "var(--ink-2)" }}>{student.studentId}</code>
+                      <button
+                        type="button"
+                        aria-label="Copy student ID"
+                        className="icon-button"
+                        onClick={() => {
+                          void navigator.clipboard.writeText(student.studentId);
+                        }}
+                      >
+                        <CopyIcon />
+                      </button>
+                    </div>
+                  </td>
                   <td>
                     <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", flexWrap: "wrap" }}>
                       <EditStudentDrawer student={student} />
