@@ -236,7 +236,7 @@ export async function getStudentCurrentWeekProgress(input: {
       if (moduleName === "budget" && ["saved", "submitted", "actuals_saved"].includes(actionName)) {
         signal.budgetTouched = true;
       }
-      if (moduleName === "debt" && ["saved", "submitted"].includes(actionName)) {
+      if (moduleName === "debt" && ["saved", "submitted", "add", "edit", "delete"].includes(actionName)) {
         signal.debtTouched = true;
       }
       if (moduleName === "budget" || moduleName === "debt") {
@@ -401,7 +401,7 @@ export async function buildOrgCourseWeekGrid(input: {
       if (moduleName === "budget" && ["saved", "submitted", "actuals_saved"].includes(actionName)) {
         current.budgetTouched = true;
       }
-      if (moduleName === "debt" && ["saved", "submitted"].includes(actionName)) {
+      if (moduleName === "debt" && ["saved", "submitted", "add", "edit", "delete"].includes(actionName)) {
         current.debtTouched = true;
       }
       if (moduleName === "budget" || moduleName === "debt") {
