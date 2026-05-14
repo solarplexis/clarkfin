@@ -1238,6 +1238,43 @@ const endpointGroups: EndpointGroup[] = [
 }`
       },
       {
+        id: "org-student-course-progress-read",
+        method: "GET",
+        path: "/api/org/students/{studentId}/course-progress",
+        title: "Get student weekly course progress",
+        auth: "Session",
+        role: "ORG_ADMIN",
+        description: "Returns itemized weekly course progress for a specific enrolled student. Requires `semesterId` and supports optional `week` for week-by-week navigation. Returns `progress: null` if the student has not linked their account.",
+        responseExample: `{
+  "ok": true,
+  "progress": {
+    "semester": {
+      "semesterId": "fall-2026-fin101",
+      "courseCode": "FIN101",
+      "title": "Fall 2026 Personal Finance"
+    },
+    "week": {
+      "weekNumber": 3,
+      "currentWeekNumber": 3,
+      "label": "Week 3",
+      "availability": "available"
+    },
+    "threshold": {
+      "model": "score-threshold",
+      "passScore": 2,
+      "maxScore": 3
+    },
+    "score": 2,
+    "status": "pass",
+    "criteria": [
+      { "key": "budget_touched", "points": 1, "met": true },
+      { "key": "debt_touched", "points": 1, "met": false },
+      { "key": "activity_volume", "points": 1, "met": true }
+    ]
+  }
+}`
+      },
+      {
         id: "org-activity-get",
         method: "GET",
         path: "/api/org/activity",
