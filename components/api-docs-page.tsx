@@ -1190,28 +1190,6 @@ const endpointGroups: EndpointGroup[] = [
 }`
       },
       {
-        id: "student-debt-read",
-        method: "GET",
-        path: "/api/student/debt",
-        title: "Get own debt scenario",
-        auth: "Session",
-        role: "STUDENT",
-        description: "Returns the student's debt scenario for the specified course. Defaults to the active workspace semester when `semesterId` is omitted.",
-        responseExample: `{
-  "ok": true,
-  "debt": {
-    "semesterId": "fall-2026-fin101",
-    "debtName": "Credit Card",
-    "balance": 2400,
-    "interestRate": 19.99,
-    "plannedPayment": 150,
-    "payoffMonths": 20,
-    "totalInterest": 412.30,
-    "isFinal": false
-  }
-}`
-      },
-      {
         id: "student-course-progress-read",
         method: "GET",
         path: "/api/student/course-progress",
@@ -1275,7 +1253,7 @@ const endpointGroups: EndpointGroup[] = [
   {
     id: "org-finance",
     label: "Instructor Finance View",
-    intro: "Read endpoints for org admins to inspect student budget drafts, debt scenarios, and activity logs across their organization.",
+    intro: "Read endpoints for org admins to inspect student budget drafts, debt records, and activity logs across their organization.",
     endpoints: [
       {
         id: "org-student-budget-read",
@@ -1293,25 +1271,6 @@ const endpointGroups: EndpointGroup[] = [
     "savings": [{"id": "ef", "label": "Emergency Fund", "amount": 50, "frequency": "monthly"}],
     "expenses": [{"id": "rent", "label": "Rent", "amount": 600, "frequency": "monthly"}],
     "monthlyBalance": 122,
-    "isFinal": true
-  }
-}`
-      },
-      {
-        id: "org-student-debt-read",
-        method: "GET",
-        path: "/api/org/students/{studentId}/debt",
-        title: "Get student debt scenario",
-        auth: "Session",
-        role: "ORG_ADMIN",
-        description: "Returns the debt scenario for a specific enrolled student. Requires a `semesterId` query parameter.",
-        responseExample: `{
-  "ok": true,
-  "debt": {
-    "semesterId": "fall-2026-fin101",
-    "debtName": "Credit Card",
-    "balance": 2400,
-    "payoffMonths": 20,
     "isFinal": true
   }
 }`
