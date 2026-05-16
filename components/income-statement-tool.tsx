@@ -21,6 +21,15 @@ function emptyCells(): Record<Week, CellState> {
   return { 1: { amount: 0 }, 2: { amount: 0 }, 3: { amount: 0 }, 4: { amount: 0 } };
 }
 
+function suggestedDebtCells(monthlyPayment: number): Record<Week, CellState> {
+  const cells = emptyCells();
+  if (monthlyPayment > 0) {
+    // Use week 1 as the default monthly payment slot; students can move it if their due date differs.
+    cells[1] = { amount: monthlyPayment };
+  }
+  return cells;
+}
+
 type IncomeRow = {
   rowKey: string;
   label: string;
@@ -131,7 +140,7 @@ function buildExpenseRows(entries: ExpenseEntry[], debts: Debt[]): ExpenseRow[] 
         isDebt: true,
         category: "debt",
         savedInDb: false,
-        cells: emptyCells()
+        cells: suggestedDebtCells(debt.monthlyPayment)
       });
     }
   }
@@ -545,7 +554,10 @@ export function IncomeStatementTool({
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <h2 style={{ marginBottom: 4 }}>Income Statement</h2>
+            <h2 style={{ marginBottom: 4 }}>Monthly Budget</h2>
+            <p style={{ margin: "0 0 10px", color: "var(--muted)", fontSize: "0.82rem" }}>
+              Use this as your monthly budget log. Week 1-4 columns are for the weeks inside the month.
+            </p>
             <div className="is-month-nav">
               <button
                 className="is-nav-btn"
@@ -580,6 +592,10 @@ export function IncomeStatementTool({
         {error && (
           <p style={{ marginTop: 10, fontSize: "0.85rem", color: "var(--danger)" }}>{error}</p>
         )}
+
+        <p style={{ marginTop: 10, fontSize: "0.8rem", color: "var(--muted)" }}>
+          Planner note: discretionary expenses entered on the Planner page appear here too. Enter them in one place, not both.
+        </p>
       </div>
 
       {/* Income */}
@@ -629,6 +645,9 @@ export function IncomeStatementTool({
       {/* Expenses */}
       <div className="card">
         <h3 style={{ marginBottom: 14 }}>Expenses</h3>
+        <p style={{ margin: "0 0 14px", color: "var(--muted)", fontSize: "0.8rem" }}>
+          Debt rows come from your Debt page. Monthly payment suggestions are loaded into Week 1 so you can confirm or move them before saving.
+        </p>
         <div className="table-wrap" style={{ border: "none", boxShadow: "none", background: "transparent", borderRadius: 0 }}>
           <table className="is-table" key={`expense-${tableKey}`}>
             <thead>

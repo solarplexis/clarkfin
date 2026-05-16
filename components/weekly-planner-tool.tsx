@@ -329,6 +329,10 @@ export function WeeklyPlannerTool({
         </div>
       </div>
 
+      <div className="wp-empty-hint" style={{ marginBottom: 16 }}>
+        Planner entries are saved to the same monthly budget records shown on the Budget page. Use this tool for discretionary spending only, and avoid re-entering the same expense there.
+      </div>
+
       {hasCreditCard && (
         <div className="wp-cc-banner">
           <strong>Heads up:</strong> You have a credit card balance. Discretionary expenses charged to your card add to your debt — track those charges on the <a href="/app/student/debt">Debt page</a>.
@@ -355,6 +359,10 @@ export function WeeklyPlannerTool({
           <span className="wp-summary-value">{fmt(baseWeeklyBudget)}</span>
         </div>
       </div>
+
+      <p style={{ margin: "0 0 16px", color: "var(--muted)", fontSize: "0.8rem" }}>
+        Weekly Base comes from your Dashboard discretionary target applied to baseline net pay. Unused saved budget rolls into the next week.
+      </p>
 
       {discretionaryPct === 0 && (
         <div className="wp-empty-hint">

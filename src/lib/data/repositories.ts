@@ -6,6 +6,7 @@ import type {
   AllocationTarget,
   Asset,
   AssetCategory,
+  BudgetFrequency,
   BudgetActuals,
   BudgetDraft,
   ChatConversation,
@@ -61,6 +62,230 @@ function mapDoc<T>(id: string, data: Record<string, unknown>) {
 
 function buildFullName(firstName: string, lastName: string) {
   return `${firstName.trim()} ${lastName.trim()}`.trim();
+}
+
+const PER_MONTH: Record<BudgetFrequency, number> = {
+  monthly: 1,
+  semimonthly: 2,
+  biweekly: 26 / 12,
+  weekly: 52 / 12,
+  annual: 1 / 12
+};
+
+function formatMonthKey(periodYear: number, periodMonth: number) {
+  return `${periodYear}-${String(periodMonth).padStart(2, "0")}`;
+}
+
+function parseMonthKey(monthKey: string) {
+  const match = monthKey.match(/^(\d{4})-(\d{2})$/);
+
+  if (!match) {
+    return null;
+  }
+
+  return {
+    periodYear: Number(match[1]),
+    periodMonth: Number(match[2])
+  };
+}
+
+function labelFromEntry(input: { label?: string; category?: string }) {
+  const label = String(input.label ?? "").trim();
+
+  if (label) {
+    return label;
+  }
+
+  return String(input.category ?? "Uncategorized")
+    .split("_")
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function buildApproximateEntryDate(periodYear: number, periodMonth: number, periodWeek: number) {
+  const safeWeek = Math.max(1, Math.min(5, Math.trunc(periodWeek) || 1));
+  const lastDayOfMonth = new Date(periodYear, periodMonth, 0).getDate();
+  const dayOfMonth = Math.min(1 + (safeWeek - 1) * 7, lastDayOfMonth);
+
+  return `${periodYear}-${String(periodMonth).padStart(2, "0")}-${String(dayOfMonth).padStart(2, "0")}`;
+}
+
+function getLatestIsoTimestamp(entries: Array<{ updatedAt?: string; createdAt?: string }>) {
+  const latestTimestamp = entries.reduce((latest, entry) => {
+    const value = entry.updatedAt ?? entry.createdAt;
+    const current = value ? Date.parse(value) : Number.NaN;
+    if (Number.isNaN(current)) {
+      return latest;
+    }
+    return Math.max(latest, current);
+  }, Number.NaN);
+
+  return Number.isNaN(latestTimestamp)
+    ? new Date().toISOString()
+    : new Date(latestTimestamp).toISOString();
+}
+
+function resolveDerivedEntryMonth(
+  incomeEntries: IncomeEntry[],
+  expenseEntries: ExpenseEntry[]
+) {
+  const monthKeys = new Set<string>();
+
+  for (const entry of [...incomeEntries, ...expenseEntries]) {
+    if (entry.periodYear > 0 && entry.periodMonth > 0) {
+      monthKeys.add(formatMonthKey(entry.periodYear, entry.periodMonth));
+    }
+  }
+
+  if (monthKeys.size === 0) {
+    return null;
+  }
+
+  const now = new Date();
+  const currentMonthKey = formatMonthKey(now.getFullYear(), now.getMonth() + 1);
+
+  if (monthKeys.has(currentMonthKey)) {
+    return parseMonthKey(currentMonthKey);
+  }
+
+  const latestMonthKey = Array.from(monthKeys).sort((left, right) => right.localeCompare(left))[0];
+  return parseMonthKey(latestMonthKey);
+}
+
+function buildDerivedBudgetItems<T extends { id: string; label: string; amount: number; category?: string }>(
+  entries: T[],
+  prefix: string
+): BudgetDraft["income"] {
+  const grouped = new Map<string, BudgetDraft["income"][number]>();
+
+  for (const entry of entries) {
+    const label = labelFromEntry(entry);
+    const existing = grouped.get(label);
+
+    if (existing) {
+      existing.amount = Number((existing.amount + entry.amount).toFixed(2));
+      continue;
+    }
+
+    grouped.set(label, {
+      id: `${prefix}_${entry.id}`,
+      label,
+      amount: Number(entry.amount.toFixed(2)),
+      frequency: "monthly"
+    });
+  }
+
+  return Array.from(grouped.values()).sort((left, right) => left.label.localeCompare(right.label));
+}
+
+async function deriveBudgetDraftFromEntries(userId: string, semesterId: string): Promise<BudgetDraft | null> {
+  // Legacy budget endpoints still expect a draft-shaped payload; derive one from the
+  // entry ledger when no `budget_drafts` document exists yet.
+  const [incomeEntries, expenseEntries] = await Promise.all([
+    listIncomeEntries(userId, semesterId),
+    listExpenseEntries(userId, semesterId)
+  ]);
+
+  const month = resolveDerivedEntryMonth(incomeEntries, expenseEntries);
+
+  if (!month) {
+    return null;
+  }
+
+  const incomeEntriesForMonth = incomeEntries.filter(
+    (entry) => entry.periodYear === month.periodYear && entry.periodMonth === month.periodMonth
+  );
+  const expenseEntriesForMonth = expenseEntries.filter(
+    (entry) => entry.periodYear === month.periodYear && entry.periodMonth === month.periodMonth
+  );
+
+  if (incomeEntriesForMonth.length === 0 && expenseEntriesForMonth.length === 0) {
+    return null;
+  }
+
+  const income = buildDerivedBudgetItems(incomeEntriesForMonth, "derived_income");
+  const expenses = buildDerivedBudgetItems(expenseEntriesForMonth, "derived_expense");
+  const monthlyIncome = income.reduce((sum, item) => sum + item.amount * PER_MONTH[item.frequency], 0);
+  const monthlyExpenses = expenses.reduce((sum, item) => sum + item.amount * PER_MONTH[item.frequency], 0);
+  const derivedEntries = [...incomeEntriesForMonth, ...expenseEntriesForMonth];
+
+  return {
+    id: `derived_${semesterId}_${userId}_${formatMonthKey(month.periodYear, month.periodMonth)}`,
+    userId,
+    organizationId: String(derivedEntries[0]?.organizationId ?? ""),
+    semesterId,
+    income,
+    savings: [],
+    expenses,
+    notes: `Derived from income and expense entries for ${formatMonthKey(month.periodYear, month.periodMonth)}.`,
+    monthlyBalance: Number((monthlyIncome - monthlyExpenses).toFixed(2)),
+    isFinal: false,
+    updatedAt: getLatestIsoTimestamp(derivedEntries)
+  };
+}
+
+async function deriveBudgetActualsFromEntries(input: {
+  userId: string;
+  semesterId: string;
+  monthKey?: string;
+}): Promise<BudgetActuals | null> {
+  // The student-facing flow now records monthly income/expense entries directly.
+  // Keep legacy actuals readers alive by projecting those entries into the old shape.
+  const month = input.monthKey ? parseMonthKey(input.monthKey) : null;
+  const entryFilter = month
+    ? {
+        periodYear: month.periodYear,
+        periodMonth: month.periodMonth
+      }
+    : undefined;
+
+  const [incomeEntries, expenseEntries] = await Promise.all([
+    listIncomeEntries(input.userId, input.semesterId, entryFilter),
+    listExpenseEntries(input.userId, input.semesterId, entryFilter)
+  ]);
+
+  const resolvedMonth = month ?? resolveDerivedEntryMonth(incomeEntries, expenseEntries);
+
+  if (!resolvedMonth) {
+    return null;
+  }
+
+  const monthKey = formatMonthKey(resolvedMonth.periodYear, resolvedMonth.periodMonth);
+  const incomeEntriesForMonth = incomeEntries.filter(
+    (entry) => entry.periodYear === resolvedMonth.periodYear && entry.periodMonth === resolvedMonth.periodMonth
+  );
+  const expenseEntriesForMonth = expenseEntries.filter(
+    (entry) => entry.periodYear === resolvedMonth.periodYear && entry.periodMonth === resolvedMonth.periodMonth
+  );
+
+  if (incomeEntriesForMonth.length === 0 && expenseEntriesForMonth.length === 0) {
+    return null;
+  }
+
+  const derivedEntries = [...incomeEntriesForMonth, ...expenseEntriesForMonth];
+
+  return {
+    id: `derived_actuals_${input.semesterId}_${input.userId}_${monthKey}`,
+    userId: input.userId,
+    organizationId: String(derivedEntries[0]?.organizationId ?? ""),
+    semesterId: input.semesterId,
+    actualIncome: incomeEntriesForMonth.map((entry) => ({
+      id: `derived_income_${entry.id}`,
+      label: labelFromEntry(entry),
+      amount: Number(entry.amount.toFixed(2)),
+      date: buildApproximateEntryDate(entry.periodYear, entry.periodMonth, entry.periodWeek)
+    })),
+    actualSavings: [],
+    actualExpenses: expenseEntriesForMonth.map((entry) => ({
+      id: `derived_expense_${entry.id}`,
+      label: labelFromEntry(entry),
+      amount: Number(entry.amount.toFixed(2)),
+      category: entry.category,
+      date: buildApproximateEntryDate(entry.periodYear, entry.periodMonth, entry.periodWeek)
+    })),
+    notes: `Derived from income and expense entries for ${monthKey}.`,
+    updatedAt: getLatestIsoTimestamp(derivedEntries)
+  };
 }
 
 function mapSemester(id: string, data: Record<string, unknown>) {
@@ -1156,7 +1381,7 @@ export async function getBudgetDraft(userId: string, semesterId: string) {
   const snapshot = await adminDb.collection("budget_drafts").doc(`${semesterId}_${userId}`).get();
 
   if (!snapshot.exists) {
-    return null;
+    return deriveBudgetDraftFromEntries(userId, semesterId);
   }
 
   const data = snapshot.data() as Record<string, unknown>;
@@ -1175,6 +1400,7 @@ export async function getBudgetDraft(userId: string, semesterId: string) {
   });
 }
 
+// @deprecated writes to the legacy `budget_drafts` collection. Remove after the BudgetTool UI is retired.
 export async function upsertBudgetDraft(
   draft: Omit<BudgetDraft, "id" | "updatedAt">
 ) {
@@ -1192,7 +1418,7 @@ export async function getBudgetActuals(userId: string, semesterId: string) {
   const snapshot = await adminDb.collection("budget_actuals").doc(`${semesterId}_${userId}`).get();
 
   if (!snapshot.exists) {
-    return null;
+    return deriveBudgetActualsFromEntries({ userId, semesterId });
   }
 
   const data = snapshot.data() as Record<string, unknown>;
@@ -1209,6 +1435,7 @@ export async function getBudgetActuals(userId: string, semesterId: string) {
   });
 }
 
+// @deprecated writes to the legacy `budget_actuals` collection. Remove after the BudgetTool UI is retired.
 export async function upsertBudgetActuals(
   actuals: Omit<BudgetActuals, "id" | "updatedAt">
 ) {
@@ -1246,7 +1473,7 @@ export async function getBudgetActualsByMonth(userId: string, semesterId: string
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   if (monthKey !== currentMonthKey) {
-    return null;
+    return deriveBudgetActualsFromEntries({ userId, semesterId, monthKey });
   }
 
   const legacySnapshot = await adminDb
@@ -1255,7 +1482,7 @@ export async function getBudgetActualsByMonth(userId: string, semesterId: string
     .get();
 
   if (!legacySnapshot.exists) {
-    return null;
+    return deriveBudgetActualsFromEntries({ userId, semesterId, monthKey });
   }
 
   const data = legacySnapshot.data() as Record<string, unknown>;
@@ -1271,6 +1498,8 @@ export async function getBudgetActualsByMonth(userId: string, semesterId: string
   });
 }
 
+// @deprecated writes to the legacy `budget_actuals_monthly` collection. Called by /api/student/budget/actuals.
+// Remove after the BudgetTool UI is retired and the monthly-actuals page is removed.
 export async function upsertBudgetActualsByMonth(
   actuals: Omit<BudgetActuals, "id" | "updatedAt">,
   monthKey: string
@@ -1317,6 +1546,8 @@ export async function getDebtScenario(userId: string, semesterId: string) {
   });
 }
 
+// @deprecated writes to the legacy `debt_scenarios` collection. The active system uses `debts`.
+// Remove after DebtSimulator UI is retired.
 export async function upsertDebtScenario(
   scenario: Omit<DebtScenario, "id" | "updatedAt">
 ) {
@@ -1480,11 +1711,16 @@ export async function getRaceProgress(semesterId: string, organizationId: string
 
   const students = await Promise.all(
     enrollments.map(async ({ userId }) => {
-      const [userSnap, budgetSnap, debtSnap, actualsSnap, chatSnap] = await Promise.all([
+      const [userSnap, budgetSnap, debtsSnap, incomeEntries, expenseEntries, chatSnap] = await Promise.all([
         adminDb.collection("users").doc(userId).get(),
         adminDb.collection("budget_drafts").doc(`${semesterId}_${userId}`).get(),
-        adminDb.collection("debt_scenarios").doc(`${semesterId}_${userId}`).get(),
-        adminDb.collection("budget_actuals").doc(`${semesterId}_${userId}`).get(),
+        adminDb
+          .collection("debts")
+          .where("userId", "==", userId)
+          .where("semesterId", "==", semesterId)
+          .get(),
+        listIncomeEntries(userId, semesterId),
+        listExpenseEntries(userId, semesterId),
         adminDb
           .collection("chat_conversations")
           .where("userId", "==", userId)
@@ -1494,28 +1730,47 @@ export async function getRaceProgress(semesterId: string, organizationId: string
       ]);
 
       const budgetData = budgetSnap.data() as Record<string, unknown> | undefined;
-      const debtData = debtSnap.data() as Record<string, unknown> | undefined;
-      const actualsData = actualsSnap.data() as Record<string, unknown> | undefined;
 
       const hasIncome = Array.isArray(budgetData?.income) && (budgetData.income as unknown[]).length > 0;
       const hasExpenses = Array.isArray(budgetData?.expenses) && (budgetData.expenses as unknown[]).length > 0;
-
-      const actualIncomeItems = (actualsData?.actualIncome ?? []) as Array<{ date?: string }>;
-      const actualExpenseItems = (actualsData?.actualExpenses ?? []) as Array<{ date?: string }>;
+      const hasDebtRecords = debtsSnap.docs.some((doc) => {
+        const data = doc.data();
+        return Number(data.currentBalance ?? 0) > 0 || Number(data.originalBalance ?? 0) > 0;
+      });
 
       const actualsProgress: Record<string, boolean> = {};
       for (const month of actualMonths) {
+        const parsedMonth = parseMonthKey(month);
+
+        if (!parsedMonth) {
+          actualsProgress[month] = false;
+          continue;
+        }
+
         actualsProgress[month] =
-          actualIncomeItems.some((i) => i.date?.startsWith(month)) &&
-          actualExpenseItems.some((i) => i.date?.startsWith(month));
+          incomeEntries.some(
+            (entry) =>
+              entry.periodYear === parsedMonth.periodYear && entry.periodMonth === parsedMonth.periodMonth
+          ) &&
+          expenseEntries.some(
+            (entry) =>
+              entry.periodYear === parsedMonth.periodYear && entry.periodMonth === parsedMonth.periodMonth
+          );
       }
+
+      const hasActiveIncomeOrExpenses =
+        incomeEntries.some((e) => e.periodYear > 0 && e.periodMonth > 0) ||
+        expenseEntries.some((e) => e.periodYear > 0 && e.periodMonth > 0);
 
       const staticFlags = {
         enrolled: true,
-        budget_started: budgetSnap.exists && (hasIncome || hasExpenses),
+        // Accept either legacy budget_drafts content or active income/expense entries.
+        budget_started: (budgetSnap.exists && (hasIncome || hasExpenses)) || hasActiveIncomeOrExpenses,
         budget_submitted: budgetSnap.exists && Boolean(budgetData?.isFinal),
-        debt_started: debtSnap.exists,
-        debt_submitted: debtSnap.exists && Boolean(debtData?.isFinal),
+        // Debt no longer has a separate draft/final doc. Preserve the two milestones in the
+        // response shape, but drive both from the presence of active debt records.
+        debt_started: hasDebtRecords,
+        debt_submitted: hasDebtRecords,
         assistant_used: !chatSnap.empty
       };
 

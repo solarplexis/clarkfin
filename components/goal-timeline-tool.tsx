@@ -693,7 +693,7 @@ export function GoalTimelineTool({
         <h2 style={{ marginBottom: 14 }}>Goal Timeline</h2>
         <div className="tl-slider-row">
           <span className="tl-slider-label">
-            Savings Rate: <strong>{fmtRate(savingsPct)}</strong>
+            Projection Savings Rate: <strong>{fmtRate(savingsPct)}</strong>
           </span>
           <input
             className="tl-slider"
@@ -710,9 +710,12 @@ export function GoalTimelineTool({
               : "Add baseline income to see projections"}
           </span>
         </div>
+        <p style={{ marginTop: 8, fontSize: "0.8rem", color: "var(--muted)" }}>
+          This is a planning control, not your actual savings performance. The Dashboard target sets the default rate; this page can temporarily run what-if scenarios.
+        </p>
         {defaultSavingsPct > 0 && defaultSavingsPct !== savingsPct && (
           <p style={{ marginTop: 8, fontSize: "0.8rem", color: "var(--accent)" }}>
-            What-if mode — saved target is {fmtRate(defaultSavingsPct)}.{" "}
+            What-if mode — dashboard target is {fmtRate(defaultSavingsPct)}.{" "}
             <button
               className="btn-ghost btn-sm"
               style={{ padding: 0, fontSize: "0.8rem", color: "var(--accent)", border: "none", background: "none", cursor: "pointer", textDecoration: "underline" }}

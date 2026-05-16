@@ -33,11 +33,12 @@ export function DashboardShell({
   const navItems: NavItem[] = user.role === "STUDENT"
     ? [
         { href: "/app/student", label: "Home" },
-        { href: "/app/student/budget", label: "Income", exact: false },
+        { href: "/app/student/budget", label: "Budget", exact: false },
         { href: "/app/student/balance-sheet", label: "Balance" },
         { href: "/app/student/planner", label: "Planner" },
         { href: "/app/student/goals", label: "Goals" },
-        { href: "/app/student/debt", label: "Debt" }
+        { href: "/app/student/debt", label: "Debt" },
+        { href: "/app/student/snapshot", label: "Snapshot" }
       ]
     : user.role === "ORG_ADMIN"
       ? [
@@ -69,7 +70,7 @@ export function DashboardShell({
               </Link>
             );
           })}
-          {(() => {
+          {user.role !== "STUDENT" && (() => {
             const active = isActivePath(pathname, "/docs/api", false);
 
             return (

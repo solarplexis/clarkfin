@@ -6,6 +6,7 @@ Goal for this pass: fix the highest-confidence student experience problems and t
 
 ## Working Agreement
 
+0. Claude to create local refactoring branch to be used by both agents prior to starting the main work
 1. No shared-file edits in this pass.
 2. No schema changes in this pass unless both agents stop and re-plan.
 3. Preserve current route shapes unless a task explicitly says otherwise.

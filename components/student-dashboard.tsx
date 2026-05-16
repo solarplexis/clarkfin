@@ -182,8 +182,12 @@ function AllocationPanel({
   return (
     <div className="card">
       <div className="card-header">
-        <h3>Target Allocation</h3>
+        <h3>Allocation Target</h3>
       </div>
+
+      <p style={{ fontSize: "0.8rem", color: "var(--muted)", marginBottom: 12 }}>
+        Planning target only. These sliders set your intended split of baseline net pay and feed projections.
+      </p>
 
       {rows.map(({ label, value, set }) => (
         <div className="dash-alloc-row" key={label}>
@@ -268,12 +272,12 @@ function ActualAllocationPanel({
       {totalIncome === 0 ? (
         <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
           No income data yet for this month.{" "}
-          <Link href="/app/student/budget" style={{ color: "var(--accent)" }}>Add income →</Link>
+          <Link href="/app/student/budget" style={{ color: "var(--accent)" }}>Add budget entries →</Link>
         </p>
       ) : (
         <>
           <p style={{ fontSize: "0.78rem", color: "var(--muted)", marginBottom: 12 }}>
-            Total Income: {fmt(totalIncome)}/mo
+            Actual month data from your Budget page. Total income: {fmt(totalIncome)}/mo
           </p>
           {rows.map(({ label, actual, target, color }) => {
             const isOver = actual > target * 1.1;
@@ -705,14 +709,16 @@ export function StudentDashboard({
         </div>
 
         <div className="fin-stat">
-          <div className="fin-stat-label">Savings Rate</div>
+          <div className="fin-stat-label">Actual Savings Rate</div>
           <div className="fin-stat-value" style={{ color: "var(--accent)" }}>
-            {savingsPct > 0 ? pctLabel(savingsPct) : "—"}
+            {totalIncomeActual > 0 ? pctLabel((netIncomeActual / totalIncomeActual) * 100) : "—"}
           </div>
           <div className="fin-stat-sub">
-            {savingsPct > 0 && netPayMonthly > 0
-              ? `${fmt(monthlySavings)}/mo baseline`
-              : "Set allocation target"}
+            {totalIncomeActual > 0
+              ? `${fmt(netIncomeActual)}/mo this month · target ${savingsPct > 0 ? pctLabel(savingsPct) : "—"}`
+              : savingsPct > 0 && netPayMonthly > 0
+                ? `No month data yet · target ${pctLabel(savingsPct)} = ${fmt(monthlySavings)}/mo baseline`
+                : "Set allocation target"}
           </div>
         </div>
 
