@@ -22,6 +22,7 @@ export function DebtSimulator({
   const [plannedPayment, setPlannedPayment] = useState(initialScenario?.plannedPayment ?? 150);
   const [notes, setNotes] = useState(initialScenario?.notes ?? "");
   const [isFinal, setIsFinal] = useState(Boolean(initialScenario?.isFinal));
+  const [isDrawerOpen, setIsDrawerOpen] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
@@ -57,6 +58,7 @@ export function DebtSimulator({
     }
 
     setMessage(json.message ?? "Debt scenario saved.");
+    setIsDrawerOpen(false);
   }
 
   return (
@@ -79,6 +81,8 @@ export function DebtSimulator({
         </p>
         <EndDrawer
           description="Adjust debt assumptions, run simulation changes, and save your strategy."
+          onOpenChange={setIsDrawerOpen}
+          open={isDrawerOpen}
           footer={
             <button
               className="button"

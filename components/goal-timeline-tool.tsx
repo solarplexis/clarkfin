@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { startTransition, useEffect, useId, useState } from "react";
+import { useRouter } from "next/navigation";
 
-import type { AllocationTarget, Debt, Goal, IncomeEntry, Semester, UserProfile } from "@/types/domain";
+// Survives client-side navigation within the same session
+const savingsRateCache: Record<string, number> = {};
+
+import type { AllocationTarget, Debt, Goal, GoalType, IncomeEntry, Semester, UserProfile } from "@/types/domain";
 import {
   runTimeline,
   type DebtProjection,
@@ -10,8 +14,17 @@ import {
   type RetirementProjection
 } from "@/src/lib/calculations/timeline";
 import { getCourseWeek } from "@/src/lib/calculations/course";
+import { EndDrawer } from "@/components/end-drawer";
 import { FinalReportModal } from "@/components/final-report-modal";
 import { FeedbackForm } from "@/components/feedback-form";
+
+// ─── Icons ────────────────────────────────────────────────────
+
+const TrashIcon = () => (
+  <svg fill="none" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg">
+    <path d="M2 4h12M5 4V2h6v2M3 4l1 10h8l1-10M6 7v4M10 7v4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+  </svg>
+);
 
 // ─── Helpers ───────────────────────────────────────────────────
 
@@ -35,10 +48,7 @@ const MILESTONES = [25, 50, 75, 100] as const;
 function monthLabel(ym: string | null): string {
   if (!ym) return "—";
   const [y, m] = ym.split("-").map(Number);
-  const months = [
-    "Jan", "Feb", "Mar", "Apr", "May", "Jun",
-    "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
-  ];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
   return `${months[m - 1]} ${y}`;
 }
 
@@ -51,9 +61,314 @@ function durationLabel(months: number | null): string {
   return m > 0 ? `${y} yr ${m} mo` : `${y} yr`;
 }
 
-// ─── Goal Card (with milestone celebration) ────────────────────
+// ─── Shared form fields ────────────────────────────────────────
 
-function GoalCard({ goal, cumulative }: { goal: GoalProjection; cumulative: number }) {
+function GoalFormFields({
+  formId,
+  label, setLabel,
+  goalType, setGoalType,
+  targetAmount, setTargetAmount,
+  savedToDate, setSavedToDate,
+  targetDate, setTargetDate,
+  error
+}: {
+  formId: string;
+  label: string; setLabel: (v: string) => void;
+  goalType: GoalType; setGoalType: (v: GoalType) => void;
+  targetAmount: string; setTargetAmount: (v: string) => void;
+  savedToDate: string; setSavedToDate: (v: string) => void;
+  targetDate: string; setTargetDate: (v: string) => void;
+  error: string;
+}) {
+  return (
+    <div className="stack">
+      <div className="field">
+        <label htmlFor={`${formId}-type`}>Type</label>
+        <select id={`${formId}-type`} value={goalType} onChange={e => setGoalType(e.target.value as GoalType)}>
+          <option value="emergency_fund">Emergency Fund</option>
+          <option value="short_term">Short-Term (1–3 years)</option>
+          <option value="long_term">Long-Term (3+ years)</option>
+          <option value="retirement">Retirement</option>
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor={`${formId}-label`}>Goal Name</label>
+        <input
+          id={`${formId}-label`}
+          type="text"
+          value={label}
+          onChange={e => setLabel(e.target.value)}
+          placeholder="e.g. Emergency Fund, Laptop"
+        />
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "12px" }}>
+        <div className="field">
+          <label htmlFor={`${formId}-amount`}>Target Amount ($)</label>
+          <input
+            id={`${formId}-amount`}
+            type="number"
+            min="0"
+            value={targetAmount}
+            onChange={e => setTargetAmount(e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+        <div className="field">
+          <label htmlFor={`${formId}-saved`}>Saved to Date ($)</label>
+          <input
+            id={`${formId}-saved`}
+            type="number"
+            min="0"
+            value={savedToDate}
+            onChange={e => setSavedToDate(e.target.value)}
+            placeholder="0.00"
+          />
+        </div>
+      </div>
+      <div className="field">
+        <label htmlFor={`${formId}-date`}>Target Date (optional)</label>
+        <input
+          id={`${formId}-date`}
+          type="date"
+          value={targetDate}
+          onChange={e => setTargetDate(e.target.value)}
+        />
+      </div>
+      {error && <p style={{ color: "var(--danger)", fontSize: "0.82rem", margin: 0 }}>{error}</p>}
+    </div>
+  );
+}
+
+// ─── Add Goal Drawer ───────────────────────────────────────────
+
+function AddGoalDrawer({ semesterId, onSaved }: { semesterId: string; onSaved: (goal: Goal) => void }) {
+  const formId = useId();
+  const [isOpen, setIsOpen] = useState(false);
+  const [label, setLabel] = useState("");
+  const [goalType, setGoalType] = useState<GoalType>("short_term");
+  const [targetAmount, setTargetAmount] = useState("");
+  const [savedToDate, setSavedToDate] = useState("0");
+  const [targetDate, setTargetDate] = useState("");
+  const [error, setError] = useState("");
+  const [isPending, setIsPending] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLabel(""); setGoalType("short_term"); setTargetAmount("");
+      setSavedToDate("0"); setTargetDate(""); setError("");
+    }
+  }, [isOpen]);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!label.trim()) { setError("Goal name is required."); return; }
+    const amount = parseFloat(targetAmount) || 0;
+    if (amount <= 0) { setError("Enter a target amount greater than 0."); return; }
+    setError("");
+    setIsPending(true);
+    try {
+      const res = await fetch("/api/student/goals", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          semesterId, label: label.trim(), goalType,
+          targetAmount: amount,
+          targetDate: targetDate || undefined,
+          savedToDate: parseFloat(savedToDate) || 0
+        })
+      });
+      const data = await res.json() as { goal?: Goal; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Failed to create goal.");
+      setIsOpen(false);
+      onSaved(data.goal!);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <EndDrawer
+      title="Add Goal"
+      description="Define a new savings goal. ClarkFin will project when you'll reach it based on your savings rate."
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      triggerLabel="+ Add Goal"
+      triggerVariant="primary"
+      triggerClassName="btn-sm"
+      footer={
+        <button className="button" disabled={isPending} form={formId} type="submit">
+          {isPending ? "Saving…" : "Add Goal"}
+        </button>
+      }
+    >
+      <form id={formId} onSubmit={handleSubmit}>
+        <GoalFormFields
+          formId={formId}
+          label={label} setLabel={setLabel}
+          goalType={goalType} setGoalType={setGoalType}
+          targetAmount={targetAmount} setTargetAmount={setTargetAmount}
+          savedToDate={savedToDate} setSavedToDate={setSavedToDate}
+          targetDate={targetDate} setTargetDate={setTargetDate}
+          error={error}
+        />
+      </form>
+    </EndDrawer>
+  );
+}
+
+// ─── Edit Goal Drawer ──────────────────────────────────────────
+
+function EditGoalDrawer({
+  goal,
+  semesterId,
+  onSaved
+}: {
+  goal: Goal;
+  semesterId: string;
+  onSaved: (goal: Goal) => void;
+}) {
+  const formId = useId();
+  const [isOpen, setIsOpen] = useState(false);
+  const [label, setLabel] = useState(goal.label);
+  const [goalType, setGoalType] = useState<GoalType>(goal.goalType);
+  const [targetAmount, setTargetAmount] = useState(String(goal.targetAmount));
+  const [savedToDate, setSavedToDate] = useState(String(goal.savedToDate));
+  const [targetDate, setTargetDate] = useState(goal.targetDate ?? "");
+  const [error, setError] = useState("");
+  const [isPending, setIsPending] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      setLabel(goal.label); setGoalType(goal.goalType);
+      setTargetAmount(String(goal.targetAmount));
+      setSavedToDate(String(goal.savedToDate));
+      setTargetDate(goal.targetDate ?? "");
+      setError("");
+    }
+  }, [isOpen, goal]);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    if (!label.trim()) { setError("Goal name is required."); return; }
+    const amount = parseFloat(targetAmount) || 0;
+    if (amount <= 0) { setError("Enter a target amount greater than 0."); return; }
+    setError("");
+    setIsPending(true);
+    try {
+      const res = await fetch(`/api/student/goals/${goal.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          semesterId, label: label.trim(), goalType,
+          targetAmount: amount,
+          targetDate: targetDate || undefined,
+          savedToDate: parseFloat(savedToDate) || 0,
+          priorityOrder: goal.priorityOrder
+        })
+      });
+      const data = await res.json() as { goal?: Goal; error?: string };
+      if (!res.ok) throw new Error(data.error ?? "Failed to update goal.");
+      setIsOpen(false);
+      onSaved(data.goal!);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <EndDrawer
+      title="Edit Goal"
+      description="Update your savings goal. Changes are reflected immediately in your timeline."
+      open={isOpen}
+      onOpenChange={setIsOpen}
+      triggerLabel="Edit"
+      triggerAriaLabel={`Edit goal: ${goal.label}`}
+      triggerVariant="secondary"
+      triggerClassName="btn-sm"
+      footer={
+        <button className="button" disabled={isPending} form={formId} type="submit">
+          {isPending ? "Saving…" : "Save Changes"}
+        </button>
+      }
+    >
+      <form id={formId} onSubmit={handleSubmit}>
+        <GoalFormFields
+          formId={formId}
+          label={label} setLabel={setLabel}
+          goalType={goalType} setGoalType={setGoalType}
+          targetAmount={targetAmount} setTargetAmount={setTargetAmount}
+          savedToDate={savedToDate} setSavedToDate={setSavedToDate}
+          targetDate={targetDate} setTargetDate={setTargetDate}
+          error={error}
+        />
+      </form>
+    </EndDrawer>
+  );
+}
+
+// ─── Delete Goal Button ────────────────────────────────────────
+
+function DeleteGoalButton({
+  goal,
+  semesterId,
+  onDeleted
+}: {
+  goal: Goal;
+  semesterId: string;
+  onDeleted: (goalId: string) => void;
+}) {
+  const [isPending, setIsPending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleDelete() {
+    setIsPending(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/student/goals/${goal.id}?semesterId=${semesterId}`, {
+        method: "DELETE"
+      });
+      if (!res.ok) {
+        const data = await res.json() as { error?: string };
+        throw new Error(data.error ?? "Failed to delete goal.");
+      }
+      onDeleted(goal.id);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
+      <button
+        className="icon-button icon-button-danger"
+        data-tooltip={`Delete ${goal.label}`}
+        disabled={isPending}
+        type="button"
+        onClick={() => { void handleDelete(); }}
+      >
+        <TrashIcon />
+      </button>
+      {error && <p className="error-msg" style={{ margin: 0 }}>{error}</p>}
+    </div>
+  );
+}
+
+// ─── Goal Card ─────────────────────────────────────────────────
+
+function GoalCard({
+  goal,
+  cumulative,
+  actions
+}: {
+  goal: GoalProjection;
+  cumulative: number;
+  actions?: React.ReactNode;
+}) {
   const isComplete = goal.monthsRemaining === 0;
   const noSavings = goal.monthlyContribution === 0 && !isComplete;
   const [milestone, setMilestone] = useState<number | null>(null);
@@ -75,9 +390,7 @@ function GoalCard({ goal, cumulative }: { goal: GoalProjection; cumulative: numb
       {milestone && (
         <div className="tl-milestone-banner">
           <span>
-            {milestone === 100
-              ? "Goal complete! You did it."
-              : `${milestone}% milestone reached!`}
+            {milestone === 100 ? "Goal complete! You did it." : `${milestone}% milestone reached!`}
           </span>
           <button className="tl-milestone-dismiss" onClick={() => setMilestone(null)}>✕</button>
         </div>
@@ -88,15 +401,16 @@ function GoalCard({ goal, cumulative }: { goal: GoalProjection; cumulative: numb
           <div className="tl-goal-label">{goal.label}</div>
           <div className="tl-goal-type">{GOAL_TYPE_LABELS[goal.goalType] ?? goal.goalType}</div>
         </div>
-        {isComplete ? (
-          <span className="tl-badge tl-badge-success">Complete</span>
-        ) : goal.isOnTrack === true ? (
-          <span className="tl-badge tl-badge-success">On Track</span>
-        ) : goal.isOnTrack === false ? (
-          <span className="tl-badge tl-badge-danger">Behind</span>
-        ) : noSavings ? (
-          <span className="tl-badge tl-badge-muted">No savings set</span>
-        ) : null}
+        <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+          {isComplete ? (
+            <span className="tl-badge tl-badge-success">Complete</span>
+          ) : goal.isOnTrack === true ? (
+            <span className="tl-badge tl-badge-success">On Track</span>
+          ) : goal.isOnTrack === false ? (
+            <span className="tl-badge tl-badge-danger">Behind</span>
+          ) : null}
+          {actions}
+        </div>
       </div>
 
       <div className="tl-goal-amounts">
@@ -254,7 +568,7 @@ type Strategy = "avalanche" | "snowball";
 
 export function GoalTimelineTool({
   user,
-  goals,
+  goals: initialGoals,
   debts,
   allocationTarget,
   baselineEntries,
@@ -271,10 +585,65 @@ export function GoalTimelineTool({
   activeSemester?: Semester | null;
   semesterId?: string;
 }) {
+  const router = useRouter();
   const defaultSavingsPct = allocationTarget?.savingsPct ?? 0;
-  const [savingsPct, setSavingsPct] = useState(defaultSavingsPct);
+  const storageKey = semesterId ?? "";
+  const storageItemKey = storageKey ? `clarkfin_savings_pct_${storageKey}` : "";
+
+  function readPersistedRate(): number {
+    if (!storageKey) return 0;
+
+    if (savingsRateCache[storageKey] !== undefined) {
+      return savingsRateCache[storageKey];
+    }
+
+    try {
+      const stored = localStorage.getItem(storageItemKey);
+      const parsed = Number(stored);
+
+      if (stored !== null && Number.isFinite(parsed) && parsed >= 0) {
+        savingsRateCache[storageKey] = parsed;
+        return parsed;
+      }
+    } catch {
+      // localStorage unavailable (SSR)
+    }
+
+    return defaultSavingsPct;
+  }
+
+  const [savingsPct, setSavingsPct] = useState(readPersistedRate);
   const [strategy, setStrategy] = useState<Strategy>("avalanche");
   const [returnRatePct, setReturnRatePct] = useState(6);
+  const [goals, setGoals] = useState<Goal[]>(initialGoals);
+
+  useEffect(() => {
+    setSavingsPct(readPersistedRate());
+  }, [storageKey, defaultSavingsPct]);
+
+  function handleSavingsPctChange(value: number) {
+    setSavingsPct(value);
+    if (!storageKey) {
+      return;
+    }
+
+    if (value === defaultSavingsPct) {
+      delete savingsRateCache[storageKey];
+      try {
+        localStorage.removeItem(storageItemKey);
+      } catch {
+        // noop
+      }
+      return;
+    }
+
+    savingsRateCache[storageKey] = value;
+    try {
+      localStorage.setItem(storageItemKey, String(value));
+    } catch {
+      // noop
+    }
+  }
 
   const result = runTimeline({
     baselineEntries,
@@ -291,20 +660,31 @@ export function GoalTimelineTool({
 
   const { netPayMonthly, monthlySavings } = result;
 
-  // Sort debts by chosen strategy (display only — per-debt payments are fixed)
   const sortedDebts = [...result.debts].sort((a, b) =>
     strategy === "avalanche"
       ? b.interestRate - a.interestRate
       : a.currentBalance - b.currentBalance
   );
 
-  // Cumulative months for sequential goal display
   let cum = 0;
   const cumulatives: number[] = result.goals.map(g => {
     if (g.monthsRemaining === 0 || g.monthsRemaining === null) return cum;
     cum += g.monthsRemaining;
     return cum;
   });
+
+  function handleGoalSaved(saved: Goal) {
+    setGoals(prev => {
+      const exists = prev.find(g => g.id === saved.id);
+      return exists ? prev.map(g => g.id === saved.id ? saved : g) : [...prev, saved];
+    });
+    startTransition(() => { router.refresh(); });
+  }
+
+  function handleGoalDeleted(goalId: string) {
+    setGoals(prev => prev.filter(g => g.id !== goalId));
+    startTransition(() => { router.refresh(); });
+  }
 
   return (
     <div className="stack">
@@ -322,7 +702,7 @@ export function GoalTimelineTool({
             max={80}
             step={1}
             value={savingsPct}
-            onChange={e => setSavingsPct(Number(e.target.value))}
+            onChange={e => handleSavingsPctChange(Number(e.target.value))}
           />
           <span className="tl-savings-amount">
             {netPayMonthly > 0
@@ -330,13 +710,13 @@ export function GoalTimelineTool({
               : "Add baseline income to see projections"}
           </span>
         </div>
-        {defaultSavingsPct !== savingsPct && (
+        {defaultSavingsPct > 0 && defaultSavingsPct !== savingsPct && (
           <p style={{ marginTop: 8, fontSize: "0.8rem", color: "var(--accent)" }}>
             What-if mode — saved target is {fmtRate(defaultSavingsPct)}.{" "}
             <button
               className="btn-ghost btn-sm"
               style={{ padding: 0, fontSize: "0.8rem", color: "var(--accent)", border: "none", background: "none", cursor: "pointer", textDecoration: "underline" }}
-              onClick={() => setSavingsPct(defaultSavingsPct)}
+              onClick={() => handleSavingsPctChange(defaultSavingsPct)}
             >
               Reset
             </button>
@@ -348,14 +728,38 @@ export function GoalTimelineTool({
       <div className="card">
         <div className="card-header">
           <h3>Goals</h3>
+          {semesterId && (
+            <AddGoalDrawer semesterId={semesterId} onSaved={handleGoalSaved} />
+          )}
         </div>
         {result.goals.length === 0 ? (
-          <p className="tl-empty">No goals yet — add goals during onboarding or the Goals setup page.</p>
+          <p className="tl-empty">No goals yet — use the button above to add your first goal.</p>
         ) : (
           <div className="stack-sm">
-            {result.goals.map((g, i) => (
-              <GoalCard key={g.goalId} goal={g} cumulative={cumulatives[i]} />
-            ))}
+            {result.goals.map((g, i) => {
+              const originalGoal = goals.find(lg => lg.id === g.goalId);
+              return (
+                <GoalCard
+                  key={g.goalId}
+                  goal={g}
+                  cumulative={cumulatives[i]}
+                  actions={originalGoal && semesterId ? (
+                    <>
+                      <EditGoalDrawer
+                        goal={originalGoal}
+                        semesterId={semesterId}
+                        onSaved={handleGoalSaved}
+                      />
+                      <DeleteGoalButton
+                        goal={originalGoal}
+                        semesterId={semesterId}
+                        onDeleted={handleGoalDeleted}
+                      />
+                    </>
+                  ) : undefined}
+                />
+              );
+            })}
           </div>
         )}
       </div>

@@ -134,6 +134,7 @@ p { color: var(--ink-2); }
   color: var(--muted);
   border: 0;
   background: transparent;
+  position: relative;
   transition: background 140ms, color 140ms;
 }
 
@@ -143,10 +144,31 @@ p { color: var(--ink-2); }
   color: var(--ink);
 }
 
+.appbar-nav a::after,
+.appbar-nav-item::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  bottom: 2px;
+  height: 2px;
+  border-radius: 999px;
+  background: var(--accent);
+  transform: scaleX(0);
+  transform-origin: center;
+  transition: transform 140ms ease;
+}
+
+.appbar-nav a:hover::after,
+.appbar-nav-item:hover::after,
 .appbar-nav a.active,
 .appbar-nav a[aria-current="page"] {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  color: var(--ink);
+}
+
+.appbar-nav a.active::after,
+.appbar-nav a[aria-current="page"]::after {
+  transform: scaleX(1);
 }
 
 .appbar-end {
