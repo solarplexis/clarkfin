@@ -1,11 +1,15 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 
-import { getAppUrl, getSessionCookieName } from "@/src/lib/env";
+import { getSessionCookieName } from "@/src/lib/env";
 
 export async function POST() {
   const cookieStore = await cookies();
   cookieStore.delete(getSessionCookieName());
 
-  return NextResponse.redirect(new URL("/login", getAppUrl()));
+  const headerStore = await headers();
+  const host = headerStore.get("host") ?? "localhost";
+  const proto = headerStore.get("x-forwarded-proto") ?? "http";
+
+  return NextResponse.redirect(new URL("/login", `${proto}://${host}`));
 }
