@@ -1,3 +1,5 @@
+// @deprecated legacy BudgetTool endpoint. GET now derives from IncomeEntry/ExpenseEntry via getBudgetDraft fallback.
+// PUT still writes to the legacy `budget_drafts` collection. Remove both after BudgetTool UI is retired.
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";

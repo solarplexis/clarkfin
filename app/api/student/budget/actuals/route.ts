@@ -1,3 +1,5 @@
+// @deprecated legacy BudgetTool actuals endpoint. GET now derives from IncomeEntry/ExpenseEntry via getBudgetActualsByMonth fallback.
+// PUT still writes to the legacy `budget_actuals_monthly` collection. Remove both after BudgetTool UI is retired.
 import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";

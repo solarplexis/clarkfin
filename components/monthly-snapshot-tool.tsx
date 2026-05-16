@@ -247,11 +247,14 @@ export function MonthlySnapshotTool({
           </div>
           {savingsPct > 0 && (
             <div className="snap-cashflow-stat">
-              <span className="snap-cashflow-label">Target Savings Rate</span>
+              <span className="snap-cashflow-label">Planning Target Rate</span>
               <span className="snap-cashflow-value">{pct(savingsPct)}</span>
             </div>
           )}
         </div>
+        <p style={{ marginTop: 12, color: "var(--muted)", fontSize: "0.8rem" }}>
+          Actual Savings Rate comes from this month&apos;s recorded income and expenses. Planning Target Rate comes from your Dashboard allocation target and is used for projections.
+        </p>
       </div>
 
       {/* Goal Progress */}
@@ -315,6 +318,9 @@ export function MonthlySnapshotTool({
       {allocationTarget && (
         <div className="snap-section">
           <div className="snap-section-title">Budget Allocation Target</div>
+          <p style={{ margin: "0 0 12px", color: "var(--muted)", fontSize: "0.8rem" }}>
+            These percentages are planning targets based on baseline net pay, not a summary of actual month behavior.
+          </p>
           <div className="snap-alloc-grid">
             {[
               { label: "Essential", value: allocationTarget.essentialPct, color: "var(--teal)" },
