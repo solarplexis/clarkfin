@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { DebtManager } from "@/components/debt-manager";
 import { requireRole, resolveStudentWorkspace } from "@/src/lib/auth/session";
 import { listDebts } from "@/src/lib/data/repositories";
+
+export const metadata: Metadata = {
+  title: "Debt"
+};
 
 export default async function DebtPage() {
   const user = await requireRole("STUDENT");

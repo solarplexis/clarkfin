@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 
 import { BudgetAssistantDrawer } from "@/components/budget-assistant-drawer";
 import { EndDrawer } from "@/components/end-drawer";
@@ -45,6 +45,15 @@ function freqLabel(freq: BudgetFrequency): string {
 
 function createActualItem(): ActualItem {
   return { id: Math.random().toString(36).slice(2, 8), label: "", amount: 0 };
+}
+
+function getFieldErrorProps(errorId: string, hasError: boolean) {
+  return hasError
+    ? {
+        "aria-describedby": errorId,
+        "aria-invalid": "true" as const
+      }
+    : {};
 }
 
 function BvaRow({
@@ -140,6 +149,8 @@ export function BudgetTool({
   semesterId?: string;
   semesterLabel?: string;
 }) {
+  const draftErrorId = useId();
+  const actualsErrorId = useId();
   const [income, setIncome] = useState<BudgetItem[]>(
     initialDraft?.income ?? [createItem()]
   );
@@ -412,6 +423,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Label</label>
                         <input
+                          {...getFieldErrorProps(draftErrorId, Boolean(message))}
                           placeholder="e.g. Paycheck"
                           value={item.label}
                           onChange={(event) => {
@@ -422,6 +434,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Amount</label>
                         <input
+                          {...getFieldErrorProps(draftErrorId, Boolean(message))}
                           inputMode="decimal"
                           placeholder="0.00"
                           value={item.amount === 0 ? "" : String(item.amount)}
@@ -435,6 +448,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Frequency</label>
                         <select
+                          {...getFieldErrorProps(draftErrorId, Boolean(message))}
                           value={item.frequency ?? "monthly"}
                           onChange={(event) => {
                             updateItem(income, setIncome, item.id, "frequency", event.target.value);
@@ -473,6 +487,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Label</label>
                         <input
+                          {...getFieldErrorProps(draftErrorId, Boolean(message))}
                           placeholder="e.g. Emergency Fund"
                           value={item.label}
                           onChange={(event) => {
@@ -483,6 +498,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Amount</label>
                         <input
+                          {...getFieldErrorProps(draftErrorId, Boolean(message))}
                           inputMode="decimal"
                           placeholder="0.00"
                           value={item.amount === 0 ? "" : String(item.amount)}
@@ -496,6 +512,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Frequency</label>
                         <select
+                          {...getFieldErrorProps(draftErrorId, Boolean(message))}
                           value={item.frequency ?? "monthly"}
                           onChange={(event) => {
                             updateItem(savings, setSavings, item.id, "frequency", event.target.value);
@@ -531,6 +548,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Label</label>
                         <input
+                          {...getFieldErrorProps(draftErrorId, Boolean(message))}
                           placeholder="e.g. Rent"
                           value={item.label}
                           onChange={(event) => {
@@ -541,6 +559,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Amount</label>
                         <input
+                          {...getFieldErrorProps(draftErrorId, Boolean(message))}
                           inputMode="decimal"
                           placeholder="0.00"
                           value={item.amount === 0 ? "" : String(item.amount)}
@@ -554,6 +573,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Frequency</label>
                         <select
+                          {...getFieldErrorProps(draftErrorId, Boolean(message))}
                           value={item.frequency ?? "monthly"}
                           onChange={(event) => {
                             updateItem(expenses, setExpenses, item.id, "frequency", event.target.value);
@@ -584,6 +604,7 @@ export function BudgetTool({
               <div className="field">
                 <label htmlFor="budget-notes">Notes</label>
                 <textarea
+                  {...getFieldErrorProps(draftErrorId, Boolean(message))}
                   id="budget-notes"
                   value={notes}
                   onChange={(event) => setNotes(event.target.value)}
@@ -591,13 +612,14 @@ export function BudgetTool({
               </div>
               <label className="check-row">
                 <input
+                  {...getFieldErrorProps(draftErrorId, Boolean(message))}
                   checked={isFinal}
                   type="checkbox"
                   onChange={(event) => setIsFinal(event.target.checked)}
                 />
                 Mark this budget as ready for instructor review
               </label>
-              {message ? <p style={{ margin: 0, color: "var(--accent)" }}>{message}</p> : null}
+              {message ? <p className="error-msg" id={draftErrorId} role="alert">{message}</p> : null}
             </div>
           </EndDrawer>
           <EndDrawer
@@ -631,6 +653,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Label</label>
                         <input
+                          {...getFieldErrorProps(actualsErrorId, Boolean(actualsMessage))}
                           placeholder="e.g. Paycheck, Dividend – AAPL"
                           value={item.label}
                           onChange={(event) => {
@@ -641,6 +664,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Actual amount / mo</label>
                         <input
+                          {...getFieldErrorProps(actualsErrorId, Boolean(actualsMessage))}
                           inputMode="decimal"
                           placeholder="0.00"
                           value={item.amount === 0 ? "" : String(item.amount)}
@@ -654,6 +678,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Date received</label>
                         <input
+                          {...getFieldErrorProps(actualsErrorId, Boolean(actualsMessage))}
                           type="date"
                           value={item.date ?? ""}
                           onChange={(event) => {
@@ -689,6 +714,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Label</label>
                         <input
+                          {...getFieldErrorProps(actualsErrorId, Boolean(actualsMessage))}
                           placeholder="e.g. Emergency Fund, Roth IRA"
                           value={item.label}
                           onChange={(event) => {
@@ -699,6 +725,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Actual amount / mo</label>
                         <input
+                          {...getFieldErrorProps(actualsErrorId, Boolean(actualsMessage))}
                           inputMode="decimal"
                           placeholder="0.00"
                           value={item.amount === 0 ? "" : String(item.amount)}
@@ -734,6 +761,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Label</label>
                         <input
+                          {...getFieldErrorProps(actualsErrorId, Boolean(actualsMessage))}
                           placeholder="e.g. Rent, Groceries"
                           value={item.label}
                           onChange={(event) => {
@@ -744,6 +772,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Actual amount / mo</label>
                         <input
+                          {...getFieldErrorProps(actualsErrorId, Boolean(actualsMessage))}
                           inputMode="decimal"
                           placeholder="0.00"
                           value={item.amount === 0 ? "" : String(item.amount)}
@@ -757,6 +786,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Date</label>
                         <input
+                          {...getFieldErrorProps(actualsErrorId, Boolean(actualsMessage))}
                           type="date"
                           value={item.date ?? ""}
                           onChange={(event) => {
@@ -767,6 +797,7 @@ export function BudgetTool({
                       <div className="field">
                         <label>Budget category</label>
                         <select
+                          {...getFieldErrorProps(actualsErrorId, Boolean(actualsMessage))}
                           value={item.category ?? ""}
                           onChange={(event) => {
                             updateActualItem(actualExpenses, setActualExpenses, item.id, "category", event.target.value);
@@ -796,6 +827,7 @@ export function BudgetTool({
                     + Add expense entry
                   </button>
                   <button
+                    aria-describedby={actualsMessage ? actualsErrorId : undefined}
                     className="btn-secondary button-secondary"
                     type="button"
                     disabled={isReceiptScanning}
@@ -816,12 +848,13 @@ export function BudgetTool({
               <div className="field">
                 <label htmlFor="actuals-notes">Notes</label>
                 <textarea
+                  {...getFieldErrorProps(actualsErrorId, Boolean(actualsMessage))}
                   id="actuals-notes"
                   value={actualsNotes}
                   onChange={(event) => setActualsNotes(event.target.value)}
                 />
               </div>
-              {actualsMessage ? <p style={{ margin: 0, color: "var(--accent)" }}>{actualsMessage}</p> : null}
+              {actualsMessage ? <p className="error-msg" id={actualsErrorId} role="alert">{actualsMessage}</p> : null}
             </div>
           </EndDrawer>
           <BudgetAssistantDrawer

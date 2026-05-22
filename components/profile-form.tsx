@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 async function toDataUrl(file: File) {
@@ -29,6 +29,8 @@ export function ProfileForm({
   avatarUrl?: string;
 }) {
   const router = useRouter();
+  const errorId = useId();
+  const avatarInputId = useId();
   const [firstName, setFirstName] = useState(() => splitName(fullName).firstName);
   const [lastName, setLastName] = useState(() => splitName(fullName).lastName);
   const [avatarPreview, setAvatarPreview] = useState(avatarUrl ?? "");
@@ -82,10 +84,23 @@ export function ProfileForm({
           <div className="profile-media-placeholder">{`${firstName}${lastName}`.slice(0, 2).toUpperCase()}</div>
         )}
         <div className="stack-sm">
-          <label className="button-secondary profile-upload-button">
+          <label
+            aria-controls={avatarInputId}
+            className="button-secondary profile-upload-button"
+            htmlFor={avatarInputId}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === " " || event.key === "Enter") {
+                event.preventDefault();
+                document.getElementById(avatarInputId)?.click();
+              }
+            }}
+          >
             Upload profile picture
             <input
               accept="image/*"
+              id={avatarInputId}
               hidden
               type="file"
               onChange={(event) => {
@@ -127,18 +142,22 @@ export function ProfileForm({
         <div className="field">
           <label htmlFor="profile-first-name">First name</label>
           <input
+            aria-describedby={error ? errorId : undefined}
+            aria-invalid={error ? "true" : undefined}
+            autoComplete="given-name"
             id="profile-first-name"
             value={firstName}
-            autoComplete="given-name"
             onChange={(event) => setFirstName(event.target.value)}
           />
         </div>
         <div className="field">
           <label htmlFor="profile-last-name">Last name</label>
           <input
+            aria-describedby={error ? errorId : undefined}
+            aria-invalid={error ? "true" : undefined}
+            autoComplete="family-name"
             id="profile-last-name"
             value={lastName}
-            autoComplete="family-name"
             onChange={(event) => setLastName(event.target.value)}
           />
         </div>
@@ -149,7 +168,7 @@ export function ProfileForm({
         <input id="profile-email" readOnly value={email} />
       </div>
 
-      {error ? <p className="error-msg">{error}</p> : null}
+      {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
       {message ? <p style={{ color: "var(--teal)", margin: 0 }}>{message}</p> : null}
 
       <div className="row" style={{ justifyContent: "flex-end" }}>

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -10,6 +11,10 @@ import {
   listGoals,
   listIncomeEntries
 } from "@/src/lib/data/repositories";
+
+export const metadata: Metadata = {
+  title: "Goals"
+};
 
 export default async function GoalsPage() {
   const user = await requireRole("STUDENT");

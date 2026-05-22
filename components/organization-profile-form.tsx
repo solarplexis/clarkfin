@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 async function toDataUrl(file: File) {
@@ -24,6 +24,8 @@ export function OrganizationProfileForm({
   logoUrl?: string;
 }) {
   const router = useRouter();
+  const errorId = useId();
+  const logoInputId = useId();
   const [orgName, setOrgName] = useState(name);
   const [support, setSupport] = useState(supportEmail ?? "");
   const [color, setColor] = useState(brandColor ?? "");
@@ -78,10 +80,23 @@ export function OrganizationProfileForm({
           <div className="profile-media-placeholder profile-media-logo">{orgName.slice(0, 2).toUpperCase()}</div>
         )}
         <div className="stack-sm">
-          <label className="button-secondary profile-upload-button">
+          <label
+            aria-controls={logoInputId}
+            className="button-secondary profile-upload-button"
+            htmlFor={logoInputId}
+            role="button"
+            tabIndex={0}
+            onKeyDown={(event) => {
+              if (event.key === " " || event.key === "Enter") {
+                event.preventDefault();
+                document.getElementById(logoInputId)?.click();
+              }
+            }}
+          >
             Upload organization logo
             <input
               accept="image/*"
+              id={logoInputId}
               hidden
               type="file"
               onChange={(event) => {
@@ -123,6 +138,8 @@ export function OrganizationProfileForm({
         <div className="field">
           <label htmlFor="organization-name">Organization name</label>
           <input
+            aria-describedby={error ? errorId : undefined}
+            aria-invalid={error ? "true" : undefined}
             id="organization-name"
             value={orgName}
             onChange={(event) => setOrgName(event.target.value)}
@@ -131,6 +148,8 @@ export function OrganizationProfileForm({
         <div className="field">
           <label htmlFor="organization-support-email">Support email</label>
           <input
+            aria-describedby={error ? errorId : undefined}
+            aria-invalid={error ? "true" : undefined}
             id="organization-support-email"
             type="email"
             value={support}
@@ -140,6 +159,8 @@ export function OrganizationProfileForm({
         <div className="field">
           <label htmlFor="organization-brand-color">Brand color</label>
           <input
+            aria-describedby={error ? errorId : undefined}
+            aria-invalid={error ? "true" : undefined}
             id="organization-brand-color"
             placeholder="#5b5ef6"
             value={color}
@@ -148,7 +169,7 @@ export function OrganizationProfileForm({
         </div>
       </div>
 
-      {error ? <p className="error-msg">{error}</p> : null}
+      {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
       {message ? <p style={{ color: "var(--teal)", margin: 0 }}>{message}</p> : null}
 
       <div className="row" style={{ justifyContent: "flex-end" }}>

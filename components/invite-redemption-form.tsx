@@ -15,6 +15,8 @@ export function InviteRedemptionForm({
   invitedLastName?: string;
 }) {
   const formId = useId();
+  const errorId = `${formId}-error`;
+  const passwordHintId = `${formId}-password-hint`;
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
@@ -76,47 +78,55 @@ export function InviteRedemptionForm({
       <div className="field">
         <label htmlFor={`${formId}-firstName`}>First name</label>
         <input
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? "true" : undefined}
+          autoComplete="given-name"
           defaultValue={invitedFirstName}
           id={`${formId}-firstName`}
           name="firstName"
           required
           type="text"
-          autoComplete="given-name"
         />
       </div>
       <div className="field">
         <label htmlFor={`${formId}-lastName`}>Last name</label>
         <input
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? "true" : undefined}
+          autoComplete="family-name"
           defaultValue={invitedLastName}
           id={`${formId}-lastName`}
           name="lastName"
           required
           type="text"
-          autoComplete="family-name"
         />
       </div>
       <div className="field">
         <label htmlFor={`${formId}-email`}>Email Address</label>
         <input
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? "true" : undefined}
+          autoComplete="email"
           defaultValue={invitedEmail}
           id={`${formId}-email`}
           name="email"
           readOnly
           required
           type="email"
-          autoComplete="email"
         />
       </div>
       <div className="field">
         <label htmlFor={`${formId}-password`}>Password</label>
         <div className="password-input-wrapper">
           <input
+            aria-describedby={error ? `${passwordHintId} ${errorId}` : passwordHintId}
+            aria-invalid={error ? "true" : undefined}
+            autoComplete="current-password"
             id={`${formId}-password`}
             minLength={8}
             name="password"
             required
             type={showPassword ? "text" : "password"}
-            autoComplete="current-password"
           />
           <button
             type="button"
@@ -138,9 +148,9 @@ export function InviteRedemptionForm({
             )}
           </button>
         </div>
-        <span className="field-hint">Use your existing password, or choose a new one if this is your first time.</span>
+        <span className="field-hint" id={passwordHintId}>Use your existing password, or choose a new one if this is your first time.</span>
       </div>
-      {error ? <p className="error-msg">{error}</p> : null}
+      {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
       <button className="button" type="submit" disabled={isPending}>
         {isPending ? "Accepting..." : "Accept Invite"}
       </button>

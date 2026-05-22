@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { OrganizationProfileForm } from "@/components/organization-profile-form";
 import { ProfileForm } from "@/components/profile-form";
 import { requireUser } from "@/src/lib/auth/session";
 import { getOrganizationById } from "@/src/lib/data/repositories";
+
+export const metadata: Metadata = {
+  title: "Profile"
+};
 
 export default async function ProfilePage() {
   const user = await requireUser();

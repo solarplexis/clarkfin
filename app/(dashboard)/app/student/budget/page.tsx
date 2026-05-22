@@ -1,11 +1,16 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
+import { BudgetTool } from "@/components/budget-tool";
 import { DashboardShell } from "@/components/dashboard-shell";
-import { IncomeStatementTool } from "@/components/income-statement-tool";
 import { requireRole, resolveStudentWorkspace } from "@/src/lib/auth/session";
-import { listDebts, listExpenseEntries, listIncomeEntries } from "@/src/lib/data/repositories";
+import { getBudgetActuals, getBudgetDraft } from "@/src/lib/data/repositories";
 
-export default async function IncomeStatementPage() {
+export const metadata: Metadata = {
+  title: "Budget"
+};
+
+export default async function BudgetPage() {
   const user = await requireRole("STUDENT");
 
   if (!user.currentAge) {
@@ -14,30 +19,27 @@ export default async function IncomeStatementPage() {
 
   const workspace = await resolveStudentWorkspace(user);
   const semesterId = workspace?.activeEnrollment?.semesterId;
+  const semesterLabel = workspace?.activeSemester?.title ?? workspace?.activeEnrollment?.semesterId;
 
   if (!semesterId) {
     redirect("/app/student");
   }
 
-  const now = new Date();
-  const initialYear = now.getFullYear();
-  const initialMonth = now.getMonth() + 1;
-
-  const [incomeEntries, expenseEntries, debts] = await Promise.all([
-    listIncomeEntries(user.uid, semesterId, { periodYear: initialYear, periodMonth: initialMonth }),
-    listExpenseEntries(user.uid, semesterId, { periodYear: initialYear, periodMonth: initialMonth }),
-    listDebts(user.uid, semesterId)
+  const [initialDraftResult, initialActualsResult] = await Promise.allSettled([
+    getBudgetDraft(user.uid, semesterId),
+    getBudgetActuals(user.uid, semesterId)
   ]);
+
+  const initialDraft = initialDraftResult.status === "fulfilled" ? initialDraftResult.value : null;
+  const initialActuals = initialActualsResult.status === "fulfilled" ? initialActualsResult.value : null;
 
   return (
     <DashboardShell user={user}>
-      <IncomeStatementTool
+      <BudgetTool
+        initialDraft={initialDraft}
+        initialActuals={initialActuals}
         semesterId={semesterId}
-        initialYear={initialYear}
-        initialMonth={initialMonth}
-        initialIncomeEntries={incomeEntries}
-        initialExpenseEntries={expenseEntries}
-        debts={debts}
+        semesterLabel={semesterLabel}
       />
     </DashboardShell>
   );

@@ -1,8 +1,13 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { OnboardingWizard } from "@/components/onboarding-wizard";
 import { requireRole, resolveStudentWorkspace } from "@/src/lib/auth/session";
 import { listDebts, listGoals } from "@/src/lib/data/repositories";
+
+export const metadata: Metadata = {
+  title: "Student Onboarding"
+};
 
 export default async function OnboardingPage() {
   const user = await requireRole("STUDENT");

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { CreateSemesterForm, EditSemesterDrawer } from "@/components/create-semester-form";
 import { CopyInviteLinkButton, CreateStudentInviteForm, DeleteInviteButton, EditInviteDrawer } from "@/components/create-student-invite-form";
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -11,6 +12,10 @@ import {
   listStudentInvitesForOrganization,
   listStudentFeedbacksForOrganization
 } from "@/src/lib/data/repositories";
+
+export const metadata: Metadata = {
+  title: "Organization Dashboard"
+};
 
 export default async function OrganizationDashboardPage() {
   const user = await requireRole("ORG_ADMIN");

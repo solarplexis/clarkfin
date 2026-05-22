@@ -1,6 +1,6 @@
 "use client";
 
-import { startTransition, useDeferredValue, useId, useState } from "react";
+import { startTransition, useDeferredValue, useId, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import { EndDrawer } from "@/components/end-drawer";
@@ -51,6 +51,7 @@ const CopyIcon = () => (
 
 export function EditInviteDrawer({ invite }: { invite: InviteRow }) {
   const formId = useId();
+  const errorId = `${formId}-error`;
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -108,13 +109,19 @@ export function EditInviteDrawer({ invite }: { invite: InviteRow }) {
         </div>
         <div className="field">
           <label htmlFor={`${formId}-status`}>Status</label>
-          <select defaultValue={invite.status} id={`${formId}-status`} name="status">
+          <select
+            aria-describedby={error ? errorId : undefined}
+            aria-invalid={error ? "true" : undefined}
+            defaultValue={invite.status}
+            id={`${formId}-status`}
+            name="status"
+          >
             <option value="pending">pending</option>
             <option value="redeemed">redeemed</option>
             <option value="revoked">revoked</option>
           </select>
         </div>
-        {error ? <p className="error-msg">{error}</p> : null}
+        {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
       </form>
     </EndDrawer>
   );
@@ -122,6 +129,7 @@ export function EditInviteDrawer({ invite }: { invite: InviteRow }) {
 
 export function DeleteInviteButton({ invite }: { invite: InviteRow }) {
   const router = useRouter();
+  const errorId = useId();
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
 
@@ -147,15 +155,18 @@ export function DeleteInviteButton({ invite }: { invite: InviteRow }) {
   return (
     <div className="stack-sm" style={{ alignItems: "flex-end" }}>
       <button
+        aria-describedby={error ? errorId : undefined}
+        aria-label="Delete Invite"
         className="icon-button icon-button-danger"
         data-tooltip="Delete Invite"
+        title="Delete Invite"
         disabled={isPending || invite.status === "redeemed"}
         type="button"
         onClick={() => { void remove(); }}
       >
         <TrashIcon />
       </button>
-      {error ? <p className="error-msg" style={{ margin: 0 }}>{error}</p> : null}
+      {error ? <p className="error-msg" id={errorId} role="alert" style={{ margin: 0 }}>{error}</p> : null}
     </div>
   );
 }
@@ -181,6 +192,7 @@ export function CopyInviteLinkButton({ invite }: { invite: InviteRow }) {
       aria-label="Copy invite URL"
       className="icon-button"
       data-tooltip={tooltip}
+      title={tooltip}
       type="button"
       onClick={() => { void copyLink(); }}
     >
@@ -202,12 +214,15 @@ export function CreateStudentInviteForm({
 }) {
   const formId = useId();
   const router = useRouter();
+  const errorId = `${formId}-error`;
+  const pickerSummaryId = `${formId}-student-summary`;
   const listboxId = `${formId}-student-listbox`;
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [studentQuery, setStudentQuery] = useState("");
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [activeStudentIndex, setActiveStudentIndex] = useState(-1);
   const [isPending, setIsPending] = useState(false);
   const deferredStudentQuery = useDeferredValue(studentQuery);
   const normalizedStudentQuery = deferredStudentQuery.trim().toLowerCase();
@@ -220,6 +235,29 @@ export function CreateStudentInviteForm({
         return haystack.includes(normalizedStudentQuery);
       })
     : students;
+  const activeStudent = activeStudentIndex >= 0 ? filteredStudents[activeStudentIndex] : null;
+  const activeOptionId = activeStudent ? `${formId}-student-option-${activeStudent.studentId}` : undefined;
+  const pickerDescribedBy = useMemo(() => {
+    return [pickerSummaryId, error ? errorId : null].filter(Boolean).join(" ") || undefined;
+  }, [error, errorId, pickerSummaryId]);
+
+  function selectStudent(student: StudentOption) {
+    setSelectedStudentId(student.studentId);
+    setStudentQuery(formatStudentLabel(student));
+    setActiveStudentIndex(-1);
+    setIsPickerOpen(false);
+    setError(null);
+  }
+
+  function moveActiveIndex(nextIndex: number) {
+    if (filteredStudents.length === 0) {
+      setActiveStudentIndex(-1);
+      return;
+    }
+
+    const clampedIndex = Math.max(0, Math.min(filteredStudents.length - 1, nextIndex));
+    setActiveStudentIndex(clampedIndex);
+  }
 
   async function submit(formData: FormData) {
     setIsPending(true);
@@ -228,6 +266,7 @@ export function CreateStudentInviteForm({
     try {
       if (!selectedStudentId) {
         setError("Choose a student before creating an invite.");
+        setIsPickerOpen(true);
         return;
       }
 
@@ -294,9 +333,13 @@ export function CreateStudentInviteForm({
           <label htmlFor={`${formId}-student-picker`}>Student</label>
           <div className={`student-picker ${isPickerOpen ? "student-picker-open" : ""}`}>
             <input
+              aria-activedescendant={isPickerOpen ? activeOptionId : undefined}
               aria-autocomplete="list"
               aria-controls={listboxId}
+              aria-describedby={pickerDescribedBy}
               aria-expanded={isPickerOpen}
+              aria-haspopup="listbox"
+              aria-invalid={error ? "true" : undefined}
               autoComplete="off"
               id={`${formId}-student-picker`}
               placeholder="Search by first name, last name, or email"
@@ -304,16 +347,61 @@ export function CreateStudentInviteForm({
               type="search"
               value={studentQuery}
               onBlur={() => {
+                setActiveStudentIndex(-1);
                 window.setTimeout(() => setIsPickerOpen(false), 120);
               }}
               onChange={(event) => {
                 setStudentQuery(event.target.value);
                 setSelectedStudentId("");
+                setActiveStudentIndex(0);
                 setIsPickerOpen(true);
+                setError(null);
               }}
-              onFocus={() => setIsPickerOpen(true)}
+              onFocus={() => {
+                setIsPickerOpen(true);
+                if (filteredStudents.length > 0) {
+                  setActiveStudentIndex(selectedStudent ? Math.max(filteredStudents.findIndex((student) => student.studentId === selectedStudent.studentId), 0) : 0);
+                }
+              }}
+              onKeyDown={(event) => {
+                switch (event.key) {
+                  case "ArrowDown":
+                    event.preventDefault();
+                    setIsPickerOpen(true);
+                    moveActiveIndex(activeStudentIndex < 0 ? 0 : activeStudentIndex + 1);
+                    break;
+                  case "ArrowUp":
+                    event.preventDefault();
+                    setIsPickerOpen(true);
+                    moveActiveIndex(activeStudentIndex < 0 ? filteredStudents.length - 1 : activeStudentIndex - 1);
+                    break;
+                  case "Home":
+                    if (!isPickerOpen) break;
+                    event.preventDefault();
+                    moveActiveIndex(0);
+                    break;
+                  case "End":
+                    if (!isPickerOpen) break;
+                    event.preventDefault();
+                    moveActiveIndex(filteredStudents.length - 1);
+                    break;
+                  case "Enter":
+                    if (!isPickerOpen || !activeStudent) break;
+                    event.preventDefault();
+                    selectStudent(activeStudent);
+                    break;
+                  case "Escape":
+                    if (!isPickerOpen) break;
+                    event.preventDefault();
+                    setIsPickerOpen(false);
+                    setActiveStudentIndex(-1);
+                    break;
+                  default:
+                    break;
+                }
+              }}
             />
-            <div className="student-picker-summary">
+            <div className="student-picker-summary" id={pickerSummaryId}>
               {selectedStudent ? (
                 <span>
                   Selected: <strong>{formatStudentLabel(selectedStudent)}</strong> · {selectedStudent.email}
@@ -327,18 +415,21 @@ export function CreateStudentInviteForm({
                 {filteredStudents.length === 0 ? (
                   <div className="student-picker-empty">No students match this search.</div>
                 ) : (
-                  filteredStudents.map((student) => (
+                  filteredStudents.map((student, index) => (
                     <button
+                      aria-selected={student.studentId === selectedStudentId}
                       className={`student-picker-option ${
                         student.studentId === selectedStudentId ? "student-picker-option-selected" : ""
-                      }`}
+                      } ${index === activeStudentIndex ? "student-picker-option-active" : ""}`.trim()}
+                      id={`${formId}-student-option-${student.studentId}`}
                       key={student.studentId}
+                      role="option"
                       type="button"
-                      onClick={() => {
-                        setSelectedStudentId(student.studentId);
-                        setStudentQuery(formatStudentLabel(student));
-                        setIsPickerOpen(false);
+                      onClick={() => selectStudent(student)}
+                      onMouseDown={(event) => {
+                        event.preventDefault();
                       }}
+                      onMouseEnter={() => setActiveStudentIndex(index)}
                     >
                       <span className="student-picker-option-name">{formatStudentLabel(student)}</span>
                       <span className="student-picker-option-meta">{student.email} · {student.status}</span>
@@ -351,7 +442,14 @@ export function CreateStudentInviteForm({
         </div>
         <div className="field">
           <label htmlFor={`${formId}-semesterId`}>Course</label>
-          <select defaultValue="" id={`${formId}-semesterId`} name="semesterId" required>
+          <select
+            aria-describedby={error ? errorId : undefined}
+            aria-invalid={error ? "true" : undefined}
+            defaultValue=""
+            id={`${formId}-semesterId`}
+            name="semesterId"
+            required
+          >
             <option disabled value="">
               Select a course
             </option>
@@ -363,7 +461,7 @@ export function CreateStudentInviteForm({
             ))}
           </select>
         </div>
-        {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
+        {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
       </form>
     </EndDrawer>
   );

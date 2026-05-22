@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -14,6 +15,10 @@ const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
+
+export const metadata: Metadata = {
+  title: "Weekly Planner"
+};
 
 export default async function PlannerPage() {
   const user = await requireRole("STUDENT");

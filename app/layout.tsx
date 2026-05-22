@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "ClarkFin",
+  title: {
+    default: "ClarkFin",
+    template: "%s | ClarkFin"
+  },
   description: "Personal finance education platform for community colleges."
 };
 

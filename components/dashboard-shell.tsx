@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Route } from "next";
@@ -29,6 +30,12 @@ export function DashboardShell({
   children: React.ReactNode;
 }) {
   const pathname = usePathname();
+  const [routeAnnouncement, setRouteAnnouncement] = useState("");
+
+  useEffect(() => {
+    const nextTitle = document.title.trim();
+    setRouteAnnouncement(nextTitle);
+  }, [pathname]);
 
   const navItems: NavItem[] = user.role === "STUDENT"
     ? [
@@ -51,6 +58,12 @@ export function DashboardShell({
 
   return (
     <>
+      <a className="skip-link" href="#main-content">
+        Skip to main content
+      </a>
+      <div aria-atomic="true" aria-live="polite" className="sr-only" role="status">
+        {routeAnnouncement}
+      </div>
       <header className="appbar">
         <div className="appbar-logo">
           ClarkFin
@@ -88,11 +101,11 @@ export function DashboardShell({
           <AccountMenu avatarUrl={user.avatarUrl} fullName={user.fullName} />
         </div>
       </header>
-      <div className="page-shell">
+      <main className="page-shell" id="main-content" tabIndex={-1}>
         <div className="page-content">
           {children}
         </div>
-      </div>
+      </main>
     </>
   );
 }

@@ -35,14 +35,27 @@ type StudentRow = {
   authUserId?: string;
 };
 
+function getFieldErrorProps(errorId: string, hasError: boolean) {
+  return hasError
+    ? {
+        "aria-describedby": errorId,
+        "aria-invalid": "true" as const
+      }
+    : {};
+}
+
 function StudentFormFields({
   formId,
+  errorId,
+  hasError,
   defaultFirstName,
   defaultLastName,
   defaultEmail,
   defaultStatus
 }: {
   formId: string;
+  errorId: string;
+  hasError: boolean;
   defaultFirstName?: string;
   defaultLastName?: string;
   defaultEmail?: string;
@@ -52,15 +65,28 @@ function StudentFormFields({
     <>
       <div className="field">
         <label htmlFor={`${formId}-firstName`}>First name</label>
-        <input defaultValue={defaultFirstName} id={`${formId}-firstName`} name="firstName" required />
+        <input
+          {...getFieldErrorProps(errorId, hasError)}
+          defaultValue={defaultFirstName}
+          id={`${formId}-firstName`}
+          name="firstName"
+          required
+        />
       </div>
       <div className="field">
         <label htmlFor={`${formId}-lastName`}>Last name</label>
-        <input defaultValue={defaultLastName} id={`${formId}-lastName`} name="lastName" required />
+        <input
+          {...getFieldErrorProps(errorId, hasError)}
+          defaultValue={defaultLastName}
+          id={`${formId}-lastName`}
+          name="lastName"
+          required
+        />
       </div>
       <div className="field">
         <label htmlFor={`${formId}-email`}>Student email</label>
         <input
+          {...getFieldErrorProps(errorId, hasError)}
           defaultValue={defaultEmail}
           id={`${formId}-email`}
           name="email"
@@ -70,7 +96,12 @@ function StudentFormFields({
       </div>
       <div className="field">
         <label htmlFor={`${formId}-status`}>Status</label>
-        <select defaultValue={defaultStatus ?? "prospect"} id={`${formId}-status`} name="status">
+        <select
+          {...getFieldErrorProps(errorId, hasError)}
+          defaultValue={defaultStatus ?? "prospect"}
+          id={`${formId}-status`}
+          name="status"
+        >
           <option value="prospect">prospect</option>
           <option value="invited">invited</option>
           <option value="active">active</option>
@@ -83,6 +114,7 @@ function StudentFormFields({
 
 function CreateStudentDrawer() {
   const formId = useId();
+  const errorId = `${formId}-error`;
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -141,8 +173,8 @@ function CreateStudentDrawer() {
         className="stack"
         id={formId}
       >
-        <StudentFormFields defaultStatus="prospect" formId={formId} />
-        {error ? <p className="error-msg">{error}</p> : null}
+        <StudentFormFields defaultStatus="prospect" errorId={errorId} formId={formId} hasError={Boolean(error)} />
+        {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
       </form>
     </EndDrawer>
   );
@@ -150,6 +182,7 @@ function CreateStudentDrawer() {
 
 function EditStudentDrawer({ student }: { student: StudentRow }) {
   const formId = useId();
+  const errorId = `${formId}-error`;
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -213,14 +246,16 @@ function EditStudentDrawer({ student }: { student: StudentRow }) {
           defaultFirstName={student.firstName}
           defaultLastName={student.lastName}
           defaultStatus={student.status}
+          errorId={errorId}
           formId={formId}
+          hasError={Boolean(error)}
         />
         {student.authUserId ? (
           <div className="note-box">
             Linked auth user: <strong>{student.authUserId}</strong>
           </div>
         ) : null}
-        {error ? <p className="error-msg">{error}</p> : null}
+        {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
       </form>
     </EndDrawer>
   );
@@ -236,6 +271,7 @@ function DeleteStudentButton({
   onDeleted?: (studentId: string) => void;
 }) {
   const router = useRouter();
+  const errorId = useId();
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
 
@@ -262,21 +298,25 @@ function DeleteStudentButton({
   return (
     <div className="stack-sm" style={{ alignItems: "flex-end" }}>
       <button
+        aria-describedby={error ? errorId : undefined}
+        aria-label={student.authUserId ? "Delete student and linked account" : "Delete student"}
         className="icon-button icon-button-danger"
         data-tooltip={student.authUserId ? "Delete student and linked account" : "Delete student"}
+        title={student.authUserId ? "Delete student and linked account" : "Delete student"}
         disabled={isPending || Boolean(disabled)}
         type="button"
         onClick={() => { void removeStudent(); }}
       >
         <TrashIcon />
       </button>
-      {error ? <p className="error-msg" style={{ margin: 0 }}>{error}</p> : null}
+      {error ? <p className="error-msg" id={errorId} role="alert" style={{ margin: 0 }}>{error}</p> : null}
     </div>
   );
 }
 
 export function StudentRosterManager({ students }: { students: StudentRow[] }) {
   const router = useRouter();
+  const bulkErrorId = useId();
   const [selectedStudentIds, setSelectedStudentIds] = useState<string[]>([]);
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkSuccess, setBulkSuccess] = useState<string | null>(null);
@@ -370,6 +410,7 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
         <div style={{ alignItems: "center", display: "flex", gap: 10, flexWrap: "wrap" }}>
           {hasSelection ? (
             <button
+              aria-describedby={bulkError ? bulkErrorId : undefined}
               className="button-danger"
               disabled={isBulkPending}
               type="button"
@@ -384,7 +425,7 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
         </div>
       </div>
 
-      {bulkError ? <p className="error-msg" style={{ margin: "0 0 12px" }}>{bulkError}</p> : null}
+      {bulkError ? <p className="error-msg" id={bulkErrorId} role="alert" style={{ margin: "0 0 12px" }}>{bulkError}</p> : null}
       {bulkSuccess ? <p className="success-msg" style={{ margin: "0 0 12px" }}>{bulkSuccess}</p> : null}
 
       <div className="table-wrap">

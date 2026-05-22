@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
 type WorkspaceOption = {
@@ -16,6 +16,7 @@ export function StudentWorkspaceSwitcher({
   options: WorkspaceOption[];
 }) {
   const router = useRouter();
+  const errorId = useId();
   const [value, setValue] = useState(activeSemesterId ?? options[0]?.semesterId ?? "");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -48,6 +49,8 @@ export function StudentWorkspaceSwitcher({
       <div className="field">
         <label htmlFor="student-workspace-select">Active course workspace</label>
         <select
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? "true" : undefined}
           id="student-workspace-select"
           value={value}
           onChange={(event) => setValue(event.target.value)}
@@ -71,7 +74,7 @@ export function StudentWorkspaceSwitcher({
           {isPending ? "Switching..." : "Switch workspace"}
         </button>
       </div>
-      {error ? <p className="error-msg">{error}</p> : null}
+      {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
     </div>
   );
 }

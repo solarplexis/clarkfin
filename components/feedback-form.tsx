@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 interface FeedbackData {
   grade: number;
@@ -12,6 +12,7 @@ interface FeedbackData {
 }
 
 export function FeedbackForm({ semesterId, isOpen = true }: { semesterId: string; isOpen?: boolean }) {
+  const errorId = useId();
   const [state, setState] = useState<"loading" | "idle" | "submitting" | "done" | "error">("loading");
   const [comments, setComments] = useState("");
   const [feedback, setFeedback] = useState<FeedbackData | null>(null);
@@ -70,6 +71,8 @@ export function FeedbackForm({ semesterId, isOpen = true }: { semesterId: string
       {(state === "idle" || state === "submitting") && (
         <>
           <textarea
+            aria-describedby={errorMsg ? errorId : undefined}
+            aria-invalid={errorMsg ? "true" : undefined}
             className="fb-textarea"
             placeholder="What did you learn? What was most challenging? Any suggestions for the course?"
             value={comments}
@@ -77,7 +80,7 @@ export function FeedbackForm({ semesterId, isOpen = true }: { semesterId: string
             rows={5}
             disabled={!isOpen || state === "submitting"}
           />
-          {errorMsg && <p className="error-msg">{errorMsg}</p>}
+          {errorMsg && <p className="error-msg" id={errorId} role="alert">{errorMsg}</p>}
           {isOpen ? (
             <button
               className="button"

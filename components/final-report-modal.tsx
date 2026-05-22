@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 
 interface ReportData {
   studentName: string;
@@ -30,6 +30,10 @@ function fmt(n: number) {
 
 function pct(n: number) {
   return `${Math.round(n)}%`;
+}
+
+function clampPercent(n: number) {
+  return Math.max(0, Math.min(100, Math.round(n)));
 }
 
 function ReportView({ report }: { report: ReportData }) {
@@ -92,7 +96,14 @@ function ReportView({ report }: { report: ReportData }) {
                 <span>{fmt(g.targetAmount)}</span>
                 <span>{fmt(g.savedToDate)}</span>
                 <span>
-                  <div className="fr-progress-track">
+                  <div
+                    aria-label={`${g.label} progress`}
+                    aria-valuemax={100}
+                    aria-valuemin={0}
+                    aria-valuenow={clampPercent(g.progressPct)}
+                    className="fr-progress-track"
+                    role="progressbar"
+                  >
                     <div className="fr-progress-fill" style={{ width: `${g.progressPct}%` }} />
                   </div>
                   <span className="fr-progress-label">{pct(g.progressPct)}</span>
@@ -119,7 +130,14 @@ function ReportView({ report }: { report: ReportData }) {
                 <span>{fmt(d.originalBalance)}</span>
                 <span>{fmt(d.currentBalance)}</span>
                 <span>
-                  <div className="fr-progress-track">
+                  <div
+                    aria-label={`${d.label} paid down`}
+                    aria-valuemax={100}
+                    aria-valuemin={0}
+                    aria-valuenow={clampPercent(d.paidDownPct)}
+                    className="fr-progress-track"
+                    role="progressbar"
+                  >
                     <div className="fr-progress-fill fr-progress-debt" style={{ width: `${d.paidDownPct}%` }} />
                   </div>
                   <span className="fr-progress-label">{pct(d.paidDownPct)}</span>
@@ -151,7 +169,32 @@ export function FinalReportModal({ semesterId }: { semesterId: string }) {
   const [state, setState] = useState<"idle" | "loading" | "ready" | "error">("idle");
   const [report, setReport] = useState<ReportData | null>(null);
   const [errorMsg, setErrorMsg] = useState("");
-  const overlayRef = useRef<HTMLDivElement>(null);
+  const dialogTitleId = useId();
+  const dialogDescriptionId = useId();
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const triggerButtonRef = useRef<HTMLButtonElement>(null);
+  const isDialogOpen = state === "loading" || state === "ready";
+
+  useEffect(() => {
+    if (!isDialogOpen) {
+      triggerButtonRef.current?.focus();
+      return;
+    }
+
+    closeButtonRef.current?.focus();
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") {
+        close();
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [isDialogOpen]);
 
   async function generate() {
     setState("loading");
@@ -196,27 +239,39 @@ export function FinalReportModal({ semesterId }: { semesterId: string }) {
             </p>
           </div>
         </div>
-        {state === "error" && <p className="error-msg">{errorMsg}</p>}
+        {state === "error" && <p className="error-msg" role="alert">{errorMsg}</p>}
         <button
           className="button"
           onClick={generate}
           disabled={state === "loading"}
+          ref={triggerButtonRef}
         >
           {state === "loading" ? "Generating report…" : "Generate Final Report"}
         </button>
       </div>
 
-      {(state === "loading" || state === "ready") && (
-        <div className="fr-overlay" ref={overlayRef}>
+      {isDialogOpen && (
+        <div
+          aria-describedby={dialogDescriptionId}
+          aria-labelledby={dialogTitleId}
+          aria-modal="true"
+          className="fr-overlay"
+          role="dialog"
+        >
           <div className="fr-overlay-bar no-print">
-            <span className="fr-overlay-title">Final Report</span>
+            <span className="fr-overlay-title" id={dialogTitleId}>Final Report</span>
+            <span className="sr-only" id={dialogDescriptionId}>
+              {state === "loading"
+                ? "Generating your personalized report."
+                : "Review and print your personalized report."}
+            </span>
             <div style={{ display: "flex", gap: 10 }}>
               {state === "ready" && (
                 <button className="button" onClick={printReport}>
                   Print / Save as PDF
                 </button>
               )}
-              <button className="button-secondary" onClick={close}>Close</button>
+              <button className="button-secondary" onClick={close} ref={closeButtonRef}>Close</button>
             </div>
           </div>
 

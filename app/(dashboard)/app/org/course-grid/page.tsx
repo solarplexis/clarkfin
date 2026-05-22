@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { OrgCourseGrid } from "@/components/org-course-grid";
 import { requireRole } from "@/src/lib/auth/session";
 import { listSemestersForOrganization } from "@/src/lib/data/repositories";
+
+export const metadata: Metadata = {
+  title: "Course Progress"
+};
 
 export default async function OrgCourseGridPage() {
   const user = await requireRole("ORG_ADMIN");

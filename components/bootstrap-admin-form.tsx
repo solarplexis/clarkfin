@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useId, useState, useTransition } from "react";
 import Link from "next/link";
 
 import { EndDrawer } from "@/components/end-drawer";
 
 export function BootstrapAdminForm() {
+  const errorId = useId();
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -67,17 +68,39 @@ export function BootstrapAdminForm() {
           >
             <div className="field">
               <label htmlFor="fullName">Full name</label>
-              <input id="fullName" name="fullName" type="text" required />
+              <input
+                aria-describedby={error ? errorId : undefined}
+                aria-invalid={error ? "true" : undefined}
+                id="fullName"
+                name="fullName"
+                required
+                type="text"
+              />
             </div>
             <div className="field">
               <label htmlFor="email">Admin email</label>
-              <input id="email" name="email" type="email" required />
+              <input
+                aria-describedby={error ? errorId : undefined}
+                aria-invalid={error ? "true" : undefined}
+                id="email"
+                name="email"
+                required
+                type="email"
+              />
             </div>
             <div className="field">
               <label htmlFor="password">Password</label>
-              <input id="password" name="password" type="password" minLength={8} required />
+              <input
+                aria-describedby={error ? errorId : undefined}
+                aria-invalid={error ? "true" : undefined}
+                id="password"
+                minLength={8}
+                name="password"
+                required
+                type="password"
+              />
             </div>
-            {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
+            {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
             {message ? (
               <div className="stack">
                 <p style={{ color: "var(--accent)", margin: 0 }}>{message}</p>

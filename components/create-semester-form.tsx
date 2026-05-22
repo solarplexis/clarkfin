@@ -35,6 +35,7 @@ const PencilIcon = () => (
 
 export function EditSemesterDrawer({ semester }: { semester: SemesterRow }) {
   const formId = useId();
+  const errorId = `${formId}-error`;
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -116,30 +117,69 @@ export function EditSemesterDrawer({ semester }: { semester: SemesterRow }) {
         <div className="form-grid">
           <div className="field">
             <label htmlFor={`${formId}-title`}>Title</label>
-            <input defaultValue={semester.title} id={`${formId}-title`} name="title" required />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              defaultValue={semester.title}
+              id={`${formId}-title`}
+              name="title"
+              required
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-courseCode`}>Course code</label>
-            <input defaultValue={semester.courseCode} id={`${formId}-courseCode`} name="courseCode" required />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              defaultValue={semester.courseCode}
+              id={`${formId}-courseCode`}
+              name="courseCode"
+              required
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-durationWeeks`}>Duration (weeks)</label>
-            <input id={`${formId}-durationWeeks`} min={1} name="durationWeeks" type="number" value={durationWeeks} onChange={(e) => handleDurationChange(Number(e.target.value))} />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-durationWeeks`}
+              min={1}
+              name="durationWeeks"
+              type="number"
+              value={durationWeeks}
+              onChange={(e) => handleDurationChange(Number(e.target.value))}
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-startsAt`}>Start date</label>
-            <input id={`${formId}-startsAt`} name="startsAt" type="date" value={startsAt} onChange={(e) => handleStartsAtChange(e.target.value)} />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-startsAt`}
+              name="startsAt"
+              type="date"
+              value={startsAt}
+              onChange={(e) => handleStartsAtChange(e.target.value)}
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-endsAt`}>End date</label>
-            <input id={`${formId}-endsAt`} name="endsAt" type="date" value={endsAt} onChange={(e) => handleEndsAtChange(e.target.value)} />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-endsAt`}
+              name="endsAt"
+              type="date"
+              value={endsAt}
+              onChange={(e) => handleEndsAtChange(e.target.value)}
+            />
           </div>
         </div>
         <label className="row" style={{ alignItems: "center" }}>
           <input defaultChecked={semester.isActive} name="isActive" type="checkbox" />
           Course is active for student invites
         </label>
-        {error ? <p className="error-msg">{error}</p> : null}
+        {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
       </form>
     </EndDrawer>
   );
@@ -147,6 +187,7 @@ export function EditSemesterDrawer({ semester }: { semester: SemesterRow }) {
 
 export function CreateSemesterForm() {
   const formId = useId();
+  const errorId = `${formId}-error`;
   const router = useRouter();
   const [isOpen, setIsOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -226,34 +267,80 @@ export function CreateSemesterForm() {
         <div className="form-grid">
           <div className="field">
             <label htmlFor={`${formId}-semesterId`}>Course run ID</label>
-            <input id={`${formId}-semesterId`} name="semesterId" placeholder="fall-2026-fin101" required />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-semesterId`}
+              name="semesterId"
+              placeholder="fall-2026-fin101"
+              required
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-title`}>Title</label>
-            <input id={`${formId}-title`} name="title" placeholder="Fall 2026 Personal Finance" required />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-title`}
+              name="title"
+              placeholder="Fall 2026 Personal Finance"
+              required
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-courseCode`}>Course code</label>
-            <input id={`${formId}-courseCode`} name="courseCode" placeholder="FIN101" required />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-courseCode`}
+              name="courseCode"
+              placeholder="FIN101"
+              required
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-durationWeeks`}>Duration (weeks)</label>
-            <input id={`${formId}-durationWeeks`} min={1} name="durationWeeks" type="number" value={durationWeeks} onChange={(e) => handleDurationChange(Number(e.target.value))} />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-durationWeeks`}
+              min={1}
+              name="durationWeeks"
+              type="number"
+              value={durationWeeks}
+              onChange={(e) => handleDurationChange(Number(e.target.value))}
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-startsAt`}>Start date</label>
-            <input id={`${formId}-startsAt`} name="startsAt" type="date" value={startsAt} onChange={(e) => handleStartsAtChange(e.target.value)} />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-startsAt`}
+              name="startsAt"
+              type="date"
+              value={startsAt}
+              onChange={(e) => handleStartsAtChange(e.target.value)}
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-endsAt`}>End date</label>
-            <input id={`${formId}-endsAt`} name="endsAt" type="date" value={endsAt} onChange={(e) => handleEndsAtChange(e.target.value)} />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-endsAt`}
+              name="endsAt"
+              type="date"
+              value={endsAt}
+              onChange={(e) => handleEndsAtChange(e.target.value)}
+            />
           </div>
         </div>
         <label className="row" style={{ alignItems: "center" }}>
           <input defaultChecked name="isActive" type="checkbox" />
           Course is active for student invites
         </label>
-        {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
+        {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
       </form>
     </EndDrawer>
   );

@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 
 import { InviteRedemptionForm } from "@/components/invite-redemption-form";
@@ -6,6 +7,10 @@ import {
   getSemesterById,
   getStudentInviteByCode
 } from "@/src/lib/data/repositories";
+
+export const metadata: Metadata = {
+  title: "Accept Invite"
+};
 
 export default async function InvitePage({
   params

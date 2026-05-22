@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 
 import { LoginForm } from "@/components/login-form";
 import { hasSystemAdmin } from "@/src/lib/data/repositories";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = {
+  title: "Sign In"
+};
 
 export default async function LoginPage() {
   const adminExists = await hasSystemAdmin();

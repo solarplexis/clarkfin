@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -16,6 +17,10 @@ const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
+
+export const metadata: Metadata = {
+  title: "Monthly Snapshot"
+};
 
 export default async function SnapshotPage() {
   const user = await requireRole("STUDENT");

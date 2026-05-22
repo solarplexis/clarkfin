@@ -1,9 +1,14 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { BalanceSheetTool } from "@/components/balance-sheet-tool";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { requireRole, resolveStudentWorkspace } from "@/src/lib/auth/session";
 import { listAssets, listDebts } from "@/src/lib/data/repositories";
+
+export const metadata: Metadata = {
+  title: "Balance Sheet"
+};
 
 export default async function BalanceSheetPage() {
   const user = await requireRole("STUDENT");

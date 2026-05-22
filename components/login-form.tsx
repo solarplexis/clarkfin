@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 
@@ -8,6 +8,7 @@ import { getClientAuth } from "@/src/lib/firebase/client";
 
 export function LoginForm() {
   const router = useRouter();
+  const errorId = useId();
   const [error, setError] = useState<string | null>(null);
   const [isPending, setIsPending] = useState(false);
 
@@ -54,13 +55,29 @@ export function LoginForm() {
     >
       <div className="field">
         <label htmlFor="email">Email</label>
-        <input id="email" name="email" type="email" autoComplete="email" required />
+        <input
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? "true" : undefined}
+          autoComplete="email"
+          id="email"
+          name="email"
+          required
+          type="email"
+        />
       </div>
       <div className="field">
         <label htmlFor="password">Password</label>
-        <input id="password" name="password" type="password" autoComplete="current-password" required />
+        <input
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? "true" : undefined}
+          autoComplete="current-password"
+          id="password"
+          name="password"
+          required
+          type="password"
+        />
       </div>
-      {error ? <p className="error-msg">{error}</p> : null}
+      {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
       <button className="button" type="submit" disabled={isPending}>
         {isPending ? "Signing in..." : "Sign in"}
       </button>

@@ -13,6 +13,7 @@ type CreateOrgResponse = {
 
 export function CreateOrganizationForm() {
   const formId = useId();
+  const errorId = `${formId}-error`;
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<CreateOrgResponse | null>(null);
   const [isPending, startTransition] = useTransition();
@@ -71,11 +72,20 @@ export function CreateOrganizationForm() {
         <div className="form-grid">
           <div className="field">
             <label htmlFor={`${formId}-orgId`}>Organization ID</label>
-            <input id={`${formId}-orgId`} name="orgId" placeholder="csn-nevada" required />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-orgId`}
+              name="orgId"
+              placeholder="csn-nevada"
+              required
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-name`}>Organization name</label>
             <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
               id={`${formId}-name`}
               name="name"
               placeholder="College of Southern Nevada"
@@ -84,15 +94,29 @@ export function CreateOrganizationForm() {
           </div>
           <div className="field">
             <label htmlFor={`${formId}-supportEmail`}>Support email</label>
-            <input id={`${formId}-supportEmail`} name="supportEmail" type="email" />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-supportEmail`}
+              name="supportEmail"
+              type="email"
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-brandColor`}>Brand color</label>
-            <input id={`${formId}-brandColor`} name="brandColor" placeholder="#0f6a5b" />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-brandColor`}
+              name="brandColor"
+              placeholder="#0f6a5b"
+            />
           </div>
           <div className="field" style={{ gridColumn: "1 / -1" }}>
             <label htmlFor={`${formId}-allowedEmailDomains`}>Allowed student email domains</label>
             <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
               id={`${formId}-allowedEmailDomains`}
               name="allowedEmailDomains"
               placeholder="school.edu, students.school.edu"
@@ -104,15 +128,30 @@ export function CreateOrganizationForm() {
         <div className="form-grid">
           <div className="field">
             <label htmlFor={`${formId}-orgAdminFullName`}>Full name</label>
-            <input id={`${formId}-orgAdminFullName`} name="orgAdminFullName" required />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-orgAdminFullName`}
+              name="orgAdminFullName"
+              required
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-orgAdminEmail`}>Email</label>
-            <input id={`${formId}-orgAdminEmail`} name="orgAdminEmail" type="email" required />
+            <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
+              id={`${formId}-orgAdminEmail`}
+              name="orgAdminEmail"
+              required
+              type="email"
+            />
           </div>
           <div className="field">
             <label htmlFor={`${formId}-orgAdminPassword`}>Temporary password</label>
             <input
+              aria-describedby={error ? errorId : undefined}
+              aria-invalid={error ? "true" : undefined}
               id={`${formId}-orgAdminPassword`}
               minLength={8}
               name="orgAdminPassword"
@@ -122,7 +161,7 @@ export function CreateOrganizationForm() {
           </div>
         </div>
 
-        {error ? <p style={{ color: "var(--danger)", margin: 0 }}>{error}</p> : null}
+        {error ? <p className="error-msg" id={errorId} role="alert">{error}</p> : null}
         {result?.organization && result.apiKey ? (
           <div className="panel stack" style={{ padding: 16 }}>
             <strong>{result.organization.name} created.</strong>

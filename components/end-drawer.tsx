@@ -77,6 +77,7 @@ export function EndDrawer({
           triggerClassName ?? ""
         ].join(" ").trim()}
         data-tooltip={triggerTooltip}
+        title={triggerTooltip}
         type="button"
         disabled={triggerDisabled}
         onClick={() => setIsOpen(true)}

@@ -38,6 +38,7 @@ export function BudgetAssistantDrawer({
   semesterId?: string;
   onBudgetUpdated: () => void;
 }) {
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const [isOpen, setIsOpen] = useState(false);
   const [view, setView] = useState<"history" | "chat">("chat");
   const [conversations, setConversations] = useState<ChatConversation[]>([]);
@@ -58,7 +59,7 @@ export function BudgetAssistantDrawer({
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
         if (view === "history") setView("chat");
-        else setIsOpen(false);
+        else closeDrawer();
       }
     }
     window.addEventListener("keydown", onKey);
@@ -67,6 +68,13 @@ export function BudgetAssistantDrawer({
       window.removeEventListener("keydown", onKey);
     };
   }, [isOpen, view]);
+
+  function closeDrawer() {
+    setIsOpen(false);
+    requestAnimationFrame(() => {
+      triggerRef.current?.focus();
+    });
+  }
 
   async function loadConversations() {
     if (!semesterId) return;
@@ -163,7 +171,7 @@ export function BudgetAssistantDrawer({
 
   return (
     <>
-      <button className="button-secondary" type="button" onClick={openDrawer}>
+      <button ref={triggerRef} className="button-secondary" type="button" onClick={openDrawer}>
         ✦ Ask AI
       </button>
 
@@ -173,9 +181,9 @@ export function BudgetAssistantDrawer({
             aria-label="Close assistant"
             className="ai-drawer-backdrop"
             type="button"
-            onClick={() => setIsOpen(false)}
+            onClick={closeDrawer}
           />
-          <aside aria-label="Finance assistant" className="ai-drawer-panel" role="dialog">
+          <aside aria-label="Finance assistant" aria-modal="true" className="ai-drawer-panel" role="dialog">
 
             {/* ── Header ── */}
             <header className="ai-drawer-header">
@@ -206,7 +214,7 @@ export function BudgetAssistantDrawer({
                   aria-label="Close"
                   className="icon-button"
                   type="button"
-                  onClick={() => setIsOpen(false)}
+                  onClick={closeDrawer}
                 >
                   <CloseIcon />
                 </button>
@@ -224,7 +232,15 @@ export function BudgetAssistantDrawer({
                       <li
                         key={c.id}
                         className={`ai-history-item${c.id === activeConversationId ? " ai-history-item-active" : ""}`}
+                        role="button"
+                        tabIndex={0}
                         onClick={() => openConversation(c)}
+                        onKeyDown={(event) => {
+                          if (event.key === "Enter" || event.key === " ") {
+                            event.preventDefault();
+                            openConversation(c);
+                          }
+                        }}
                       >
                         <ChatBubbleIcon />
                         <span className="ai-history-item-title">{c.title}</span>

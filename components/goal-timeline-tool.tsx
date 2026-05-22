@@ -345,15 +345,17 @@ function DeleteGoalButton({
   return (
     <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end" }}>
       <button
+        aria-label={`Delete ${goal.label}`}
         className="icon-button icon-button-danger"
         data-tooltip={`Delete ${goal.label}`}
+        title={`Delete ${goal.label}`}
         disabled={isPending}
         type="button"
         onClick={() => { void handleDelete(); }}
       >
         <TrashIcon />
       </button>
-      {error && <p className="error-msg" style={{ margin: 0 }}>{error}</p>}
+      {error && <p className="error-msg" role="alert" style={{ margin: 0 }}>{error}</p>}
     </div>
   );
 }

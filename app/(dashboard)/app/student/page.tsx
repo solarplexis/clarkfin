@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { DashboardShell } from "@/components/dashboard-shell";
@@ -18,6 +19,10 @@ const MONTH_NAMES = [
   "January", "February", "March", "April", "May", "June",
   "July", "August", "September", "October", "November", "December"
 ];
+
+export const metadata: Metadata = {
+  title: "Student Dashboard"
+};
 
 export default async function StudentHomePage() {
   const user = await requireRole("STUDENT");

@@ -1,7 +1,12 @@
+import type { Metadata } from "next";
 import { CreateOrganizationForm } from "@/components/create-organization-form";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { requireRole } from "@/src/lib/auth/session";
 import { listOrganizations, listSemestersForOrganization } from "@/src/lib/data/repositories";
+
+export const metadata: Metadata = {
+  title: "System Administration"
+};
 
 export default async function SystemAdminPage() {
   const user = await requireRole("ADMIN");
