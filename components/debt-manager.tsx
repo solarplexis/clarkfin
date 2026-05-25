@@ -2,6 +2,8 @@
 
 import { useState, useTransition } from "react";
 
+import { PageConnect } from "@/components/page-connect";
+
 import type { Debt, DebtCategory } from "@/types/domain";
 import { calculateDebtScenario } from "@/src/lib/activity/debt";
 
@@ -497,6 +499,16 @@ export function DebtManager({
 
   return (
     <div className="stack">
+      <PageConnect
+        storageKey="debt"
+        text="Every debt here reduces your net worth on the Balance Sheet and your monthly payments appear as an expense category on the Income page. High-interest debt is worth treating as a goal — paying it off faster has a bigger impact on your finances than almost any other move."
+        links={[
+          { href: "/app/student/balance-sheet", label: "See net worth →" },
+          { href: "/app/student/goals", label: "Set payoff goal →" },
+          { href: "/app/student/budget", label: "Log payments →" }
+        ]}
+      />
+
       <div className="card-header" style={{ paddingBottom: 0 }}>
         <div>
           <h2>Debt Overview</h2>
@@ -556,6 +568,7 @@ export function DebtManager({
           onCancel={() => setAdding(false)}
         />
       )}
+
     </div>
   );
 }

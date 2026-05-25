@@ -2,7 +2,11 @@
 
 import { useCallback, useState } from "react";
 
-import type { AllocationTarget, Debt, ExpenseEntry, IncomeEntry, UserProfile } from "@/types/domain";
+import { PageConnect } from "@/components/page-connect";
+import { WeeklyCheckinWizard } from "@/components/weekly-checkin-wizard";
+import { projectGoals } from "@/src/lib/calculations/timeline";
+import type { GoalProjection } from "@/src/lib/calculations/timeline";
+import type { AllocationTarget, Debt, ExpenseEntry, Goal, IncomeEntry, UserProfile } from "@/types/domain";
 
 // ─── Types ────────────────────────────────────────────────────
 
@@ -231,7 +235,9 @@ export function WeeklyPlannerTool({
   debts,
   currentYear,
   currentMonth,
-  currentMonthLabel
+  currentMonthLabel,
+  goals = [],
+  currentMonthIncomeEntries = []
 }: {
   user: UserProfile;
   semesterId: string;
@@ -242,12 +248,15 @@ export function WeeklyPlannerTool({
   currentYear: number;
   currentMonth: number;
   currentMonthLabel: string;
+  goals?: Goal[];
+  currentMonthIncomeEntries?: IncomeEntry[];
 }) {
   const [year, setYear] = useState(currentYear);
   const [month, setMonth] = useState(currentMonth);
   const [monthLabel, setMonthLabel] = useState(currentMonthLabel);
   const [entries, setEntries] = useState<EntryDraft[]>(() => buildDrafts(initialEntries));
   const [loading, setLoading] = useState(false);
+  const [checkinOpen, setCheckinOpen] = useState(false);
 
   const netPayMonthly = calcNetPay(baselineEntries);
   const discretionaryPct = allocationTarget?.discretionaryPct ?? 0;
@@ -315,12 +324,63 @@ export function WeeklyPlannerTool({
     navigateMonth(y, m);
   }
 
+  const now = new Date();
+  const checkinWeek = Math.min(4, Math.ceil(now.getDate() / 7)) as 1 | 2 | 3 | 4;
+  const savingsPct = allocationTarget?.savingsPct ?? 0;
+  const monthlySavings = (netPayMonthly * savingsPct) / 100;
+
+  // Goal story: connect spending decisions to goal timelines
+  const nonRetirementGoals = goals.filter(g => g.goalType !== "retirement");
+  const goalProjections = projectGoals(nonRetirementGoals, monthlySavings);
+  const nextGoal = goalProjections.find(p => p.monthsRemaining !== 0 && p.monthsRemaining !== null);
+
+  // What-if: if the remaining discretionary budget went to savings instead
+  const whatIfSavings = monthlySavings + Math.max(0, totalRemaining);
+  const whatIfProjections = totalRemaining > 50
+    ? projectGoals(nonRetirementGoals, whatIfSavings)
+    : null;
+  const whatIfNextGoal = whatIfProjections?.find(p => p.goalId === nextGoal?.goalId);
+  const monthsSooner =
+    nextGoal?.monthsRemaining != null && whatIfNextGoal?.monthsRemaining != null
+      ? nextGoal.monthsRemaining - whatIfNextGoal.monthsRemaining
+      : 0;
+
+  const thisWeekLogged = currentMonthIncomeEntries.some(e => e.periodWeek === checkinWeek);
+
   return (
     <div className="wp-root">
+
+      <PageConnect
+        storageKey="budget"
+        text="This page tracks how you spend your discretionary budget week by week. Log your full income and all expense categories on the Income page — that's what drives your savings rate and goal projections on the Dashboard."
+        links={[
+          { href: "/app/student/budget", label: "Log income & expenses →" },
+          { href: "/app/student/goals", label: "Adjust goal targets →" },
+          { href: "/app/student", label: "See Dashboard →" }
+        ]}
+      />
+
+      {checkinOpen && (
+        <WeeklyCheckinWizard
+          semesterId={semesterId}
+          periodYear={year}
+          periodMonth={month}
+          periodWeek={checkinWeek}
+          goals={goals}
+          debts={debts}
+          existingIncomeEntries={currentMonthIncomeEntries}
+          existingExpenseEntries={initialEntries}
+          baselineNetPay={netPayMonthly}
+          monthlySavings={monthlySavings}
+          onClose={() => setCheckinOpen(false)}
+          onComplete={() => { setCheckinOpen(false); window.location.reload(); }}
+        />
+      )}
+
       <div className="wp-header">
         <div>
-          <h1>Weekly Budget Planner</h1>
-          <p>Track discretionary spending week by week</p>
+          <h1>Budget</h1>
+          <p>{monthLabel} · discretionary spending</p>
         </div>
         <div className="wp-month-nav">
           <button className="wp-nav-btn" onClick={prevMonth} disabled={loading}>‹</button>
@@ -329,44 +389,91 @@ export function WeeklyPlannerTool({
         </div>
       </div>
 
-      <div className="wp-empty-hint" style={{ marginBottom: 16 }}>
-        Planner entries are saved to the same monthly budget records shown on the Budget page. Use this tool for discretionary spending only, and avoid re-entering the same expense there.
-      </div>
+      {!thisWeekLogged ? (
+        <div className="wp-checkin-banner">
+          <div className="wp-checkin-banner-body">
+            <strong>Week {checkinWeek} hasn&apos;t been logged yet.</strong>
+            <span>The guided check-in walks you through income, expenses, and what it means for your goals — takes about 3 minutes.</span>
+          </div>
+          <button className="btn btn-primary wp-checkin-banner-btn" onClick={() => setCheckinOpen(true)}>
+            Start Week {checkinWeek} check-in →
+          </button>
+        </div>
+      ) : (
+        <div className="wp-checkin-done-row">
+          <span className="wp-checkin-done-label">✓ Week {checkinWeek} logged</span>
+          <button className="wp-checkin-done-link" onClick={() => setCheckinOpen(true)}>
+            Update check-in
+          </button>
+        </div>
+      )}
+
+      {/* Goal story — the thread connecting budget to financial future */}
+      {netPayMonthly > 0 && monthlySavings > 0 && nextGoal ? (
+        <div className="wp-goal-story">
+          <div className="wp-goal-story-row">
+            <span className="wp-goal-story-saving">Saving {fmt(monthlySavings)}/mo</span>
+            <span className="wp-goal-story-arrow">→</span>
+            <span className="wp-goal-story-goal">{nextGoal.label}</span>
+            <span className="wp-goal-story-date">
+              {nextGoal.monthsRemaining === 1
+                ? "in 1 month"
+                : nextGoal.monthsRemaining != null
+                ? `in ${nextGoal.monthsRemaining} months`
+                : "—"}
+            </span>
+          </div>
+          {monthsSooner >= 1 && (
+            <div className="wp-goal-story-whyif">
+              Keep the remaining {fmt(totalRemaining)} unspent this month and that goal arrives {monthsSooner} month{monthsSooner > 1 ? "s" : ""} sooner.
+            </div>
+          )}
+        </div>
+      ) : netPayMonthly > 0 && goals.length === 0 ? (
+        <div className="wp-goal-story wp-goal-story-empty">
+          Your budget is set — but without goals, these numbers don't mean anything yet.{" "}
+          <a href="/app/student/goals">Set up your goals</a> to see what your spending decisions are actually costing you.
+        </div>
+      ) : netPayMonthly === 0 ? (
+        <div className="wp-goal-story wp-goal-story-empty">
+          Log your baseline income on the <a href="/app/student/budget">Income page</a> to activate your budget and see how your spending connects to your goals.
+        </div>
+      ) : null}
 
       {hasCreditCard && (
         <div className="wp-cc-banner">
-          <strong>Heads up:</strong> You have a credit card balance. Discretionary expenses charged to your card add to your debt — track those charges on the <a href="/app/student/debt">Debt page</a>.
+          Credit card balance on file — expenses charged to your card add to that debt, not just this budget.{" "}
+          <a href="/app/student/debt">Track debt payments →</a>
         </div>
       )}
 
       <div className="wp-summary-strip">
         <div className="wp-summary-stat">
-          <span className="wp-summary-label">Monthly Budget</span>
-          <span className="wp-summary-value">{fmt(totalBudget)}</span>
+          <span className="wp-summary-label">Monthly Discretionary</span>
+          <span className="wp-summary-value">{netPayMonthly > 0 ? fmt(totalBudget) : "—"}</span>
+          {netPayMonthly > 0 && discretionaryPct > 0 && (
+            <span className="wp-summary-sub">{discretionaryPct}% of take-home</span>
+          )}
         </div>
         <div className="wp-summary-stat">
-          <span className="wp-summary-label">Spent This Month</span>
+          <span className="wp-summary-label">Spent</span>
           <span className="wp-summary-value">{fmt(totalSpent)}</span>
         </div>
         <div className="wp-summary-stat">
           <span className="wp-summary-label">Remaining</span>
-          <span className={`wp-summary-value${totalRemaining < 0 ? " wp-value-danger" : ""}`}>
-            {totalRemaining < 0 ? `(${fmt(totalRemaining)})` : fmt(totalRemaining)}
+          <span className={`wp-summary-value${totalRemaining < 0 ? " wp-value-danger" : totalRemaining > 0 ? " wp-value-good" : ""}`}>
+            {totalRemaining < 0 ? `−${fmt(Math.abs(totalRemaining))}` : fmt(totalRemaining)}
           </span>
         </div>
         <div className="wp-summary-stat">
-          <span className="wp-summary-label">Weekly Base</span>
-          <span className="wp-summary-value">{fmt(baseWeeklyBudget)}</span>
+          <span className="wp-summary-label">Per Week</span>
+          <span className="wp-summary-value">{netPayMonthly > 0 ? fmt(baseWeeklyBudget) : "—"}</span>
         </div>
       </div>
 
-      <p style={{ margin: "0 0 16px", color: "var(--muted)", fontSize: "0.8rem" }}>
-        Weekly Base comes from your Dashboard discretionary target applied to baseline net pay. Unused saved budget rolls into the next week.
-      </p>
-
-      {discretionaryPct === 0 && (
+      {discretionaryPct === 0 && netPayMonthly > 0 && (
         <div className="wp-empty-hint">
-          No discretionary allocation set. Visit your <a href="/app/student">Dashboard</a> to configure your budget allocation.
+          No discretionary allocation set yet. Go to your <a href="/app/student">Dashboard</a> to split your income into categories — that's what sets this budget.
         </div>
       )}
 
@@ -407,6 +514,7 @@ export function WeeklyPlannerTool({
           />
         ))}
       </div>
+
     </div>
   );
 }

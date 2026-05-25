@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
+import { PageConnect } from "@/components/page-connect";
+
 import type { Asset, AssetCategory, Debt, UserProfile } from "@/types/domain";
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -221,6 +223,16 @@ export function BalanceSheetTool({
 
   return (
     <div className="stack">
+      <PageConnect
+        storageKey="balance-sheet"
+        text="Net worth is the scorecard that ties everything together — assets you've accumulated, minus debts you owe. Debt balances here should match what's on the Debt page. Update this monthly and your Dashboard net worth KPI reflects it automatically."
+        links={[
+          { href: "/app/student/debt", label: "Manage debts →" },
+          { href: "/app/student/goals", label: "See goal projections →" },
+          { href: "/app/student", label: "See Dashboard →" }
+        ]}
+      />
+
       {/* Net Worth Header */}
       <div className="card">
         <div className="bs-net-worth-strip">
@@ -347,6 +359,7 @@ export function BalanceSheetTool({
           </div>
         </div>
       </div>
+
     </div>
   );
 }
