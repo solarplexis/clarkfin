@@ -1,8 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { projectGoals } from "@/src/lib/calculations/timeline";
-import type { GoalProjection } from "@/src/lib/calculations/timeline";
 import type { Debt, ExpenseEntry, Goal, IncomeEntry } from "@/types/domain";
 
 // ─── Types ──────────────────────────────────────────────────────
@@ -215,12 +214,16 @@ function LogIncomeStep({
     }
   }
 
+  const inputId = useId();
+  const errorId = useId();
+
   return (
     <div className="guided-form-block">
-      <label className="guided-field-label">Net pay this week</label>
+      <label className="guided-field-label" htmlFor={inputId}>Net pay this week</label>
       <div className="guided-amount-row">
-        <span className="guided-amount-prefix">$</span>
+        <span className="guided-amount-prefix" aria-hidden="true">$</span>
         <input
+          id={inputId}
           className="guided-amount-input"
           type="number"
           min="0"
@@ -230,16 +233,18 @@ function LogIncomeStep({
           onBlur={save}
           placeholder="0"
           autoFocus
+          aria-describedby={error ? errorId : undefined}
+          aria-invalid={error ? "true" : undefined}
         />
-        {saved && <span className="guided-saved-badge">✓</span>}
+        {saved && <span className="guided-saved-badge" aria-label="Saved">✓</span>}
       </div>
       {baselineNetPay > 0 && (
         <p className="guided-field-hint">
           Your baseline is {fmt(baselineNetPay)}/mo — enter what actually came in this specific week.
         </p>
       )}
-      {error && <p className="guided-field-error">{error}</p>}
-      {saving && <p className="guided-field-hint">Saving…</p>}
+      {error && <p className="guided-field-error" id={errorId} role="alert">{error}</p>}
+      {saving && <p className="guided-field-hint" aria-live="polite">Saving…</p>}
     </div>
   );
 }
@@ -295,9 +300,10 @@ function ExpenseRow({
         onBlur={() => schedule(draft)}
         placeholder="Description"
         readOnly={draft.isDebt}
+        aria-label={draft.isDebt ? `${draft.label} (debt payment, read-only)` : "Expense description"}
       />
       <div className="guided-expense-amount-wrap">
-        <span className="guided-expense-prefix">$</span>
+        <span className="guided-expense-prefix" aria-hidden="true">$</span>
         <input
           className="guided-expense-amount"
           type="number"
@@ -307,10 +313,16 @@ function ExpenseRow({
           onChange={e => onChange({ ...draft, amount: Number(e.target.value) || 0 })}
           onBlur={() => schedule(draft)}
           placeholder="0"
+          aria-label={`Amount for ${draft.label || "expense"}`}
         />
       </div>
       {!draft.isDebt && (
-        <button className="guided-expense-delete" onClick={remove} type="button" title="Remove">×</button>
+        <button
+          className="guided-expense-delete"
+          onClick={remove}
+          type="button"
+          aria-label={`Remove ${draft.label || "expense"}`}
+        >×</button>
       )}
     </div>
   );
@@ -486,15 +498,44 @@ export function WeeklyCheckinWizard({
   const [weeklyIncome, setWeeklyIncome] = useState(0);
   const [expenseDrafts, setExpenseDrafts] = useState<ExpenseDraft[]>([]);
   const contentRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const headingId = useId();
+  const previousFocusRef = useRef<Element | null>(null);
 
   useEffect(() => {
+    previousFocusRef.current = document.activeElement;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+
+    const firstFocusable = dialogRef.current?.querySelector<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    firstFocusable?.focus();
+
+    return () => {
+      document.body.style.overflow = prev;
+      (previousFocusRef.current as HTMLElement | null)?.focus();
+    };
   }, []);
 
   useEffect(() => {
-    function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") { onClose(); return; }
+      if (e.key !== "Tab" || !dialogRef.current) return;
+      const focusable = Array.from(
+        dialogRef.current.querySelectorAll<HTMLElement>(
+          'button:not([disabled]), [href], input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+        )
+      );
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (e.shiftKey) {
+        if (document.activeElement === first) { e.preventDefault(); last.focus(); }
+      } else {
+        if (document.activeElement === last) { e.preventDefault(); first.focus(); }
+      }
+    }
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
@@ -517,14 +558,14 @@ export function WeeklyCheckinWizard({
   }
 
   return (
-    <div className="guided-overlay" role="dialog" aria-modal="true">
+    <div className="guided-overlay" role="dialog" aria-modal="true" aria-labelledby={headingId} ref={dialogRef}>
 
       {/* Top chrome */}
       <div className="guided-chrome">
         <span className="guided-chrome-logo">ClarkFin</span>
         <span className="guided-chrome-sep" />
         <span className="guided-chrome-label">Weekly Check-In</span>
-        <div className="guided-chrome-dots">
+        <div className="guided-chrome-dots" aria-hidden="true">
           {STEPS.map((_, i) => (
             <div
               key={i}
@@ -542,7 +583,7 @@ export function WeeklyCheckinWizard({
         <div className="guided-content">
 
           {/* Progress bar */}
-          <div className="guided-progress-bar">
+          <div className="guided-progress-bar" aria-hidden="true">
             {STEPS.map((_, i) => (
               <div
                 key={i}
@@ -554,8 +595,8 @@ export function WeeklyCheckinWizard({
           {/* Step counter */}
           <div className="guided-step-counter">Step {step + 1} of {totalSteps} · {current.label}</div>
 
-          {/* Headline */}
-          <h1 className="guided-headline">{current.headline}</h1>
+          {/* Headline — referenced by aria-labelledby */}
+          <h1 className="guided-headline" id={headingId}>{current.headline}</h1>
 
           {/* Description */}
           <p className="guided-description">{current.description}</p>

@@ -24,14 +24,16 @@ export function PageConnect({
     localStorage.setItem(`pc:${storageKey}`, next ? "1" : "0");
   }
 
+  const bodyId = `pc-body-${storageKey}`;
+
   return (
     <div className="pc-wrap">
-      <button className="pc-header" onClick={toggle} aria-expanded={open} type="button">
+      <button className="pc-header" onClick={toggle} aria-expanded={open} aria-controls={bodyId} type="button">
         <span className="pc-title">How this page connects</span>
         <span className="pc-toggle">{open ? "−" : "+"}</span>
       </button>
       {open && (
-        <div className="pc-body">
+        <div className="pc-body" id={bodyId}>
           <p className="pc-text">{text}</p>
           <div className="pc-links">
             {links.map(l => (

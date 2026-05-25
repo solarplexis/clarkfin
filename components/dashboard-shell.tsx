@@ -151,14 +151,14 @@ export function DashboardShell({
         <div aria-atomic="true" aria-live="polite" className="sr-only" role="status">
           {routeAnnouncement}
         </div>
-        <div className="guided-overlay" id="main-content">
+        <div className="guided-overlay">
 
           {/* Top chrome */}
           <div className="guided-chrome">
             <span className="guided-chrome-logo">ClarkFin</span>
             <span className="guided-chrome-sep" />
             <span className="guided-chrome-label">Guided Tour</span>
-            <div className="guided-chrome-dots">
+            <div className="guided-chrome-dots" aria-hidden="true">
               {GUIDED_STEPS.map((_, i) => (
                 <div
                   key={i}
@@ -179,7 +179,7 @@ export function DashboardShell({
 
             {/* Hero: progress bar + headline + description */}
             <div className="guided-shell-hero">
-              <div className="guided-progress-bar">
+              <div className="guided-progress-bar" aria-hidden="true">
                 {GUIDED_STEPS.map((_, i) => (
                   <div
                     key={i}
@@ -198,7 +198,7 @@ export function DashboardShell({
             </div>
 
             {/* Full-width page content */}
-            <div className="guided-shell-page">
+            <div className="guided-shell-page" id="main-content" tabIndex={-1}>
               {children}
             </div>
 
