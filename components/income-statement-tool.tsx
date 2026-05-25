@@ -2,10 +2,15 @@
 
 import { useCallback, useState } from "react";
 
+import { PageConnect } from "@/components/page-connect";
+import { projectGoals } from "@/src/lib/calculations/timeline";
+import type { GoalProjection } from "@/src/lib/calculations/timeline";
 import type {
+  AllocationTarget,
   Debt,
   ExpenseCategory,
   ExpenseEntry,
+  Goal,
   IncomeEntry,
   IncomeEntryCategory
 } from "@/types/domain";
@@ -204,7 +209,9 @@ export function IncomeStatementTool({
   initialMonth,
   initialIncomeEntries,
   initialExpenseEntries,
-  debts
+  debts,
+  goals = [],
+  allocationTarget = null
 }: {
   semesterId: string;
   initialYear: number;
@@ -212,6 +219,8 @@ export function IncomeStatementTool({
   initialIncomeEntries: IncomeEntry[];
   initialExpenseEntries: ExpenseEntry[];
   debts: Debt[];
+  goals?: Goal[];
+  allocationTarget?: AllocationTarget | null;
 }) {
   const [year, setYear] = useState(initialYear);
   const [month, setMonth] = useState(initialMonth);
@@ -251,6 +260,15 @@ export function IncomeStatementTool({
     .reduce((s, r) => s + rowTotal(r.cells), 0);
   const totalExpenses = essentialTotal + debtTotal + discretionaryTotal;
   const netIncome = totalIncome - totalExpenses;
+
+  // Story: live savings rate and goal connection
+  const savingsRate = totalIncome > 0 ? (netIncome / totalIncome) * 100 : null;
+  const targetSavingsPct = allocationTarget?.savingsPct ?? 0;
+  const nonRetirementGoals = goals.filter(g => g.goalType !== "retirement");
+  const goalProjections = totalIncome > 0 && netIncome > 0
+    ? projectGoals(nonRetirementGoals, netIncome)
+    : projectGoals(nonRetirementGoals, (totalIncome * targetSavingsPct) / 100);
+  const nextGoal = goalProjections.find(p => p.monthsRemaining !== 0 && p.monthsRemaining !== null);
 
   // ── Month navigation ──────────────────────────────────────────
 
@@ -550,13 +568,72 @@ export function IncomeStatementTool({
 
   return (
     <div className="stack">
+      <PageConnect
+        storageKey="income"
+        text="Your net income here is your actual monthly savings — the number that drives goal projections on the Goals page and the Savings Rate KPI on your Dashboard. Debt payments logged here also update your payoff timelines on the Debt page."
+        links={[
+          { href: "/app/student", label: "See Dashboard →" },
+          { href: "/app/student/goals", label: "View goal timelines →" },
+          { href: "/app/student/debt", label: "Track debt payoff →" }
+        ]}
+      />
+
+      {/* Story strip — what this page does in the context of everything else */}
+      {totalIncome > 0 ? (
+        <div className="is-story-strip">
+          <div className="is-story-row">
+            <div className="is-story-stat">
+              <span className="is-story-label">Net Income</span>
+              <span className={`is-story-value ${netIncome >= 0 ? "is-story-positive" : "is-story-negative"}`}>
+                {fmt(netIncome)}
+              </span>
+            </div>
+            {savingsRate !== null && (
+              <div className="is-story-stat">
+                <span className="is-story-label">Savings Rate</span>
+                <span className={`is-story-value ${savingsRate >= (targetSavingsPct || 10) ? "is-story-positive" : "is-story-warn"}`}>
+                  {savingsRate.toFixed(1)}%
+                  {targetSavingsPct > 0 && (
+                    <span className="is-story-target"> (target {targetSavingsPct}%)</span>
+                  )}
+                </span>
+              </div>
+            )}
+            {nextGoal && (
+              <div className="is-story-stat">
+                <span className="is-story-label">Next Goal</span>
+                <span className="is-story-value is-story-goal">
+                  {nextGoal.label}
+                  {nextGoal.monthsRemaining != null && (
+                    <span className="is-story-target"> · {nextGoal.monthsRemaining} months away</span>
+                  )}
+                </span>
+              </div>
+            )}
+          </div>
+          {savingsRate !== null && targetSavingsPct > 0 && savingsRate < targetSavingsPct && (
+            <div className="is-story-nudge">
+              You&apos;re saving {savingsRate.toFixed(1)}% — your target is {targetSavingsPct}%.
+              Closing that gap by {fmt((targetSavingsPct - savingsRate) / 100 * totalIncome)} more this month
+              {nextGoal?.monthsRemaining != null ? ` moves your ${nextGoal.label} closer.` : "."}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="is-story-empty">
+          Log your income below to see your savings rate and how this month connects to your goals.
+          Everything you track here flows to your <a href="/app/student">Dashboard</a> and{" "}
+          <a href="/app/student/goals">Goal projections</a>.
+        </div>
+      )}
+
       {/* Header */}
       <div className="card">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div>
-            <h2 style={{ marginBottom: 4 }}>Monthly Budget</h2>
+            <h2 style={{ marginBottom: 4 }}>Income &amp; Expenses</h2>
             <p style={{ margin: "0 0 10px", color: "var(--muted)", fontSize: "0.82rem" }}>
-              Use this as your monthly budget log. Week 1-4 columns are for the weeks inside the month.
+              Your complete monthly record — income in, expenses out, net savings. This is the source of truth for your Dashboard and Goals.
             </p>
             <div className="is-month-nav">
               <button
@@ -594,7 +671,7 @@ export function IncomeStatementTool({
         )}
 
         <p style={{ marginTop: 10, fontSize: "0.8rem", color: "var(--muted)" }}>
-          Planner note: discretionary expenses entered on the Planner page appear here too. Enter them in one place, not both.
+          Discretionary expenses logged on the Budget (planner) page appear here automatically — enter them in one place only.
         </p>
       </div>
 
@@ -723,6 +800,7 @@ export function IncomeStatementTool({
           {fmt(netIncome)}
         </span>
       </div>
+
     </div>
   );
 }

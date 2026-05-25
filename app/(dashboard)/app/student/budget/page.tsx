@@ -1,16 +1,22 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
-import { BudgetTool } from "@/components/budget-tool";
 import { DashboardShell } from "@/components/dashboard-shell";
+import { IncomeStatementTool } from "@/components/income-statement-tool";
 import { requireRole, resolveStudentWorkspace } from "@/src/lib/auth/session";
-import { getBudgetActuals, getBudgetDraft } from "@/src/lib/data/repositories";
+import {
+  getAllocationTarget,
+  listDebts,
+  listExpenseEntries,
+  listGoals,
+  listIncomeEntries
+} from "@/src/lib/data/repositories";
 
 export const metadata: Metadata = {
-  title: "Budget"
+  title: "Income"
 };
 
-export default async function BudgetPage() {
+export default async function IncomePage() {
   const user = await requireRole("STUDENT");
 
   if (!user.currentAge) {
@@ -19,27 +25,34 @@ export default async function BudgetPage() {
 
   const workspace = await resolveStudentWorkspace(user);
   const semesterId = workspace?.activeEnrollment?.semesterId;
-  const semesterLabel = workspace?.activeSemester?.title ?? workspace?.activeEnrollment?.semesterId;
 
   if (!semesterId) {
     redirect("/app/student");
   }
 
-  const [initialDraftResult, initialActualsResult] = await Promise.allSettled([
-    getBudgetDraft(user.uid, semesterId),
-    getBudgetActuals(user.uid, semesterId)
-  ]);
+  const now = new Date();
+  const currentYear = now.getFullYear();
+  const currentMonth = now.getMonth() + 1;
 
-  const initialDraft = initialDraftResult.status === "fulfilled" ? initialDraftResult.value : null;
-  const initialActuals = initialActualsResult.status === "fulfilled" ? initialActualsResult.value : null;
+  const [incomeEntries, expenseEntries, debts, goals, allocationTarget] = await Promise.all([
+    listIncomeEntries(user.uid, semesterId, { periodYear: currentYear, periodMonth: currentMonth }),
+    listExpenseEntries(user.uid, semesterId, { periodYear: currentYear, periodMonth: currentMonth }),
+    listDebts(user.uid, semesterId),
+    listGoals(user.uid, semesterId),
+    getAllocationTarget(user.uid, semesterId)
+  ]);
 
   return (
     <DashboardShell user={user}>
-      <BudgetTool
-        initialDraft={initialDraft}
-        initialActuals={initialActuals}
+      <IncomeStatementTool
         semesterId={semesterId}
-        semesterLabel={semesterLabel}
+        initialYear={currentYear}
+        initialMonth={currentMonth}
+        initialIncomeEntries={incomeEntries}
+        initialExpenseEntries={expenseEntries}
+        debts={debts}
+        goals={goals}
+        allocationTarget={allocationTarget}
       />
     </DashboardShell>
   );

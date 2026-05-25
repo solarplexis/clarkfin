@@ -14,6 +14,7 @@ import {
   type RetirementProjection
 } from "@/src/lib/calculations/timeline";
 import { getCourseWeek } from "@/src/lib/calculations/course";
+import { PageConnect } from "@/components/page-connect";
 import { EndDrawer } from "@/components/end-drawer";
 import { FinalReportModal } from "@/components/final-report-modal";
 import { FeedbackForm } from "@/components/feedback-form";
@@ -690,6 +691,16 @@ export function GoalTimelineTool({
 
   return (
     <div className="stack">
+      <PageConnect
+        storageKey="goals"
+        text="These projections are only as accurate as the data behind them. Your income and expenses on the Income page set your actual savings rate. Asset and debt balances on the Balance Sheet determine where you're starting from."
+        links={[
+          { href: "/app/student/budget", label: "Log income & expenses →" },
+          { href: "/app/student/balance-sheet", label: "Update net worth →" },
+          { href: "/app/student", label: "See Dashboard →" }
+        ]}
+      />
+
       {/* What-If Slider */}
       <div className="card">
         <h2 style={{ marginBottom: 14 }}>Goal Timeline</h2>
@@ -848,6 +859,7 @@ export function GoalTimelineTool({
             getCourseWeek(activeSemester.startsAt) >= activeSemester.durationWeeks)}
         />
       )}
+
     </div>
   );
 }

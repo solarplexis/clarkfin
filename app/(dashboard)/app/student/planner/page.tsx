@@ -8,6 +8,7 @@ import {
   getAllocationTarget,
   listDebts,
   listExpenseEntries,
+  listGoals,
   listIncomeEntries
 } from "@/src/lib/data/repositories";
 
@@ -39,11 +40,13 @@ export default async function PlannerPage() {
   const currentMonth = now.getMonth() + 1;
   const currentMonthLabel = `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`;
 
-  const [allocationTarget, baselineEntries, currentMonthEntries, debts] = await Promise.all([
+  const [allocationTarget, baselineEntries, currentMonthEntries, currentMonthIncomeEntries, debts, goals] = await Promise.all([
     getAllocationTarget(user.uid, semesterId),
     listIncomeEntries(user.uid, semesterId, { periodYear: 0, periodMonth: 0 }),
     listExpenseEntries(user.uid, semesterId, { periodYear: currentYear, periodMonth: currentMonth }),
-    listDebts(user.uid, semesterId)
+    listIncomeEntries(user.uid, semesterId, { periodYear: currentYear, periodMonth: currentMonth }),
+    listDebts(user.uid, semesterId),
+    listGoals(user.uid, semesterId)
   ]);
 
   return (
@@ -58,6 +61,8 @@ export default async function PlannerPage() {
         currentYear={currentYear}
         currentMonth={currentMonth}
         currentMonthLabel={currentMonthLabel}
+        goals={goals}
+        currentMonthIncomeEntries={currentMonthIncomeEntries}
       />
     </DashboardShell>
   );

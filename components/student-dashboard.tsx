@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
+import { PageConnect } from "@/components/page-connect";
 import { StudentWorkspaceSwitcher } from "@/components/student-workspace-switcher";
+import { WeeklyCheckinWizard } from "@/components/weekly-checkin-wizard";
 import { projectGoals, projectRetirement, calcNetPayFromBaseline } from "@/src/lib/calculations/timeline";
 import { getCourseWeek, getCourseMilestones } from "@/src/lib/calculations/course";
 import type { CourseMilestone } from "@/src/lib/calculations/course";
@@ -506,6 +508,16 @@ export function StudentDashboard({
   const [courseProgressLoading, setCourseProgressLoading] = useState(false);
   const [courseProgressError, setCourseProgressError] = useState<string | null>(null);
 
+  const [checkinOpen, setCheckinOpen] = useState(false);
+
+  // Current period for weekly check-in
+  const now = new Date();
+  const checkinYear = now.getFullYear();
+  const checkinMonth = now.getMonth() + 1;
+  const checkinWeek = Math.min(4, Math.ceil(now.getDate() / 7));
+
+  const hasRealIncome = currentMonthIncomeEntries.some(e => e.periodYear > 0);
+
   useEffect(() => {
     setSelectedProgressWeek(null);
   }, [semesterId]);
@@ -563,6 +575,16 @@ export function StudentDashboard({
 
   return (
     <>
+      <PageConnect
+        storageKey="dashboard"
+        text="Everything here is a summary — the numbers come from other pages. Income and expenses flow from the Income page. Net worth combines assets from the Balance Sheet and debts from the Debt page. Goal timelines are calculated on the Goals page. Keep those pages current and this dashboard stays accurate."
+        links={[
+          { href: "/app/student/budget", label: "Log this week →" },
+          { href: "/app/student/goals", label: "Review goals →" },
+          { href: "/app/student/snapshot", label: "Monthly snapshot →" }
+        ]}
+      />
+
       {/* Header */}
       <div className="page-header">
         <div className="page-header-text">
@@ -576,6 +598,39 @@ export function StudentDashboard({
           />
         )}
       </div>
+
+      {/* First-visit task card */}
+      {!hasRealIncome && netPayMonthly > 0 && (
+        <div className="dash-first-task-card">
+          <div className="dash-first-task-icon">→</div>
+          <div className="dash-first-task-body">
+            <div className="dash-first-task-label">Your First Task</div>
+            <div className="dash-first-task-text">
+              Log this week's income and expenses to see how your spending affects your goals.
+            </div>
+          </div>
+          <button
+            className="btn btn-primary"
+            onClick={() => setCheckinOpen(true)}
+            type="button"
+          >
+            Start weekly check-in
+          </button>
+        </div>
+      )}
+
+      {/* Persistent check-in CTA (for returning users) */}
+      {hasRealIncome && (
+        <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: 4 }}>
+          <button
+            className="btn btn-sm"
+            onClick={() => setCheckinOpen(true)}
+            type="button"
+          >
+            Start weekly check-in
+          </button>
+        </div>
+      )}
 
       {/* Emergency Fund Banner */}
       {!hasEmergencyFund && goals.length > 0 && (
@@ -886,12 +941,23 @@ export function StudentDashboard({
         );
       })()}
 
-      {/* Snapshot link */}
-      <div style={{ textAlign: "center", paddingBottom: 8 }}>
-        <Link href="/app/student/snapshot" style={{ fontSize: "0.85rem", color: "var(--muted)" }}>
-          View monthly financial snapshot →
-        </Link>
-      </div>
+      {/* Weekly check-in wizard */}
+      {checkinOpen && semesterId && (
+        <WeeklyCheckinWizard
+          semesterId={semesterId}
+          periodYear={checkinYear}
+          periodMonth={checkinMonth}
+          periodWeek={checkinWeek}
+          goals={goals}
+          debts={debts}
+          existingIncomeEntries={currentMonthIncomeEntries}
+          existingExpenseEntries={currentMonthExpenseEntries}
+          baselineNetPay={netPayMonthly}
+          monthlySavings={monthlySavings}
+          onClose={() => setCheckinOpen(false)}
+          onComplete={() => setCheckinOpen(false)}
+        />
+      )}
     </>
   );
 }
