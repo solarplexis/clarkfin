@@ -203,6 +203,7 @@ function AllocationPanel({
             value={value}
             onChange={e => set(Number(e.target.value))}
             style={{ accentColor: ALLOC_COLORS[label] }}
+            aria-label={`${label} allocation`}
           />
           <span className="dash-alloc-pct">{pctLabel(value)}</span>
         </div>

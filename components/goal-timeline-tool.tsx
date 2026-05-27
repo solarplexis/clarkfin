@@ -716,6 +716,7 @@ export function GoalTimelineTool({
             step={1}
             value={savingsPct}
             onChange={e => handleSavingsPctChange(Number(e.target.value))}
+            aria-label="Projection Savings Rate"
           />
           <span className="tl-savings-amount">
             {netPayMonthly > 0
@@ -831,6 +832,7 @@ export function GoalTimelineTool({
               step={0.5}
               value={returnRatePct}
               onChange={e => setReturnRatePct(Number(e.target.value))}
+              aria-label="Rate of Return"
             />
           </div>
           <RetirementCard r={result.retirement} netPay={netPayMonthly} />
