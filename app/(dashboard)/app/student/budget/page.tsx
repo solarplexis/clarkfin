@@ -25,18 +25,15 @@ export default async function IncomePage() {
 
   const workspace = await resolveStudentWorkspace(user);
   const semesterId = workspace?.activeEnrollment?.semesterId;
+  const semester = workspace?.activeSemester ?? null;
 
   if (!semesterId) {
     redirect("/app/student");
   }
 
-  const now = new Date();
-  const currentYear = now.getFullYear();
-  const currentMonth = now.getMonth() + 1;
-
   const [incomeEntries, expenseEntries, debts, goals, allocationTarget] = await Promise.all([
-    listIncomeEntries(user.uid, semesterId, { periodYear: currentYear, periodMonth: currentMonth }),
-    listExpenseEntries(user.uid, semesterId, { periodYear: currentYear, periodMonth: currentMonth }),
+    listIncomeEntries(user.uid, semesterId),
+    listExpenseEntries(user.uid, semesterId),
     listDebts(user.uid, semesterId),
     listGoals(user.uid, semesterId),
     getAllocationTarget(user.uid, semesterId)
@@ -46,8 +43,7 @@ export default async function IncomePage() {
     <DashboardShell user={user}>
       <IncomeStatementTool
         semesterId={semesterId}
-        initialYear={currentYear}
-        initialMonth={currentMonth}
+        semester={semester}
         initialIncomeEntries={incomeEntries}
         initialExpenseEntries={expenseEntries}
         debts={debts}

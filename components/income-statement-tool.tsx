@@ -4,7 +4,6 @@ import { useCallback, useState } from "react";
 
 import { PageConnect } from "@/components/page-connect";
 import { projectGoals } from "@/src/lib/calculations/timeline";
-import type { GoalProjection } from "@/src/lib/calculations/timeline";
 import type {
   AllocationTarget,
   Debt,
@@ -12,7 +11,8 @@ import type {
   ExpenseEntry,
   Goal,
   IncomeEntry,
-  IncomeEntryCategory
+  IncomeEntryCategory,
+  Semester
 } from "@/types/domain";
 
 // ─── Types ─────────────────────────────────────────────────────
@@ -22,6 +22,13 @@ const WEEKS: Week[] = [1, 2, 3, 4];
 
 type CellState = { entryId?: string; amount: number };
 
+type WindowSlot = {
+  courseWeek: number;
+  periodYear: number;
+  periodMonth: number;
+  periodWeek: number;
+};
+
 function emptyCells(): Record<Week, CellState> {
   return { 1: { amount: 0 }, 2: { amount: 0 }, 3: { amount: 0 }, 4: { amount: 0 } };
 }
@@ -29,7 +36,6 @@ function emptyCells(): Record<Week, CellState> {
 function suggestedDebtCells(monthlyPayment: number): Record<Week, CellState> {
   const cells = emptyCells();
   if (monthlyPayment > 0) {
-    // Use week 1 as the default monthly payment slot; students can move it if their due date differs.
     cells[1] = { amount: monthlyPayment };
   }
   return cells;
@@ -72,141 +78,135 @@ const EXPENSE_PRESETS: Array<{ label: string; category: ExpenseCategory }> = [
   { label: "Entertainment", category: "discretionary" }
 ];
 
-// ─── Row builders ──────────────────────────────────────────────
+// ─── Helpers ───────────────────────────────────────────────────
+
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
 function rk(category: string, label: string) {
   return `${category}:${label}`;
 }
 
-function buildIncomeRows(entries: IncomeEntry[]): IncomeRow[] {
-  const map = new Map<string, IncomeRow>();
-
-  for (const { label, category } of INCOME_PRESETS) {
-    const key = rk(category, label);
-    map.set(key, {
-      rowKey: key,
-      label,
-      isPreset: true,
-      isPending: false,
-      category,
-      savedInDb: false,
-      cells: emptyCells()
-    });
-  }
-
-  for (const entry of entries) {
-    const w = entry.periodWeek as Week;
-    if (w < 1 || w > 4) continue;
-    const key = rk(entry.category, entry.label);
-    if (!map.has(key)) {
-      map.set(key, {
-        rowKey: key,
-        label: entry.label,
-        isPreset: false,
-        isPending: false,
-        category: entry.category,
-        savedInDb: true,
-        cells: emptyCells()
-      });
-    }
-    const row = map.get(key)!;
-    row.cells[w] = { entryId: entry.id, amount: entry.amount };
-    row.savedInDb = true;
-  }
-
-  return Array.from(map.values());
-}
-
-function buildExpenseRows(entries: ExpenseEntry[], debts: Debt[]): ExpenseRow[] {
-  const map = new Map<string, ExpenseRow>();
-
-  for (const { label, category } of EXPENSE_PRESETS) {
-    const key = rk(category, label);
-    map.set(key, {
-      rowKey: key,
-      label,
-      isPreset: true,
-      isPending: false,
-      isDebt: false,
-      category,
-      savedInDb: false,
-      cells: emptyCells()
-    });
-  }
-
-  for (const debt of debts) {
-    const key = rk("debt", debt.label);
-    if (!map.has(key)) {
-      map.set(key, {
-        rowKey: key,
-        label: debt.label,
-        isPreset: false,
-        isPending: false,
-        isDebt: true,
-        category: "debt",
-        savedInDb: false,
-        cells: suggestedDebtCells(debt.monthlyPayment)
-      });
-    }
-  }
-
-  for (const entry of entries) {
-    const w = entry.periodWeek as Week;
-    if (w < 1 || w > 4) continue;
-    const key = rk(entry.category, entry.label);
-    if (!map.has(key)) {
-      map.set(key, {
-        rowKey: key,
-        label: entry.label,
-        isPreset: false,
-        isPending: false,
-        isDebt: false,
-        category: entry.category,
-        savedInDb: true,
-        cells: emptyCells()
-      });
-    }
-    const row = map.get(key)!;
-    row.cells[w] = { entryId: entry.id, amount: entry.amount };
-    row.savedInDb = true;
-  }
-
-  return Array.from(map.values());
-}
-
-// ─── Helpers ───────────────────────────────────────────────────
-
 function fmt(n: number) {
-  return n.toLocaleString("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 0
-  });
+  return n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 }
 
 function rowTotal(cells: Record<Week, CellState>): number {
   return WEEKS.reduce((s, w) => s + cells[w].amount, 0);
 }
 
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
-
-function prevMonth(y: number, m: number): [number, number] {
-  return m === 1 ? [y - 1, 12] : [y, m - 1];
+function parseSemesterStart(startsAt: string): Date | null {
+  const trimmed = startsAt.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const d = new Date(`${trimmed}T00:00:00.000Z`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(startsAt);
+  return isNaN(d.getTime()) ? null : d;
 }
 
-function nextMonth(y: number, m: number): [number, number] {
-  return m === 12 ? [y + 1, 1] : [y, m + 1];
+function courseWeekToCalendar(
+  startsAt: string | undefined,
+  courseWeek: number
+): { periodYear: number; periodMonth: number; periodWeek: number } {
+  if (startsAt) {
+    const semStart = parseSemesterStart(startsAt);
+    if (semStart) {
+      const weekStart = new Date(semStart.getTime() + (courseWeek - 1) * MS_PER_WEEK);
+      const year = weekStart.getUTCFullYear();
+      const month = weekStart.getUTCMonth() + 1;
+      const day = weekStart.getUTCDate();
+      return { periodYear: year, periodMonth: month, periodWeek: Math.min(4, Math.ceil(day / 7)) };
+    }
+  }
+  const month = Math.ceil(courseWeek / 4);
+  const periodWeek = ((courseWeek - 1) % 4) + 1;
+  return { periodYear: new Date().getFullYear(), periodMonth: month, periodWeek };
+}
+
+function getCurrentCourseWeek(semester: Semester | null): number {
+  const duration = semester?.durationWeeks ?? 4;
+  if (semester?.startsAt) {
+    const semStart = parseSemesterStart(semester.startsAt);
+    if (semStart) {
+      const diffMs = Date.now() - semStart.getTime();
+      return Math.min(Math.max(1, Math.ceil(diffMs / MS_PER_WEEK)), duration);
+    }
+  }
+  return Math.min(4, Math.ceil(new Date().getDate() / 7));
+}
+
+// ─── Row builders ──────────────────────────────────────────────
+
+function buildIncomeRows(entries: IncomeEntry[], slots: WindowSlot[]): IncomeRow[] {
+  const map = new Map<string, IncomeRow>();
+
+  for (const { label, category } of INCOME_PRESETS) {
+    const key = rk(category, label);
+    map.set(key, { rowKey: key, label, isPreset: true, isPending: false, category, savedInDb: false, cells: emptyCells() });
+  }
+
+  for (const entry of entries) {
+    if (entry.periodWeek < 1 || entry.periodWeek > 4) continue;
+    const colIdx = slots.findIndex(s =>
+      s.periodYear === entry.periodYear &&
+      s.periodMonth === entry.periodMonth &&
+      s.periodWeek === entry.periodWeek
+    );
+    if (colIdx === -1) continue;
+    const w = (colIdx + 1) as Week;
+    const key = rk(entry.category, entry.label);
+    if (!map.has(key)) {
+      map.set(key, { rowKey: key, label: entry.label, isPreset: false, isPending: false, category: entry.category, savedInDb: true, cells: emptyCells() });
+    }
+    const row = map.get(key)!;
+    row.cells[w] = { entryId: entry.id, amount: entry.amount };
+    row.savedInDb = true;
+  }
+
+  return Array.from(map.values());
+}
+
+function buildExpenseRows(entries: ExpenseEntry[], debts: Debt[], slots: WindowSlot[]): ExpenseRow[] {
+  const map = new Map<string, ExpenseRow>();
+
+  for (const { label, category } of EXPENSE_PRESETS) {
+    const key = rk(category, label);
+    map.set(key, { rowKey: key, label, isPreset: true, isPending: false, isDebt: false, category, savedInDb: false, cells: emptyCells() });
+  }
+
+  for (const debt of debts) {
+    const key = rk("debt", debt.label);
+    if (!map.has(key)) {
+      map.set(key, { rowKey: key, label: debt.label, isPreset: false, isPending: false, isDebt: true, category: "debt", savedInDb: false, cells: suggestedDebtCells(debt.monthlyPayment) });
+    }
+  }
+
+  for (const entry of entries) {
+    if (entry.periodWeek < 1 || entry.periodWeek > 4) continue;
+    const colIdx = slots.findIndex(s =>
+      s.periodYear === entry.periodYear &&
+      s.periodMonth === entry.periodMonth &&
+      s.periodWeek === entry.periodWeek
+    );
+    if (colIdx === -1) continue;
+    const w = (colIdx + 1) as Week;
+    const key = rk(entry.category, entry.label);
+    if (!map.has(key)) {
+      map.set(key, { rowKey: key, label: entry.label, isPreset: false, isPending: false, isDebt: false, category: entry.category, savedInDb: true, cells: emptyCells() });
+    }
+    const row = map.get(key)!;
+    row.cells[w] = { entryId: entry.id, amount: entry.amount };
+    row.savedInDb = true;
+  }
+
+  return Array.from(map.values());
 }
 
 // ─── Component ─────────────────────────────────────────────────
 
 export function IncomeStatementTool({
   semesterId,
-  initialYear,
-  initialMonth,
+  semester,
   initialIncomeEntries,
   initialExpenseEntries,
   debts,
@@ -214,25 +214,54 @@ export function IncomeStatementTool({
   allocationTarget = null
 }: {
   semesterId: string;
-  initialYear: number;
-  initialMonth: number;
+  semester: Semester | null;
   initialIncomeEntries: IncomeEntry[];
   initialExpenseEntries: ExpenseEntry[];
   debts: Debt[];
   goals?: Goal[];
   allocationTarget?: AllocationTarget | null;
 }) {
-  const [year, setYear] = useState(initialYear);
-  const [month, setMonth] = useState(initialMonth);
+  const durationWeeks = semester?.durationWeeks ?? 4;
+
+  // Default window: the group of 4 containing the current course week
+  const currentWeek = getCurrentCourseWeek(semester);
+  const defaultWindowStart = Math.floor((currentWeek - 1) / 4) * 4 + 1;
+
+  const [windowStart, setWindowStart] = useState(defaultWindowStart);
+  const [allIncomeEntries] = useState(initialIncomeEntries);
+  const [allExpenseEntries] = useState(initialExpenseEntries);
+  const [savingKey, setSavingKey] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // ── Window slots: 4 course week positions mapped to calendar coords ──
+
+  const windowSlots: WindowSlot[] = Array.from({ length: 4 }, (_, i) => {
+    const courseWeek = windowStart + i;
+    return { courseWeek, ...courseWeekToCalendar(semester?.startsAt, courseWeek) };
+  });
+
+  const windowEnd = Math.min(windowStart + 3, durationWeeks);
+  const canGoPrev = windowStart > 1;
+  const canGoNext = windowStart + 4 <= durationWeeks;
+
+  // ── Rows: rebuilt from all entries filtered to the current window ──
+
   const [incomeRows, setIncomeRows] = useState<IncomeRow[]>(() =>
-    buildIncomeRows(initialIncomeEntries)
+    buildIncomeRows(initialIncomeEntries, windowSlots)
   );
   const [expenseRows, setExpenseRows] = useState<ExpenseRow[]>(() =>
-    buildExpenseRows(initialExpenseEntries, debts)
+    buildExpenseRows(initialExpenseEntries, debts, windowSlots)
   );
-  const [savingKey, setSavingKey] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+
+  function navigateWindow(nextStart: number) {
+    const nextSlots: WindowSlot[] = Array.from({ length: 4 }, (_, i) => {
+      const courseWeek = nextStart + i;
+      return { courseWeek, ...courseWeekToCalendar(semester?.startsAt, courseWeek) };
+    });
+    setWindowStart(nextStart);
+    setIncomeRows(buildIncomeRows(allIncomeEntries, nextSlots));
+    setExpenseRows(buildExpenseRows(allExpenseEntries, debts, nextSlots));
+  }
 
   // ── Calculations ──────────────────────────────────────────────
 
@@ -249,19 +278,12 @@ export function IncomeStatementTool({
     .reduce((s, r) => s + rowTotal(r.cells), 0);
   const totalIncome = netPay + otherIncomeTotal;
 
-  const essentialTotal = expenseRows
-    .filter(r => r.category === "essential")
-    .reduce((s, r) => s + rowTotal(r.cells), 0);
-  const debtTotal = expenseRows
-    .filter(r => r.category === "debt")
-    .reduce((s, r) => s + rowTotal(r.cells), 0);
-  const discretionaryTotal = expenseRows
-    .filter(r => r.category === "discretionary")
-    .reduce((s, r) => s + rowTotal(r.cells), 0);
+  const essentialTotal = expenseRows.filter(r => r.category === "essential").reduce((s, r) => s + rowTotal(r.cells), 0);
+  const debtTotal = expenseRows.filter(r => r.category === "debt").reduce((s, r) => s + rowTotal(r.cells), 0);
+  const discretionaryTotal = expenseRows.filter(r => r.category === "discretionary").reduce((s, r) => s + rowTotal(r.cells), 0);
   const totalExpenses = essentialTotal + debtTotal + discretionaryTotal;
   const netIncome = totalIncome - totalExpenses;
 
-  // Story: live savings rate and goal connection
   const savingsRate = totalIncome > 0 ? (netIncome / totalIncome) * 100 : null;
   const targetSavingsPct = allocationTarget?.savingsPct ?? 0;
   const nonRetirementGoals = goals.filter(g => g.goalType !== "retirement");
@@ -270,80 +292,43 @@ export function IncomeStatementTool({
     : projectGoals(nonRetirementGoals, (totalIncome * targetSavingsPct) / 100);
   const nextGoal = goalProjections.find(p => p.monthsRemaining !== 0 && p.monthsRemaining !== null);
 
-  // ── Month navigation ──────────────────────────────────────────
-
-  async function navigateMonth(y: number, m: number) {
-    setLoading(true);
-    setError(null);
-    try {
-      const p = new URLSearchParams({
-        semesterId,
-        periodYear: String(y),
-        periodMonth: String(m)
-      });
-      const [ir, er] = await Promise.all([
-        fetch(`/api/student/income-entries?${p}`),
-        fetch(`/api/student/expense-entries?${p}`)
-      ]);
-      const [id, ed] = await Promise.all([ir.json(), er.json()]);
-      setYear(y);
-      setMonth(m);
-      setIncomeRows(buildIncomeRows(id.entries ?? []));
-      setExpenseRows(buildExpenseRows(ed.entries ?? [], debts));
-    } catch {
-      setError("Failed to load data for that month.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   // ── Save income cell ──────────────────────────────────────────
 
   const saveIncomeCell = useCallback(
-    async (rowKey: string, w: Week, amount: number) => {
+    async (rowKey: string, colIdx: Week, amount: number) => {
       const row = incomeRows.find(r => r.rowKey === rowKey);
       if (!row || !row.label.trim()) return;
 
-      const ck = `i:${rowKey}:${w}`;
+      const slot = windowSlots[colIdx - 1];
+      const ck = `i:${rowKey}:${colIdx}`;
       setSavingKey(ck);
       setError(null);
 
       try {
         const body = {
           semesterId,
-          periodYear: year,
-          periodMonth: month,
-          periodWeek: w,
+          periodYear: slot.periodYear,
+          periodMonth: slot.periodMonth,
+          periodWeek: slot.periodWeek,
           category: row.category,
           label: row.label,
           amount
         };
-        const cell = row.cells[w];
+        const cell = row.cells[colIdx];
         const resp = cell.entryId
-          ? await fetch(`/api/student/income-entries/${cell.entryId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body)
-            })
-          : await fetch("/api/student/income-entries", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body)
-            });
+          ? await fetch(`/api/student/income-entries/${cell.entryId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+          : await fetch("/api/student/income-entries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error ?? "Save failed");
 
         setIncomeRows(prev =>
           prev.map(r =>
-            r.rowKey !== rowKey
-              ? r
-              : {
-                  ...r,
-                  savedInDb: true,
-                  rowKey: rk(r.category, r.label),
-                  cells: { ...r.cells, [w]: { entryId: data.entry.id, amount } }
-                }
+            r.rowKey !== rowKey ? r : {
+              ...r,
+              savedInDb: true,
+              cells: { ...r.cells, [colIdx]: { entryId: data.entry.id, amount } }
+            }
           )
         );
       } catch (err) {
@@ -352,56 +337,46 @@ export function IncomeStatementTool({
         setSavingKey(null);
       }
     },
-    [incomeRows, year, month, semesterId]
+    [incomeRows, windowSlots, semesterId]
   );
 
   // ── Save expense cell ─────────────────────────────────────────
 
   const saveExpenseCell = useCallback(
-    async (rowKey: string, w: Week, amount: number) => {
+    async (rowKey: string, colIdx: Week, amount: number) => {
       const row = expenseRows.find(r => r.rowKey === rowKey);
       if (!row || !row.label.trim()) return;
 
-      const ck = `e:${rowKey}:${w}`;
+      const slot = windowSlots[colIdx - 1];
+      const ck = `e:${rowKey}:${colIdx}`;
       setSavingKey(ck);
       setError(null);
 
       try {
         const body = {
           semesterId,
-          periodYear: year,
-          periodMonth: month,
-          periodWeek: w,
+          periodYear: slot.periodYear,
+          periodMonth: slot.periodMonth,
+          periodWeek: slot.periodWeek,
           category: row.category,
           label: row.label,
           amount
         };
-        const cell = row.cells[w];
+        const cell = row.cells[colIdx];
         const resp = cell.entryId
-          ? await fetch(`/api/student/expense-entries/${cell.entryId}`, {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body)
-            })
-          : await fetch("/api/student/expense-entries", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(body)
-            });
+          ? await fetch(`/api/student/expense-entries/${cell.entryId}`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+          : await fetch("/api/student/expense-entries", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
         const data = await resp.json();
         if (!resp.ok) throw new Error(data.error ?? "Save failed");
 
         setExpenseRows(prev =>
           prev.map(r =>
-            r.rowKey !== rowKey
-              ? r
-              : {
-                  ...r,
-                  savedInDb: true,
-                  rowKey: rk(r.category, r.label),
-                  cells: { ...r.cells, [w]: { entryId: data.entry.id, amount } }
-                }
+            r.rowKey !== rowKey ? r : {
+              ...r,
+              savedInDb: true,
+              cells: { ...r.cells, [colIdx]: { entryId: data.entry.id, amount } }
+            }
           )
         );
       } catch (err) {
@@ -410,40 +385,25 @@ export function IncomeStatementTool({
         setSavingKey(null);
       }
     },
-    [expenseRows, year, month, semesterId]
+    [expenseRows, windowSlots, semesterId]
   );
 
   // ── Add / remove pending rows ─────────────────────────────────
 
   function addIncomeRow() {
-    setIncomeRows(prev => [
-      ...prev,
-      {
-        rowKey: `pending:i:${Date.now()}`,
-        label: "",
-        isPreset: false,
-        isPending: true,
-        category: "other" as IncomeEntryCategory,
-        savedInDb: false,
-        cells: emptyCells()
-      }
-    ]);
+    setIncomeRows(prev => [...prev, {
+      rowKey: `pending:i:${Date.now()}`,
+      label: "", isPreset: false, isPending: true,
+      category: "other" as IncomeEntryCategory, savedInDb: false, cells: emptyCells()
+    }]);
   }
 
   function addExpenseRow(category: ExpenseCategory) {
-    setExpenseRows(prev => [
-      ...prev,
-      {
-        rowKey: `pending:e:${Date.now()}`,
-        label: "",
-        isPreset: false,
-        isPending: true,
-        isDebt: false,
-        category,
-        savedInDb: false,
-        cells: emptyCells()
-      }
-    ]);
+    setExpenseRows(prev => [...prev, {
+      rowKey: `pending:e:${Date.now()}`,
+      label: "", isPreset: false, isPending: true,
+      isDebt: false, category, savedInDb: false, cells: emptyCells()
+    }]);
   }
 
   function removePending(rowKey: string) {
@@ -453,38 +413,44 @@ export function IncomeStatementTool({
 
   // ── Row renderers ─────────────────────────────────────────────
 
-  function incomeAmountCell(row: IncomeRow, w: Week) {
-    const cell = row.cells[w];
-    const ck = `i:${row.rowKey}:${w}`;
+  function incomeAmountCell(row: IncomeRow, colIdx: Week) {
+    const slot = windowSlots[colIdx - 1];
+    const isDisabled = slot.courseWeek > durationWeeks;
+    const cell = row.cells[colIdx];
+    const ck = `i:${row.rowKey}:${colIdx}`;
     return (
-      <td key={w} style={{ position: "relative" }}>
+      <td key={colIdx} style={{ position: "relative" }}>
         <input
           className="is-amount-input"
           type="number"
           min="0"
           step="1"
+          disabled={isDisabled}
           defaultValue={cell.amount || ""}
-          placeholder="—"
-          onBlur={e => saveIncomeCell(row.rowKey, w, Number(e.target.value) || 0)}
+          placeholder={isDisabled ? "" : "—"}
+          onBlur={e => !isDisabled && saveIncomeCell(row.rowKey, colIdx, Number(e.target.value) || 0)}
         />
         {savingKey === ck && <span className="is-saving-dot" />}
       </td>
     );
   }
 
-  function expenseAmountCell(row: ExpenseRow, w: Week) {
-    const cell = row.cells[w];
-    const ck = `e:${row.rowKey}:${w}`;
+  function expenseAmountCell(row: ExpenseRow, colIdx: Week) {
+    const slot = windowSlots[colIdx - 1];
+    const isDisabled = slot.courseWeek > durationWeeks;
+    const cell = row.cells[colIdx];
+    const ck = `e:${row.rowKey}:${colIdx}`;
     return (
-      <td key={w} style={{ position: "relative" }}>
+      <td key={colIdx} style={{ position: "relative" }}>
         <input
           className="is-amount-input"
           type="number"
           min="0"
           step="1"
+          disabled={isDisabled}
           defaultValue={cell.amount || ""}
-          placeholder="—"
-          onBlur={e => saveExpenseCell(row.rowKey, w, Number(e.target.value) || 0)}
+          placeholder={isDisabled ? "" : "—"}
+          onBlur={e => !isDisabled && saveExpenseCell(row.rowKey, colIdx, Number(e.target.value) || 0)}
         />
         {savingKey === ck && <span className="is-saving-dot" />}
       </td>
@@ -501,24 +467,12 @@ export function IncomeStatementTool({
                 className="is-label-input"
                 placeholder="Label (e.g. Side gig)…"
                 value={row.label}
-                onChange={e =>
-                  setIncomeRows(prev =>
-                    prev.map(r => r.rowKey === row.rowKey ? { ...r, label: e.target.value } : r)
-                  )
-                }
+                onChange={e => setIncomeRows(prev => prev.map(r => r.rowKey === row.rowKey ? { ...r, label: e.target.value } : r))}
                 autoFocus
               />
-              <button
-                className="btn-ghost btn-sm"
-                style={{ padding: "2px 6px", minWidth: 0, lineHeight: 1 }}
-                onClick={() => removePending(row.rowKey)}
-              >
-                ✕
-              </button>
+              <button className="btn-ghost btn-sm" style={{ padding: "2px 6px", minWidth: 0, lineHeight: 1 }} onClick={() => removePending(row.rowKey)}>✕</button>
             </span>
-          ) : (
-            row.label
-          )}
+          ) : row.label}
         </td>
         {WEEKS.map(w => incomeAmountCell(row, w))}
         <td>{fmt(rowTotal(row.cells))}</td>
@@ -536,24 +490,12 @@ export function IncomeStatementTool({
                 className="is-label-input"
                 placeholder="Label (e.g. Phone bill)…"
                 value={row.label}
-                onChange={e =>
-                  setExpenseRows(prev =>
-                    prev.map(r => r.rowKey === row.rowKey ? { ...r, label: e.target.value } : r)
-                  )
-                }
+                onChange={e => setExpenseRows(prev => prev.map(r => r.rowKey === row.rowKey ? { ...r, label: e.target.value } : r))}
                 autoFocus
               />
-              <button
-                className="btn-ghost btn-sm"
-                style={{ padding: "2px 6px", minWidth: 0, lineHeight: 1 }}
-                onClick={() => removePending(row.rowKey)}
-              >
-                ✕
-              </button>
+              <button className="btn-ghost btn-sm" style={{ padding: "2px 6px", minWidth: 0, lineHeight: 1 }} onClick={() => removePending(row.rowKey)}>✕</button>
             </span>
-          ) : (
-            row.label
-          )}
+          ) : row.label}
         </td>
         {WEEKS.map(w => expenseAmountCell(row, w))}
         <td>{fmt(rowTotal(row.cells))}</td>
@@ -561,7 +503,7 @@ export function IncomeStatementTool({
     );
   }
 
-  const tableKey = `${year}-${month}`;
+  const tableKey = `window-${windowStart}`;
   const debtRows = expenseRows.filter(r => r.category === "debt");
 
   // ── Render ────────────────────────────────────────────────────
@@ -578,7 +520,6 @@ export function IncomeStatementTool({
         ]}
       />
 
-      {/* Story strip — what this page does in the context of everything else */}
       {totalIncome > 0 ? (
         <div className="is-story-strip">
           <div className="is-story-row">
@@ -593,9 +534,7 @@ export function IncomeStatementTool({
                 <span className="is-story-label">Savings Rate</span>
                 <span className={`is-story-value ${savingsRate >= (targetSavingsPct || 10) ? "is-story-positive" : "is-story-warn"}`}>
                   {savingsRate.toFixed(1)}%
-                  {targetSavingsPct > 0 && (
-                    <span className="is-story-target"> (target {targetSavingsPct}%)</span>
-                  )}
+                  {targetSavingsPct > 0 && <span className="is-story-target"> (target {targetSavingsPct}%)</span>}
                 </span>
               </div>
             )}
@@ -604,9 +543,7 @@ export function IncomeStatementTool({
                 <span className="is-story-label">Next Goal</span>
                 <span className="is-story-value is-story-goal">
                   {nextGoal.label}
-                  {nextGoal.monthsRemaining != null && (
-                    <span className="is-story-target"> · {nextGoal.monthsRemaining} months away</span>
-                  )}
+                  {nextGoal.monthsRemaining != null && <span className="is-story-target"> · {nextGoal.monthsRemaining} months away</span>}
                 </span>
               </div>
             )}
@@ -614,14 +551,14 @@ export function IncomeStatementTool({
           {savingsRate !== null && targetSavingsPct > 0 && savingsRate < targetSavingsPct && (
             <div className="is-story-nudge">
               You&apos;re saving {savingsRate.toFixed(1)}% — your target is {targetSavingsPct}%.
-              Closing that gap by {fmt((targetSavingsPct - savingsRate) / 100 * totalIncome)} more this month
+              Closing that gap by {fmt((targetSavingsPct - savingsRate) / 100 * totalIncome)} more this period
               {nextGoal?.monthsRemaining != null ? ` moves your ${nextGoal.label} closer.` : "."}
             </div>
           )}
         </div>
       ) : (
         <div className="is-story-empty">
-          Log your income below to see your savings rate and how this month connects to your goals.
+          Log your income below to see your savings rate and how this period connects to your goals.
           Everything you track here flows to your <a href="/app/student">Dashboard</a> and{" "}
           <a href="/app/student/goals">Goal projections</a>.
         </div>
@@ -633,25 +570,26 @@ export function IncomeStatementTool({
           <div>
             <h2 style={{ marginBottom: 4 }}>Income &amp; Expenses</h2>
             <p style={{ margin: "0 0 10px", color: "var(--muted)", fontSize: "0.82rem" }}>
-              Your complete monthly record — income in, expenses out, net savings. This is the source of truth for your Dashboard and Goals.
+              Your complete record — income in, expenses out, net savings. This is the source of truth for your Dashboard and Goals.
             </p>
             <div className="is-month-nav">
               <button
                 className="is-nav-btn"
-                onClick={() => { const [y, m] = prevMonth(year, month); navigateMonth(y, m); }}
-                disabled={loading}
-                aria-label="Previous month"
+                onClick={() => navigateWindow(windowStart - 4)}
+                disabled={!canGoPrev}
+                aria-label="Previous 4 weeks"
               >
                 ‹
               </button>
               <span className="is-month-label">
-                {loading ? "Loading…" : `${MONTH_NAMES[month - 1]} ${year}`}
+                Weeks {windowStart}–{windowEnd}
+                <span style={{ color: "var(--muted)", fontWeight: 400, marginLeft: 6 }}>of {durationWeeks}</span>
               </span>
               <button
                 className="is-nav-btn"
-                onClick={() => { const [y, m] = nextMonth(year, month); navigateMonth(y, m); }}
-                disabled={loading}
-                aria-label="Next month"
+                onClick={() => navigateWindow(windowStart + 4)}
+                disabled={!canGoNext}
+                aria-label="Next 4 weeks"
               >
                 ›
               </button>
@@ -666,9 +604,7 @@ export function IncomeStatementTool({
           </div>
         </div>
 
-        {error && (
-          <p style={{ marginTop: 10, fontSize: "0.85rem", color: "var(--danger)" }}>{error}</p>
-        )}
+        {error && <p style={{ marginTop: 10, fontSize: "0.85rem", color: "var(--danger)" }}>{error}</p>}
 
         <p style={{ marginTop: 10, fontSize: "0.8rem", color: "var(--muted)" }}>
           Discretionary expenses logged on the Budget (planner) page appear here automatically — enter them in one place only.
@@ -683,36 +619,30 @@ export function IncomeStatementTool({
             <thead>
               <tr>
                 <th style={{ textAlign: "left" }}>Line Item</th>
-                {WEEKS.map(w => <th key={w}>Week {w}</th>)}
+                {windowSlots.map(s => (
+                  <th key={s.courseWeek} style={{ opacity: s.courseWeek > durationWeeks ? 0.3 : 1 }}>
+                    Week {s.courseWeek}
+                  </th>
+                ))}
                 <th>Total</th>
               </tr>
             </thead>
             <tbody>
-              {incomeRows
-                .filter(r => r.category === "gross_pay" || r.category === "taxes")
-                .map(r => renderIncomeRow(r))}
-
+              {incomeRows.filter(r => r.category === "gross_pay" || r.category === "taxes").map(r => renderIncomeRow(r))}
               <tr className="is-calc-row">
                 <td>Net Pay</td>
                 {WEEKS.map(w => <td key={w} />)}
                 <td>{fmt(netPay)}</td>
               </tr>
-
-              {incomeRows
-                .filter(r => r.category !== "gross_pay" && r.category !== "taxes")
-                .map(r => renderIncomeRow(r))}
-
+              {incomeRows.filter(r => r.category !== "gross_pay" && r.category !== "taxes").map(r => renderIncomeRow(r))}
               <tr className="is-add-row">
                 <td colSpan={6}>
-                  <button className="is-add-btn" onClick={addIncomeRow}>
-                    + Add Income Row
-                  </button>
+                  <button className="is-add-btn" onClick={addIncomeRow}>+ Add Income Row</button>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
-
         <div className="budget-table-totals" style={{ paddingTop: 10 }}>
           <span>Total Income</span>
           <span>{fmt(totalIncome)}</span>
@@ -730,57 +660,35 @@ export function IncomeStatementTool({
             <thead>
               <tr>
                 <th style={{ textAlign: "left" }}>Line Item</th>
-                {WEEKS.map(w => <th key={w}>Week {w}</th>)}
+                {windowSlots.map(s => (
+                  <th key={s.courseWeek} style={{ opacity: s.courseWeek > durationWeeks ? 0.3 : 1 }}>
+                    Week {s.courseWeek}
+                  </th>
+                ))}
                 <th>Total</th>
               </tr>
             </thead>
             <tbody>
-              {/* Essential */}
-              <tr className="is-section-row">
-                <td colSpan={6}>Essential</td>
-              </tr>
+              <tr className="is-section-row"><td colSpan={6}>Essential</td></tr>
               {expenseRows.filter(r => r.category === "essential").map(r => renderExpenseRow(r))}
               <tr className="is-add-row">
-                <td colSpan={6}>
-                  <button className="is-add-btn" onClick={() => addExpenseRow("essential")}>
-                    + Add Essential Row
-                  </button>
-                </td>
+                <td colSpan={6}><button className="is-add-btn" onClick={() => addExpenseRow("essential")}>+ Add Essential Row</button></td>
               </tr>
 
-              {/* Debt Payments */}
-              <tr className="is-section-row">
-                <td colSpan={6}>Debt Payments</td>
-              </tr>
+              <tr className="is-section-row"><td colSpan={6}>Debt Payments</td></tr>
               {debtRows.length > 0
                 ? debtRows.map(r => renderExpenseRow(r))
-                : (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      style={{ color: "var(--muted)", fontSize: "0.85rem", paddingLeft: 0, fontStyle: "italic" }}
-                    >
-                      No debts on record — add debts on the Debt page.
-                    </td>
-                  </tr>
-                )}
+                : <tr><td colSpan={6} style={{ color: "var(--muted)", fontSize: "0.85rem", paddingLeft: 0, fontStyle: "italic" }}>No debts on record — add debts on the Debt page.</td></tr>
+              }
 
-              {/* Discretionary */}
-              <tr className="is-section-row">
-                <td colSpan={6}>Discretionary</td>
-              </tr>
+              <tr className="is-section-row"><td colSpan={6}>Discretionary</td></tr>
               {expenseRows.filter(r => r.category === "discretionary").map(r => renderExpenseRow(r))}
               <tr className="is-add-row">
-                <td colSpan={6}>
-                  <button className="is-add-btn" onClick={() => addExpenseRow("discretionary")}>
-                    + Add Discretionary Row
-                  </button>
-                </td>
+                <td colSpan={6}><button className="is-add-btn" onClick={() => addExpenseRow("discretionary")}>+ Add Discretionary Row</button></td>
               </tr>
             </tbody>
           </table>
         </div>
-
         <div className="budget-table-totals" style={{ paddingTop: 10 }}>
           <span>Total Expenses</span>
           <span>{fmt(totalExpenses)}</span>
@@ -795,7 +703,7 @@ export function IncomeStatementTool({
           borderColor: netIncome >= 0 ? "var(--teal)" : "var(--danger)"
         }}
       >
-        <span>Net Income — {MONTH_NAMES[month - 1]} {year}</span>
+        <span>Net Income — Weeks {windowStart}–{windowEnd}</span>
         <span className={netIncome >= 0 ? "is-positive" : "is-negative"} style={{ fontSize: "1.2rem" }}>
           {fmt(netIncome)}
         </span>
