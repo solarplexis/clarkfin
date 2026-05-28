@@ -12,11 +12,6 @@ import {
   listIncomeEntries
 } from "@/src/lib/data/repositories";
 
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
-
 export const metadata: Metadata = {
   title: "Weekly Planner"
 };
@@ -30,6 +25,7 @@ export default async function PlannerPage() {
 
   const workspace = await resolveStudentWorkspace(user);
   const semesterId = workspace?.activeEnrollment?.semesterId;
+  const semester = workspace?.activeSemester ?? null;
 
   if (!semesterId) {
     redirect("/app/student");
@@ -38,12 +34,11 @@ export default async function PlannerPage() {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
-  const currentMonthLabel = `${MONTH_NAMES[currentMonth - 1]} ${currentYear}`;
 
-  const [allocationTarget, baselineEntries, currentMonthEntries, currentMonthIncomeEntries, debts, goals] = await Promise.all([
+  const [allocationTarget, baselineEntries, allExpenseEntries, currentMonthIncomeEntries, debts, goals] = await Promise.all([
     getAllocationTarget(user.uid, semesterId),
     listIncomeEntries(user.uid, semesterId, { periodYear: 0, periodMonth: 0 }),
-    listExpenseEntries(user.uid, semesterId, { periodYear: currentYear, periodMonth: currentMonth }),
+    listExpenseEntries(user.uid, semesterId),
     listIncomeEntries(user.uid, semesterId, { periodYear: currentYear, periodMonth: currentMonth }),
     listDebts(user.uid, semesterId),
     listGoals(user.uid, semesterId)
@@ -54,13 +49,11 @@ export default async function PlannerPage() {
       <WeeklyPlannerTool
         user={user}
         semesterId={semesterId}
+        semester={semester}
         allocationTarget={allocationTarget}
         baselineEntries={baselineEntries}
-        initialEntries={currentMonthEntries}
+        initialEntries={allExpenseEntries}
         debts={debts}
-        currentYear={currentYear}
-        currentMonth={currentMonth}
-        currentMonthLabel={currentMonthLabel}
         goals={goals}
         currentMonthIncomeEntries={currentMonthIncomeEntries}
       />

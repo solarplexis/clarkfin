@@ -5,29 +5,25 @@ import { useCallback, useState } from "react";
 import { PageConnect } from "@/components/page-connect";
 import { WeeklyCheckinWizard } from "@/components/weekly-checkin-wizard";
 import { projectGoals } from "@/src/lib/calculations/timeline";
-import type { GoalProjection } from "@/src/lib/calculations/timeline";
-import type { AllocationTarget, Debt, ExpenseEntry, Goal, IncomeEntry, UserProfile } from "@/types/domain";
+import type { AllocationTarget, Debt, ExpenseEntry, Goal, IncomeEntry, Semester, UserProfile } from "@/types/domain";
 
 // ─── Types ────────────────────────────────────────────────────
 
 type EntryDraft = {
   id?: string;
   tempId: string;
-  week: 1 | 2 | 3 | 4;
+  periodYear: number;
+  periodMonth: number;
+  periodWeek: number;
   label: string;
   amount: number;
   isRecurring: boolean;
   isPending: boolean;
 };
 
-// ─── Constants ────────────────────────────────────────────────
-
-const MONTH_NAMES = [
-  "January", "February", "March", "April", "May", "June",
-  "July", "August", "September", "October", "November", "December"
-];
-
 // ─── Helpers ─────────────────────────────────────────────────
+
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
@@ -47,13 +43,63 @@ function calcNetPay(baselineEntries: IncomeEntry[]): number {
   return Math.max(0, gross - taxes);
 }
 
+function parseSemesterStart(startsAt: string): Date | null {
+  const trimmed = startsAt.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const d = new Date(`${trimmed}T00:00:00.000Z`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(startsAt);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+// Maps course week number (1-based) to calendar periodYear/Month/Week.
+// Uses the week's start date; periodWeek = Math.min(4, ceil(dayOfMonth / 7)).
+function courseWeekToCalendar(
+  startsAt: string | undefined,
+  courseWeek: number
+): { periodYear: number; periodMonth: number; periodWeek: number } {
+  if (startsAt) {
+    const semStart = parseSemesterStart(startsAt);
+    if (semStart) {
+      const weekStart = new Date(semStart.getTime() + (courseWeek - 1) * MS_PER_WEEK);
+      const year = weekStart.getUTCFullYear();
+      const month = weekStart.getUTCMonth() + 1;
+      const day = weekStart.getUTCDate();
+      const periodWeek = Math.min(4, Math.ceil(day / 7));
+      return { periodYear: year, periodMonth: month, periodWeek };
+    }
+  }
+  // Fallback when startsAt is missing: cycle 4 weeks per month.
+  const month = Math.ceil(courseWeek / 4);
+  const periodWeek = ((courseWeek - 1) % 4) + 1;
+  return { periodYear: new Date().getFullYear(), periodMonth: month, periodWeek };
+}
+
+// Returns which course week we are currently in.
+function currentCourseWeek(semester: Semester | null): number {
+  const duration = semester?.durationWeeks ?? 4;
+  if (semester?.startsAt) {
+    const semStart = parseSemesterStart(semester.startsAt);
+    if (semStart) {
+      const diffMs = Date.now() - semStart.getTime();
+      const w = Math.ceil(diffMs / MS_PER_WEEK);
+      return Math.min(Math.max(1, w), duration);
+    }
+  }
+  // Fallback: use day-of-month as week proxy.
+  return Math.min(4, Math.ceil(new Date().getDate() / 7));
+}
+
 function buildDrafts(entries: ExpenseEntry[]): EntryDraft[] {
   return entries
     .filter(e => e.category === "discretionary" && e.periodWeek >= 1 && e.periodWeek <= 4)
     .map(e => ({
       id: e.id,
       tempId: e.id,
-      week: e.periodWeek as 1 | 2 | 3 | 4,
+      periodYear: e.periodYear,
+      periodMonth: e.periodMonth,
+      periodWeek: e.periodWeek,
       label: e.label,
       amount: e.amount,
       isRecurring: e.isRecurring,
@@ -64,12 +110,10 @@ function buildDrafts(entries: ExpenseEntry[]): EntryDraft[] {
 // ─── Entry row ───────────────────────────────────────────────
 
 function EntryRow({
-  draft, semesterId, year, month, onUpdate, onDelete
+  draft, semesterId, onUpdate, onDelete
 }: {
   draft: EntryDraft;
   semesterId: string;
-  year: number;
-  month: number;
   onUpdate: (d: EntryDraft) => void;
   onDelete: (tempId: string) => void;
 }) {
@@ -86,9 +130,9 @@ function EntryRow({
         category: "discretionary",
         label: nextLabel.trim(),
         amount: nextAmount,
-        periodYear: year,
-        periodMonth: month,
-        periodWeek: draft.week,
+        periodYear: draft.periodYear,
+        periodMonth: draft.periodMonth,
+        periodWeek: draft.periodWeek,
         isRecurring: nextRecurring
       };
       const resp = draft.id
@@ -117,7 +161,7 @@ function EntryRow({
     } finally {
       setSaving(false);
     }
-  }, [draft, semesterId, year, month, onUpdate]);
+  }, [draft, semesterId, onUpdate]);
 
   async function toggleRecurring() {
     const next = !draft.isRecurring;
@@ -175,17 +219,19 @@ function EntryRow({
 type StatusClass = "ok" | "warning" | "danger";
 
 function WeekCard({
-  week, available, entries, semesterId, year, month, onUpdate, onDelete, onAdd
+  courseWeek, periodYear, periodMonth, periodWeek,
+  available, entries, semesterId, onUpdate, onDelete, onAdd
 }: {
-  week: 1 | 2 | 3 | 4;
+  courseWeek: number;
+  periodYear: number;
+  periodMonth: number;
+  periodWeek: number;
   available: number;
   entries: EntryDraft[];
   semesterId: string;
-  year: number;
-  month: number;
   onUpdate: (d: EntryDraft) => void;
   onDelete: (tempId: string) => void;
-  onAdd: (week: 1 | 2 | 3 | 4) => void;
+  onAdd: (periodYear: number, periodMonth: number, periodWeek: number) => void;
 }) {
   const spent = entries.reduce((s, e) => s + e.amount, 0);
   const remaining = available - spent;
@@ -195,7 +241,7 @@ function WeekCard({
   return (
     <div className={`wp-week-card wp-week-card-${status}`}>
       <div className="wp-week-header">
-        <span className="wp-week-label">Week {week}</span>
+        <span className="wp-week-label">Week {courseWeek}</span>
         <span className={`wp-week-remaining wp-week-remaining-${status}`}>
           {remaining >= 0 ? `${fmt(remaining)} left` : `${fmt(remaining)} over`}
         </span>
@@ -213,14 +259,12 @@ function WeekCard({
             key={d.tempId}
             draft={d}
             semesterId={semesterId}
-            year={year}
-            month={month}
             onUpdate={onUpdate}
             onDelete={onDelete}
           />
         ))}
       </div>
-      <button className="wp-add-btn" onClick={() => onAdd(week)}>+ Add expense</button>
+      <button className="wp-add-btn" onClick={() => onAdd(periodYear, periodMonth, periodWeek)}>+ Add expense</button>
     </div>
   );
 }
@@ -229,52 +273,54 @@ function WeekCard({
 
 export function WeeklyPlannerTool({
   semesterId,
+  semester,
   allocationTarget,
   baselineEntries,
   initialEntries,
   debts,
-  currentYear,
-  currentMonth,
-  currentMonthLabel,
   goals = [],
   currentMonthIncomeEntries = []
 }: {
   user: UserProfile;
   semesterId: string;
+  semester: Semester | null;
   allocationTarget: AllocationTarget | null;
   baselineEntries: IncomeEntry[];
   initialEntries: ExpenseEntry[];
   debts: Debt[];
-  currentYear: number;
-  currentMonth: number;
-  currentMonthLabel: string;
   goals?: Goal[];
   currentMonthIncomeEntries?: IncomeEntry[];
 }) {
-  const [year, setYear] = useState(currentYear);
-  const [month, setMonth] = useState(currentMonth);
-  const [monthLabel, setMonthLabel] = useState(currentMonthLabel);
   const [entries, setEntries] = useState<EntryDraft[]>(() => buildDrafts(initialEntries));
-  const [loading, setLoading] = useState(false);
   const [checkinOpen, setCheckinOpen] = useState(false);
 
+  const durationWeeks = semester?.durationWeeks ?? 4;
   const netPayMonthly = calcNetPay(baselineEntries);
   const discretionaryPct = allocationTarget?.discretionaryPct ?? 0;
   const baseWeeklyBudget = (netPayMonthly * discretionaryPct) / 100 / 4;
   const hasCreditCard = debts.some(d => d.isCreditCard);
 
-  // YNAB roll-over: only saved entries count for prior-week surplus
-  const savedSpent = (w: 1 | 2 | 3 | 4) =>
-    entries.filter(e => !!e.id && e.week === w).reduce((s, e) => s + e.amount, 0);
+  // Per-course-week calendar coords
+  const weekCoords = Array.from({ length: durationWeeks }, (_, i) =>
+    ({ courseWeek: i + 1, ...courseWeekToCalendar(semester?.startsAt, i + 1) })
+  );
 
-  const w1Budget = baseWeeklyBudget;
-  const w2Budget = baseWeeklyBudget + Math.max(0, w1Budget - savedSpent(1));
-  const w3Budget = baseWeeklyBudget + Math.max(0, w2Budget - savedSpent(2));
-  const w4Budget = baseWeeklyBudget + Math.max(0, w3Budget - savedSpent(3));
-  const weeklyBudgets: Record<1 | 2 | 3 | 4, number> = { 1: w1Budget, 2: w2Budget, 3: w3Budget, 4: w4Budget };
+  // Saved spend for a given course week (by calendar coords)
+  const savedSpent = (periodYear: number, periodMonth: number, periodWeek: number) =>
+    entries
+      .filter(e => !!e.id && e.periodYear === periodYear && e.periodMonth === periodMonth && e.periodWeek === periodWeek)
+      .reduce((s, e) => s + e.amount, 0);
+
+  // Rolling budgets across all course weeks
+  const weeklyBudgets: number[] = new Array(durationWeeks + 1).fill(0);
+  weeklyBudgets[1] = baseWeeklyBudget;
+  for (let w = 2; w <= durationWeeks; w++) {
+    const prev = weekCoords[w - 2];
+    weeklyBudgets[w] = baseWeeklyBudget + Math.max(0, weeklyBudgets[w - 1] - savedSpent(prev.periodYear, prev.periodMonth, prev.periodWeek));
+  }
 
   const savedEntries = entries.filter(e => !!e.id);
-  const totalBudget = baseWeeklyBudget * 4;
+  const totalBudget = baseWeeklyBudget * durationWeeks;
   const totalSpent = savedEntries.reduce((s, e) => s + e.amount, 0);
   const totalRemaining = totalBudget - totalSpent;
 
@@ -290,51 +336,28 @@ export function WeeklyPlannerTool({
     setEntries(prev => prev.filter(d => d.tempId !== tempId));
   }
 
-  function handleAdd(week: 1 | 2 | 3 | 4) {
-    setEntries(prev => [...prev, { tempId: uid(), week, label: "", amount: 0, isRecurring: false, isPending: true }]);
+  function handleAdd(periodYear: number, periodMonth: number, periodWeek: number) {
+    setEntries(prev => [...prev, { tempId: uid(), periodYear, periodMonth, periodWeek, label: "", amount: 0, isRecurring: false, isPending: true }]);
   }
 
-  async function navigateMonth(y: number, m: number) {
-    setLoading(true);
-    try {
-      const res = await fetch(
-        `/api/student/expense-entries?semesterId=${encodeURIComponent(semesterId)}&periodYear=${y}&periodMonth=${m}`
-      );
-      const data = await res.json();
-      if (data.ok) {
-        setYear(y);
-        setMonth(m);
-        setMonthLabel(`${MONTH_NAMES[m - 1]} ${y}`);
-        setEntries(buildDrafts(data.entries));
-      }
-    } finally {
-      setLoading(false);
-    }
-  }
+  // Current course week for the check-in banner
+  const checkinCourseWeek = currentCourseWeek(semester);
+  const checkinCoords = courseWeekToCalendar(semester?.startsAt, checkinCourseWeek);
+  const thisWeekLogged = currentMonthIncomeEntries.some(
+    e => e.periodYear === checkinCoords.periodYear &&
+         e.periodMonth === checkinCoords.periodMonth &&
+         e.periodWeek === checkinCoords.periodWeek
+  );
 
-  function prevMonth() {
-    const m = month === 1 ? 12 : month - 1;
-    const y = month === 1 ? year - 1 : year;
-    navigateMonth(y, m);
-  }
-
-  function nextMonth() {
-    const m = month === 12 ? 1 : month + 1;
-    const y = month === 12 ? year + 1 : year;
-    navigateMonth(y, m);
-  }
-
-  const now = new Date();
-  const checkinWeek = Math.min(4, Math.ceil(now.getDate() / 7)) as 1 | 2 | 3 | 4;
   const savingsPct = allocationTarget?.savingsPct ?? 0;
   const monthlySavings = (netPayMonthly * savingsPct) / 100;
 
-  // Goal story: connect spending decisions to goal timelines
+  // Goal story
   const nonRetirementGoals = goals.filter(g => g.goalType !== "retirement");
   const goalProjections = projectGoals(nonRetirementGoals, monthlySavings);
   const nextGoal = goalProjections.find(p => p.monthsRemaining !== 0 && p.monthsRemaining !== null);
 
-  // What-if: if the remaining discretionary budget went to savings instead
+  // What-if: if remaining discretionary went to savings
   const whatIfSavings = monthlySavings + Math.max(0, totalRemaining);
   const whatIfProjections = totalRemaining > 50
     ? projectGoals(nonRetirementGoals, whatIfSavings)
@@ -344,8 +367,6 @@ export function WeeklyPlannerTool({
     nextGoal?.monthsRemaining != null && whatIfNextGoal?.monthsRemaining != null
       ? nextGoal.monthsRemaining - whatIfNextGoal.monthsRemaining
       : 0;
-
-  const thisWeekLogged = currentMonthIncomeEntries.some(e => e.periodWeek === checkinWeek);
 
   return (
     <div className="wp-root">
@@ -363,9 +384,9 @@ export function WeeklyPlannerTool({
       {checkinOpen && (
         <WeeklyCheckinWizard
           semesterId={semesterId}
-          periodYear={year}
-          periodMonth={month}
-          periodWeek={checkinWeek}
+          periodYear={checkinCoords.periodYear}
+          periodMonth={checkinCoords.periodMonth}
+          periodWeek={checkinCoords.periodWeek}
           goals={goals}
           debts={debts}
           existingIncomeEntries={currentMonthIncomeEntries}
@@ -380,35 +401,32 @@ export function WeeklyPlannerTool({
       <div className="wp-header">
         <div>
           <h1>Budget</h1>
-          <p>{monthLabel} · discretionary spending</p>
-        </div>
-        <div className="wp-month-nav">
-          <button className="wp-nav-btn" onClick={prevMonth} disabled={loading}>‹</button>
-          <span className="wp-month-label">{monthLabel}</span>
-          <button className="wp-nav-btn" onClick={nextMonth} disabled={loading}>›</button>
+          <p>
+            {semester?.title ?? "Course"} · {durationWeeks} weeks · discretionary spending
+          </p>
         </div>
       </div>
 
       {!thisWeekLogged ? (
         <div className="wp-checkin-banner">
           <div className="wp-checkin-banner-body">
-            <strong>Week {checkinWeek} hasn&apos;t been logged yet.</strong>
+            <strong>Week {checkinCourseWeek} hasn&apos;t been logged yet.</strong>
             <span>The guided check-in walks you through income, expenses, and what it means for your goals — takes about 3 minutes.</span>
           </div>
           <button className="btn btn-primary wp-checkin-banner-btn" onClick={() => setCheckinOpen(true)}>
-            Start Week {checkinWeek} check-in →
+            Start Week {checkinCourseWeek} check-in →
           </button>
         </div>
       ) : (
         <div className="wp-checkin-done-row">
-          <span className="wp-checkin-done-label">✓ Week {checkinWeek} logged</span>
+          <span className="wp-checkin-done-label">✓ Week {checkinCourseWeek} logged</span>
           <button className="wp-checkin-done-link" onClick={() => setCheckinOpen(true)}>
             Update check-in
           </button>
         </div>
       )}
 
-      {/* Goal story — the thread connecting budget to financial future */}
+      {/* Goal story */}
       {netPayMonthly > 0 && monthlySavings > 0 && nextGoal ? (
         <div className="wp-goal-story">
           <div className="wp-goal-story-row">
@@ -425,13 +443,13 @@ export function WeeklyPlannerTool({
           </div>
           {monthsSooner >= 1 && (
             <div className="wp-goal-story-whyif">
-              Keep the remaining {fmt(totalRemaining)} unspent this month and that goal arrives {monthsSooner} month{monthsSooner > 1 ? "s" : ""} sooner.
+              Keep the remaining {fmt(totalRemaining)} unspent this course and that goal arrives {monthsSooner} month{monthsSooner > 1 ? "s" : ""} sooner.
             </div>
           )}
         </div>
       ) : netPayMonthly > 0 && goals.length === 0 ? (
         <div className="wp-goal-story wp-goal-story-empty">
-          Your budget is set — but without goals, these numbers don't mean anything yet.{" "}
+          Your budget is set — but without goals, these numbers don&apos;t mean anything yet.{" "}
           <a href="/app/student/goals">Set up your goals</a> to see what your spending decisions are actually costing you.
         </div>
       ) : netPayMonthly === 0 ? (
@@ -449,10 +467,10 @@ export function WeeklyPlannerTool({
 
       <div className="wp-summary-strip">
         <div className="wp-summary-stat">
-          <span className="wp-summary-label">Monthly Discretionary</span>
+          <span className="wp-summary-label">Course Discretionary</span>
           <span className="wp-summary-value">{netPayMonthly > 0 ? fmt(totalBudget) : "—"}</span>
           {netPayMonthly > 0 && discretionaryPct > 0 && (
-            <span className="wp-summary-sub">{discretionaryPct}% of take-home</span>
+            <span className="wp-summary-sub">{discretionaryPct}% of take-home · {durationWeeks} weeks</span>
           )}
         </div>
         <div className="wp-summary-stat">
@@ -473,7 +491,7 @@ export function WeeklyPlannerTool({
 
       {discretionaryPct === 0 && netPayMonthly > 0 && (
         <div className="wp-empty-hint">
-          No discretionary allocation set yet. Go to your <a href="/app/student">Dashboard</a> to split your income into categories — that's what sets this budget.
+          No discretionary allocation set yet. Go to your <a href="/app/student">Dashboard</a> to split your income into categories — that&apos;s what sets this budget.
         </div>
       )}
 
@@ -499,15 +517,20 @@ export function WeeklyPlannerTool({
       )}
 
       <div className="wp-weeks-grid">
-        {([1, 2, 3, 4] as const).map(w => (
+        {weekCoords.map(({ courseWeek, periodYear, periodMonth, periodWeek }) => (
           <WeekCard
-            key={`${year}-${month}-${w}`}
-            week={w}
-            available={weeklyBudgets[w]}
-            entries={entries.filter(e => e.week === w)}
+            key={courseWeek}
+            courseWeek={courseWeek}
+            periodYear={periodYear}
+            periodMonth={periodMonth}
+            periodWeek={periodWeek}
+            available={weeklyBudgets[courseWeek]}
+            entries={entries.filter(e =>
+              e.periodYear === periodYear &&
+              e.periodMonth === periodMonth &&
+              e.periodWeek === periodWeek
+            )}
             semesterId={semesterId}
-            year={year}
-            month={month}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
             onAdd={handleAdd}
