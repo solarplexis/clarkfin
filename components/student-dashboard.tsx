@@ -546,14 +546,18 @@ export function StudentDashboard({
           params.set("week", String(selectedProgressWeek));
         }
         const response = await fetch(`/api/student/course-progress?${params.toString()}`);
-        const json = (await response.json()) as StudentCourseProgressResponse | { error?: string };
 
         if (!response.ok) {
-          throw new Error((json as { error?: string }).error ?? "Unable to load weekly course progress.");
+          const text = await response.text();
+          let message = "Unable to load weekly course progress.";
+          try { message = (JSON.parse(text) as { error?: string }).error ?? message; } catch { /* HTML error page */ }
+          throw new Error(message);
         }
 
+        const json = (await response.json()) as StudentCourseProgressResponse;
+
         if (!cancelled) {
-          setCourseProgress(json as StudentCourseProgressResponse);
+          setCourseProgress(json);
         }
       } catch (error) {
         if (!cancelled) {
