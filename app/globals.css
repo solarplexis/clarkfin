@@ -5869,15 +5869,16 @@ tbody tr:hover {
   position: absolute;
   z-index: 300;
   white-space: nowrap;
-  background: var(--ink);
-  color: #fff;
+  background: var(--surface);
+  color: var(--ink-2);
   font-size: 0.75rem;
   font-weight: 500;
   letter-spacing: 0.01em;
   line-height: 1.4;
   padding: 7px 12px;
   border-radius: var(--radius-sm);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-lg);
   pointer-events: none;
   opacity: 0;
   transition: opacity 0.18s ease, transform 0.18s ease;
@@ -5895,9 +5896,11 @@ tbody tr:hover {
   transform: translateY(4px);
 }
 
-/* arrow */
+/* arrow — two layers: border colour then surface fill on top */
 .tooltip-bubble--bottom::before,
-.tooltip-bubble--top::before {
+.tooltip-bubble--bottom::after,
+.tooltip-bubble--top::before,
+.tooltip-bubble--top::after {
   content: "";
   position: absolute;
   right: 14px;
@@ -5906,12 +5909,20 @@ tbody tr:hover {
 
 .tooltip-bubble--bottom::before {
   bottom: 100%;
-  border-bottom-color: var(--ink);
+  border-bottom-color: var(--line);
+}
+.tooltip-bubble--bottom::after {
+  bottom: calc(100% - 1px);
+  border-bottom-color: var(--surface);
 }
 
 .tooltip-bubble--top::before {
   top: 100%;
-  border-top-color: var(--ink);
+  border-top-color: var(--line);
+}
+.tooltip-bubble--top::after {
+  top: calc(100% - 1px);
+  border-top-color: var(--surface);
 }
 
 .tooltip-host:hover .tooltip-bubble,
