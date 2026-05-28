@@ -291,9 +291,11 @@ export function DashboardShell({
         </nav>
         <div className="appbar-end">
           {isStudent && mounted && (
-            <button className="guided-tour-btn" onClick={enterGuided} type="button">
-              Guided Tour
-            </button>
+            <div className="guided-tour-btn-wrap" data-tooltip="Come back anytime — the tour is always here">
+              <button className="guided-tour-btn" onClick={enterGuided} type="button">
+                Guided Tour
+              </button>
+            </div>
           )}
           <AccountMenu avatarUrl={user.avatarUrl} fullName={user.fullName} />
         </div>

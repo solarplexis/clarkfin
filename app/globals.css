@@ -5858,6 +5858,52 @@ tbody tr:hover {
 
 /* ── Guided tour button (standard nav) ──────────── */
 
+.guided-tour-btn-wrap {
+  position: relative;
+}
+
+.guided-tour-btn-wrap::before,
+.guided-tour-btn-wrap::after {
+  pointer-events: none;
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 0.18s ease, transform 0.18s ease;
+  z-index: 200;
+}
+
+.guided-tour-btn-wrap::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  top: calc(100% + 10px);
+  right: 0;
+  white-space: nowrap;
+  background: #1a1f2e;
+  color: #fff;
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  padding: 7px 12px;
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.22);
+}
+
+.guided-tour-btn-wrap::before {
+  content: "";
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 18px;
+  border: 6px solid transparent;
+  border-bottom-color: #1a1f2e;
+}
+
+.guided-tour-btn-wrap:hover::before,
+.guided-tour-btn-wrap:hover::after,
+.guided-tour-btn-wrap:focus-within::before,
+.guided-tour-btn-wrap:focus-within::after {
+  opacity: 1;
+  transform: translateY(0);
+}
+
 .guided-tour-btn {
   font-size: 0.8125rem;
   font-weight: 600;
