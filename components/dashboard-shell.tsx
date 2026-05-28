@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { Route } from "next";
 
 import { AccountMenu } from "@/components/account-menu";
+import { Tooltip } from "@/components/tooltip";
 import type { UserProfile } from "@/types/domain";
 
 // ─── Types ────────────────────────────────────────────────────
@@ -291,11 +292,11 @@ export function DashboardShell({
         </nav>
         <div className="appbar-end">
           {isStudent && mounted && (
-            <div className="guided-tour-btn-wrap" data-tooltip="Come back anytime — the tour is always here">
+            <Tooltip text="Come back anytime — the tour is always here">
               <button className="guided-tour-btn" onClick={enterGuided} type="button">
                 Guided Tour
               </button>
-            </div>
+            </Tooltip>
           )}
           <AccountMenu avatarUrl={user.avatarUrl} fullName={user.fullName} />
         </div>
