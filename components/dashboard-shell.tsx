@@ -126,12 +126,12 @@ export function DashboardShell({
 
   const navItems: NavItem[] = user.role === "STUDENT"
     ? [
-        { href: "/app/student/planner", label: "Budget", exact: false },
         { href: "/app/student", label: "Dashboard" },
         { href: "/app/student/budget", label: "Income", exact: false },
         { href: "/app/student/balance-sheet", label: "Balance Sheet" },
         { href: "/app/student/goals", label: "Goals" },
         { href: "/app/student/debt", label: "Debt" },
+        { href: "/app/student/planner", label: "Budget", exact: false },
         { href: "/app/student/snapshot", label: "Report" }
       ]
     : user.role === "ORG_ADMIN"

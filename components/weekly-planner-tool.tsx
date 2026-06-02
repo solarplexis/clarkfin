@@ -241,7 +241,7 @@ function WeekCard({
   return (
     <div className={`wp-week-card wp-week-card-${status}`}>
       <div className="wp-week-header">
-        <span className="wp-week-label">Week {courseWeek}</span>
+        <h2 className="wp-week-label">Week {courseWeek}</h2>
         <span className={`wp-week-remaining wp-week-remaining-${status}`}>
           {remaining >= 0 ? `${fmt(remaining)} left` : `${fmt(remaining)} over`}
         </span>
