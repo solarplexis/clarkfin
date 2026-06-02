@@ -207,10 +207,12 @@ function formatStudentLabel(student: StudentOption) {
 
 export function CreateStudentInviteForm({
   semesters,
-  students
+  students,
+  defaultSemesterId
 }: {
   semesters: SemesterOption[];
   students: StudentOption[];
+  defaultSemesterId?: string;
 }) {
   const formId = useId();
   const router = useRouter();
@@ -445,7 +447,7 @@ export function CreateStudentInviteForm({
           <select
             aria-describedby={error ? errorId : undefined}
             aria-invalid={error ? "true" : undefined}
-            defaultValue=""
+            defaultValue={defaultSemesterId ?? ""}
             id={`${formId}-semesterId`}
             name="semesterId"
             required
