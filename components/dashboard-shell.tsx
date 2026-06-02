@@ -270,6 +270,7 @@ export function DashboardShell({
               <Link
                 key={item.href}
                 aria-current={active ? "page" : undefined}
+                aria-label={item.label}
                 className={active ? "active" : undefined}
                 href={item.href}
               >
@@ -282,6 +283,7 @@ export function DashboardShell({
             return (
               <Link
                 aria-current={active ? "page" : undefined}
+                aria-label="API Docs"
                 className={active ? "active" : undefined}
                 href="/docs/api"
               >
