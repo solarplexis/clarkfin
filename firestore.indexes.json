@@ -10,5 +10,16 @@
       ]
     }
   ],
-  "fieldOverrides": []
+  "fieldOverrides": [
+    {
+      "collectionGroup": "syllabusChunks",
+      "fieldPath": "embedding",
+      "indexes": [
+        {
+          "queryScope": "COLLECTION",
+          "vectorConfig": { "dimension": 1536, "flat": {} }
+        }
+      ]
+    }
+  ]
 }

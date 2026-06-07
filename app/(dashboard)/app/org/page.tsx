@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CreateSemesterForm, EditSemesterDrawer } from "@/components/create-semester-form";
+import { CreateSemesterForm } from "@/components/create-semester-form";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { SelectedCourseSection } from "@/components/selected-course-section";
 import { requireRole } from "@/src/lib/auth/session";
@@ -156,10 +156,14 @@ export default async function OrganizationDashboardPage() {
                         {semester.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td>
-                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                        <EditSemesterDrawer semester={semester} />
-                      </div>
+                    <td style={{ textAlign: "right" }}>
+                      <a
+                        className="button-secondary"
+                        href={`/app/org/courses/${semester.semesterId}/edit`}
+                        style={{ fontSize: "0.8125rem", padding: "4px 10px" }}
+                      >
+                        Edit
+                      </a>
                     </td>
                   </tr>
                 ))

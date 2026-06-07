@@ -6629,3 +6629,251 @@ tbody tr:hover {
     display: none !important;
   }
 }
+
+/* ─── Tabs ──────────────────────────────────────────────────────── */
+
+.tab-nav {
+  display: flex;
+  gap: 2px;
+  border-bottom: 1px solid var(--border);
+  margin-bottom: 24px;
+}
+
+.tab-nav-item {
+  padding: 8px 16px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: color 120ms, border-color 120ms;
+}
+
+.tab-nav-item:hover {
+  color: var(--ink);
+}
+
+.tab-nav-item.active {
+  color: var(--ink);
+  border-bottom-color: var(--accent);
+}
+
+/* ─── Syllabus editor ───────────────────────────────────────────── */
+
+.syllabus-editor {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  height: 65vh;
+  /* no overflow:hidden here — would clip the table dropdown */
+}
+
+.syllabus-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+  border-radius: 6px 6px 0 0;
+  flex-wrap: wrap;
+  flex-shrink: 0;
+  position: relative;
+  z-index: 10;
+}
+
+.syllabus-editor-content {
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+  border-radius: 0 0 6px 6px;
+}
+
+.syllabus-toolbar-btn {
+  padding: 3px 8px;
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: background 100ms;
+}
+
+.syllabus-toolbar-btn:hover {
+  background: var(--bg-subtle);
+}
+
+.syllabus-toolbar-btn-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.syllabus-toolbar-btn-active:hover {
+  background: var(--accent-hover);
+}
+
+.syllabus-toolbar-sep {
+  width: 1px;
+  height: 16px;
+  background: var(--border);
+  margin: 0 4px;
+}
+
+.syllabus-prose {
+  padding: 12px 16px;
+  min-height: 100%;
+  outline: none;
+  font-size: 0.9375rem;
+  line-height: 1.6;
+  color: var(--ink);
+}
+
+.syllabus-prose h2 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  margin: 1.25em 0 0.4em;
+}
+
+.syllabus-prose h3 {
+  font-size: 1rem;
+  font-weight: 600;
+  margin: 1em 0 0.35em;
+}
+
+.syllabus-prose p {
+  margin: 0.5em 0;
+}
+
+.syllabus-prose ul,
+.syllabus-prose ol {
+  padding-left: 1.5em;
+  margin: 0.5em 0;
+}
+
+.syllabus-prose li {
+  margin: 0.25em 0;
+}
+
+.syllabus-prose a {
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+.syllabus-prose strong { font-weight: 600; }
+.syllabus-prose em { font-style: italic; }
+
+.syllabus-prose table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.75em 0;
+  font-size: 0.9rem;
+}
+
+.syllabus-prose th,
+.syllabus-prose td {
+  border: 1px solid var(--border);
+  padding: 6px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.syllabus-prose th {
+  background: var(--bg-subtle);
+  font-weight: 600;
+}
+
+.syllabus-prose .selectedCell {
+  background: var(--accent-soft);
+}
+
+.syllabus-prose .tableWrapper {
+  overflow-x: auto;
+}
+
+.syllabus-prose table {
+  position: relative;
+}
+
+.syllabus-prose .column-resize-handle {
+  position: absolute;
+  right: -2px;
+  top: 0;
+  bottom: 0;
+  width: 4px;
+  background: var(--accent);
+  cursor: col-resize;
+  pointer-events: none;
+}
+
+/* ─── Table dropdown menu ───────────────────────────────────────── */
+
+.syllabus-table-menu {
+  position: relative;
+}
+
+.syllabus-table-menu-trigger {
+  background: var(--accent-soft);
+  border-color: var(--accent-soft);
+}
+
+.syllabus-table-menu-dropdown {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 200;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.10);
+  min-width: 180px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+}
+
+.syllabus-table-menu-dropdown button {
+  background: none;
+  border: none;
+  padding: 7px 12px;
+  text-align: left;
+  font-size: 0.875rem;
+  color: var(--ink);
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.syllabus-table-menu-dropdown button:hover {
+  background: var(--bg-subtle);
+}
+
+.syllabus-table-menu-dropdown button.danger {
+  color: var(--danger, #c0392b);
+}
+
+.syllabus-table-menu-dropdown button.danger:hover {
+  background: var(--danger-soft);
+}
+
+.syllabus-table-menu-group-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+  padding: 6px 12px 2px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.syllabus-table-menu-divider {
+  height: 1px;
+  background: var(--border);
+  margin: 4px 0;
+}

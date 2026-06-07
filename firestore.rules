@@ -165,6 +165,17 @@ service cloud.firestore {
       allow delete: if isAdmin() || (isStudent() && ownsUser(resource.data.userId));
     }
 
+    // Syllabus HTML — org admin write, no direct client read (served via API only)
+    match /syllabi/{semesterId} {
+      allow read, write: if isAdmin() || isOrgAdmin();
+    }
+
+    // Vector chunks live as a subcollection under each semester document.
+    // All queries run server-side via firebase-admin; no direct client access needed.
+    match /semesters/{semesterId}/syllabusChunks/{chunkId} {
+      allow read, write: if false;
+    }
+
     match /{document=**} {
       allow read, write: if false;
     }
