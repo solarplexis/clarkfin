@@ -148,28 +148,22 @@ export function AiAssistantPanel({ semesterId }: Props) {
 
   return (
     <>
-      {/* Floating action button */}
-      <button
+      {/* Floating action button — hidden when panel is open */}
+      {!open && <button
         className="ai-fab"
-        aria-label={open ? "Close AI assistant" : "Open AI assistant"}
-        aria-expanded={open}
+        aria-label="Open AI assistant"
+        aria-expanded={false}
         aria-haspopup="dialog"
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => setOpen(true)}
         type="button"
       >
-        {open ? (
-          <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
-            <path d="M15 5L5 15M5 5l10 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        ) : (
-          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-            <path d="M12 2C6.477 2 2 6.18 2 11.333c0 2.762 1.305 5.232 3.371 6.955L4 22l4.5-1.667C9.6 20.77 10.78 21 12 21c5.523 0 10-4.18 10-9.333S17.523 2 12 2z" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-            <circle cx="8" cy="11" r="1.2" fill="currentColor" />
-            <circle cx="12" cy="11" r="1.2" fill="currentColor" />
-            <circle cx="16" cy="11" r="1.2" fill="currentColor" />
-          </svg>
-        )}
-      </button>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+          <path d="M12 2C6.477 2 2 6.18 2 11.333c0 2.762 1.305 5.232 3.371 6.955L4 22l4.5-1.667C9.6 20.77 10.78 21 12 21c5.523 0 10-4.18 10-9.333S17.523 2 12 2z" fill="currentColor" opacity="0.15" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
+          <circle cx="8" cy="11" r="1.2" fill="currentColor" />
+          <circle cx="12" cy="11" r="1.2" fill="currentColor" />
+          <circle cx="16" cy="11" r="1.2" fill="currentColor" />
+        </svg>
+      </button>}
 
       {/* Panel */}
       {open && (
