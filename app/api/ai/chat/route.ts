@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import OpenAI from "openai";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
+import { getOpenAIKey } from "@/src/lib/env";
 import {
   getStudentEnrollment,
   createExpenseEntry,
@@ -19,7 +20,7 @@ import { retrieveSyllabusContext } from "@/src/lib/ai/rag";
 let _client: OpenAI | null = null;
 function getClient(): OpenAI {
   if (!_client) {
-    _client = new OpenAI({ apiKey: process.env.OPEN_AI_KEY });
+    _client = new OpenAI({ apiKey: getOpenAIKey() });
   }
   return _client;
 }
