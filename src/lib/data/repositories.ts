@@ -1,4 +1,5 @@
 import { FieldValue, Timestamp } from "firebase-admin/firestore";
+import type { SyllabusChunk } from "@/src/lib/ai/chunking";
 
 import type {
   ActivityLog,
@@ -2457,4 +2458,76 @@ export async function listStudentFeedbacksForOrganization(orgId: string): Promis
     .orderBy("submittedAt", "desc")
     .get();
   return snapshot.docs.map(doc => mapFeedback(doc.id, doc.data()));
+}
+
+// ─── Syllabus ─────────────────────────────────────────────────
+
+export async function getSyllabus(semesterId: string): Promise<string | null> {
+  const adminDb = getAdminDb();
+  const snap = await adminDb.collection("syllabi").doc(semesterId).get();
+  if (!snap.exists) return null;
+  return ((snap.data() as { content?: string }).content) ?? null;
+}
+
+export async function upsertSyllabus(semesterId: string, html: string): Promise<void> {
+  const adminDb = getAdminDb();
+  await adminDb.collection("syllabi").doc(semesterId).set({
+    content: html,
+    updatedAt: FieldValue.serverTimestamp()
+  });
+}
+
+export async function indexSyllabusChunks(
+  semesterId: string,
+  chunks: Array<SyllabusChunk & { embedding: number[] }>
+): Promise<void> {
+  const adminDb = getAdminDb();
+  const chunksRef = adminDb
+    .collection("semesters")
+    .doc(semesterId)
+    .collection("syllabusChunks");
+
+  const existing = await chunksRef.listDocuments();
+  if (existing.length > 0) {
+    const deleteBatch = adminDb.batch();
+    for (const doc of existing) deleteBatch.delete(doc);
+    await deleteBatch.commit();
+  }
+
+  if (chunks.length === 0) return;
+
+  const writeBatch = adminDb.batch();
+  chunks.forEach((chunk, idx) => {
+    writeBatch.set(chunksRef.doc(String(idx)), {
+      heading: chunk.heading,
+      plainText: chunk.plainText,
+      embedding: FieldValue.vector(chunk.embedding)
+    });
+  });
+  await writeBatch.commit();
+}
+
+export async function querySyllabusChunks(
+  semesterId: string,
+  queryEmbedding: number[]
+): Promise<Array<{ heading: string; plainText: string }> | null> {
+  const adminDb = getAdminDb();
+  const chunksRef = adminDb
+    .collection("semesters")
+    .doc(semesterId)
+    .collection("syllabusChunks");
+
+  const snapshot = await chunksRef
+    .findNearest("embedding", FieldValue.vector(queryEmbedding), {
+      limit: 5,
+      distanceMeasure: "COSINE"
+    })
+    .get();
+
+  if (snapshot.empty) return null;
+
+  return snapshot.docs.map((doc) => {
+    const data = doc.data() as { heading: string; plainText: string };
+    return { heading: data.heading, plainText: data.plainText };
+  });
 }

@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { CreateSemesterForm, EditSemesterDrawer } from "@/components/create-semester-form";
+import { CreateSemesterForm } from "@/components/create-semester-form";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { SelectedCourseSection } from "@/components/selected-course-section";
 import { requireRole } from "@/src/lib/auth/session";
@@ -158,7 +158,16 @@ export default async function OrganizationDashboardPage() {
                     </td>
                     <td>
                       <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
-                        <EditSemesterDrawer semester={semester} />
+                        <a
+                          aria-label="Edit Course"
+                          className="icon-button"
+                          data-tooltip="Edit Course"
+                          href={`/app/org/courses/${semester.semesterId}/edit`}
+                        >
+                          <svg fill="none" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 2.474L5.81 11.577l-2.827.636.636-2.828L11.013 1.427Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+                          </svg>
+                        </a>
                       </div>
                     </td>
                   </tr>

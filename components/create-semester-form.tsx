@@ -2,6 +2,7 @@
 
 import { startTransition, useId, useState } from "react";
 import { useRouter } from "next/navigation";
+import type { Route } from "next";
 
 import { EndDrawer } from "@/components/end-drawer";
 
@@ -239,7 +240,12 @@ export function CreateSemesterForm() {
       }
 
       setIsOpen(false);
-      startTransition(() => { router.refresh(); });
+      const semesterId = json.semester?.semesterId;
+      if (semesterId) {
+        router.push(`/app/org/courses/${semesterId}/edit` as Route);
+      } else {
+        startTransition(() => { router.refresh(); });
+      }
     } finally {
       setIsPending(false);
     }
