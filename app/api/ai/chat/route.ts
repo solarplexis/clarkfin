@@ -118,6 +118,7 @@ function buildSystemPrompt(ctx: {
   studentName: string;
   today: string;
   syllabusContext: string | null;
+  syllabusError: string | null;
   recentExpenses: string;
   recentIncome: string;
   recentDebts: string;
@@ -163,7 +164,14 @@ ${ctx.recentIncome ? `Recent income:\n${ctx.recentIncome}` : "No recent income l
 
 ${ctx.recentDebts ? `Debts on file:\n${ctx.recentDebts}` : "No debts on file."}
 
-${ctx.syllabusContext ? `## Course syllabus context\n${ctx.syllabusContext}` : ""}`;
+## Course syllabus
+${
+  ctx.syllabusContext
+    ? `The following are the most relevant excerpts from the course syllabus. Use them to answer any syllabus questions:\n\n${ctx.syllabusContext}`
+    : ctx.syllabusError
+      ? `Syllabus retrieval failed due to a technical error. If the student asks about the syllabus, tell them: "I wasn't able to retrieve your course syllabus right now due to a technical issue — please check back later or contact your instructor directly."`
+      : `No syllabus content was found for this course. If the student asks about the syllabus, tell them: "No course syllabus is available yet. Your instructor may not have uploaded one yet."`
+}`;
 }
 
 // ─── POST /api/ai/chat ────────────────────────────────────────
@@ -203,12 +211,21 @@ export async function POST(request: Request) {
     const today = new Date().toISOString().slice(0, 10);
     const lastUserMessage = messages[messages.length - 1].content;
 
-    const [expenses, incomeEntries, debts, syllabusContext] = await Promise.all([
+    let syllabusContext: string | null = null;
+    let syllabusError: string | null = null;
+
+    const [expenses, incomeEntries, debts] = await Promise.all([
       listExpenseEntries(user.uid, semesterId).catch(() => []),
       listIncomeEntries(user.uid, semesterId).catch(() => []),
-      listDebts(user.uid, semesterId).catch(() => []),
-      retrieveSyllabusContext(semesterId, lastUserMessage).catch(() => null)
+      listDebts(user.uid, semesterId).catch(() => [])
     ]);
+
+    try {
+      syllabusContext = await retrieveSyllabusContext(semesterId, lastUserMessage);
+    } catch (err) {
+      syllabusError = err instanceof Error ? err.message : String(err);
+      console.error("[AI chat] RAG retrieval failed:", syllabusError);
+    }
 
     const recentExpenses = expenses
       .slice(-5)
@@ -229,6 +246,7 @@ export async function POST(request: Request) {
       studentName: user.fullName ?? "Student",
       today,
       syllabusContext,
+      syllabusError,
       recentExpenses,
       recentIncome,
       recentDebts
