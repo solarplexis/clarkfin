@@ -275,7 +275,7 @@ function ActualAllocationPanel({
       {totalIncome === 0 ? (
         <p style={{ color: "var(--muted)", fontSize: "0.875rem" }}>
           No income data yet for this month.{" "}
-          <Link href="/app/student/budget" style={{ color: "var(--accent)" }}>Add budget entries →</Link>
+          <Link href="/app/student/income" style={{ color: "var(--accent)" }}>Add budget entries →</Link>
         </p>
       ) : (
         <>
@@ -584,7 +584,7 @@ export function StudentDashboard({
         storageKey="dashboard"
         text="Everything here is a summary — the numbers come from other pages. Income and expenses flow from the Income page. Net worth combines assets from the Balance Sheet and debts from the Debt page. Goal timelines are calculated on the Goals page. Keep those pages current and this dashboard stays accurate."
         links={[
-          { href: "/app/student/budget", label: "Log this week →" },
+          { href: "/app/student/income", label: "Log this week →" },
           { href: "/app/student/goals", label: "Review goals →" },
           { href: "/app/student/snapshot", label: "Monthly snapshot →" }
         ]}

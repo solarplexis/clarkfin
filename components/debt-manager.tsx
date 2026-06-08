@@ -505,7 +505,7 @@ export function DebtManager({
         links={[
           { href: "/app/student/balance-sheet", label: "See net worth →" },
           { href: "/app/student/goals", label: "Set payoff goal →" },
-          { href: "/app/student/budget", label: "Log payments →" }
+          { href: "/app/student/income", label: "Log payments →" }
         ]}
       />
 

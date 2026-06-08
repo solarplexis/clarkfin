@@ -29,7 +29,7 @@ const GUIDED_STEPS = [
       "Goals are what turn numbers into decisions. Every dollar you log, every savings rate you set, every debt you pay down — it all gets its meaning from this screen. Set your goals first. Everything else in this app follows from them."
   },
   {
-    path: "/app/student/budget",
+    path: "/app/student/income",
     label: "Your Income",
     headline: "What does your financial life actually look like?",
     description:
@@ -57,7 +57,7 @@ const GUIDED_STEPS = [
       "Every dollar you earn needs a job. Here you set the percentage of your take-home that goes to essentials, debt payments, discretionary spending, and savings. Get this allocation right and every number in the app — goal timelines, weekly budget, savings rate — snaps into focus."
   },
   {
-    path: "/app/student/planner",
+    path: "/app/student/budget",
     label: "Your Budget",
     headline: "The plan meets real life — week by week.",
     description:
@@ -128,11 +128,11 @@ export function DashboardShell({
   const navItems: NavItem[] = user.role === "STUDENT"
     ? [
         { href: "/app/student", label: "Dashboard" },
-        { href: "/app/student/budget", label: "Income", exact: false },
+        { href: "/app/student/income", label: "Income", exact: false },
         { href: "/app/student/balance-sheet", label: "Balance Sheet" },
         { href: "/app/student/goals", label: "Goals" },
         { href: "/app/student/debt", label: "Debt" },
-        { href: "/app/student/planner", label: "Budget", exact: false },
+        { href: "/app/student/budget", label: "Budget", exact: false },
         { href: "/app/student/snapshot", label: "Report" }
       ]
     : user.role === "ORG_ADMIN"

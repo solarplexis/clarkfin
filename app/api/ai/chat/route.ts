@@ -104,12 +104,12 @@ const TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
 const NAV_LINKS: Record<string, string> = {
   dashboard: "/app/student",
   budget: "/app/student/budget",
-  income: "/app/student/budget",
+  planner: "/app/student/budget",
+  income: "/app/student/income",
   "balance sheet": "/app/student/balance-sheet",
   "net worth": "/app/student/balance-sheet",
   goals: "/app/student/goals",
   debt: "/app/student/debt",
-  planner: "/app/student/planner",
   snapshot: "/app/student/snapshot",
   report: "/app/student/snapshot"
 };
@@ -149,6 +149,7 @@ When a student asks about their financial situation (net worth, total debt, expe
 
 ## App navigation
 Use these links only when: (a) the student explicitly asks where to find something or how to navigate, or (b) as a brief follow-up note after answering a data question.
+These are relative paths within the app. Never prepend a domain or hostname — do not write clarkfin.com or any other URL. Link text only (e.g. "go to [Budget](/app/student/budget)").
 ${navMap}
 
 ## Financial data tools
@@ -162,9 +163,11 @@ For date fields use today: year=${ctx.today.slice(0, 4)}, month=${parseInt(ctx.t
 After calling a tool, confirm what was recorded. If a student wants to edit or delete an entry, direct them to the relevant page — you can only add new entries.
 
 ## Student's current financial data
-${ctx.recentIncome ? `Income:\n${ctx.recentIncome}` : "No income logged."}
+Entries are listed most-recently-logged first.
 
-${ctx.recentExpenses ? `Expenses:\n${ctx.recentExpenses}` : "No expenses logged."}
+${ctx.recentIncome ? `Income (up to 10 most recent):\n${ctx.recentIncome}` : "No income logged."}
+
+${ctx.recentExpenses ? `Expenses (up to 10 most recent):\n${ctx.recentExpenses}` : "No expenses logged."}
 
 ${ctx.recentDebts ? `Debts:\n${ctx.recentDebts}` : "No debts on file."}
 
@@ -234,14 +237,16 @@ export async function POST(request: Request) {
       console.error("[AI chat] RAG retrieval failed:", syllabusError);
     }
 
-    const recentExpenses = expenses
-      .slice(-5)
-      .map((e) => `  ${e.label}: $${e.amount} (${e.category})`)
+    const recentExpenses = [...expenses]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10)
+      .map((e) => `  ${e.label}: $${e.amount} (${e.category}, ${e.periodYear}-${String(e.periodMonth).padStart(2, "0")}, week ${e.periodWeek}, logged ${e.createdAt.slice(0, 10)})`)
       .join("\n");
 
-    const recentIncome = incomeEntries
-      .slice(-5)
-      .map((i) => `  ${i.label}: $${i.amount} (${i.category})`)
+    const recentIncome = [...incomeEntries]
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 10)
+      .map((i) => `  ${i.label}: $${i.amount} (${i.category}, ${i.periodYear}-${String(i.periodMonth).padStart(2, "0")}, week ${i.periodWeek}, logged ${i.createdAt.slice(0, 10)})`)
       .join("\n");
 
     const recentDebts = debts

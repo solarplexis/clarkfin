@@ -375,7 +375,7 @@ export function WeeklyPlannerTool({
         storageKey="budget"
         text="This page tracks how you spend your discretionary budget week by week. Log your full income and all expense categories on the Income page — that's what drives your savings rate and goal projections on the Dashboard."
         links={[
-          { href: "/app/student/budget", label: "Log income & expenses →" },
+          { href: "/app/student/income", label: "Log income & expenses →" },
           { href: "/app/student/goals", label: "Adjust goal targets →" },
           { href: "/app/student", label: "See Dashboard →" }
         ]}
@@ -454,7 +454,7 @@ export function WeeklyPlannerTool({
         </div>
       ) : netPayMonthly === 0 ? (
         <div className="wp-goal-story wp-goal-story-empty">
-          Log your baseline income on the <a href="/app/student/budget">Income page</a> to activate your budget and see how your spending connects to your goals.
+          Log your baseline income on the <a href="/app/student/income">Income page</a> to activate your budget and see how your spending connects to your goals.
         </div>
       ) : null}
 

@@ -695,7 +695,7 @@ export function GoalTimelineTool({
         storageKey="goals"
         text="These projections are only as accurate as the data behind them. Your income and expenses on the Income page set your actual savings rate. Asset and debt balances on the Balance Sheet determine where you're starting from."
         links={[
-          { href: "/app/student/budget", label: "Log income & expenses →" },
+          { href: "/app/student/income", label: "Log income & expenses →" },
           { href: "/app/student/balance-sheet", label: "Update net worth →" },
           { href: "/app/student", label: "See Dashboard →" }
         ]}

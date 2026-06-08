@@ -144,7 +144,7 @@ export function MonthlySnapshotTool({
         storageKey="report"
         text="This report pulls together everything you've logged — income and expenses from the Income page, goals from the Goals page, debts from the Debt page, and your savings allocation from the Dashboard. Keep your data current throughout the semester and this report writes itself."
         links={[
-          { href: "/app/student/budget", label: "Update income & expenses →" },
+          { href: "/app/student/income", label: "Update income & expenses →" },
           { href: "/app/student/goals", label: "Review goals →" },
           { href: "/app/student", label: "See Dashboard →" }
         ]}
