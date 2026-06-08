@@ -9,7 +9,8 @@ import {
   createDebt,
   listExpenseEntries,
   listIncomeEntries,
-  listDebts
+  listDebts,
+  listAssets
 } from "@/src/lib/data/repositories";
 import { retrieveSyllabusContext } from "@/src/lib/ai/rag";
 
@@ -122,6 +123,7 @@ function buildSystemPrompt(ctx: {
   recentExpenses: string;
   recentIncome: string;
   recentDebts: string;
+  assets: string;
 }): string {
   const navMap = Object.entries(NAV_LINKS)
     .map(([k, v]) => `  - "${k}" → ${v}`)
@@ -132,20 +134,21 @@ function buildSystemPrompt(ctx: {
 Today's date: ${ctx.today}
 
 ## Your role
-- Answer personal finance questions clearly and practically
+- Answer personal finance questions clearly and practically, using the student's own data when available
 - Help log financial transactions by calling the provided tools
 - Answer questions about the course syllabus (if context is provided below)
-- Answer navigation questions by providing markdown links to the correct app pages
 - Be encouraging and educational — this is a learning environment
 
 ## Guardrails
 - ONLY discuss personal finance topics. If asked about anything unrelated to personal finance, budgeting, investing, debt, the ClarkFin app, or the course syllabus, politely decline and redirect.
 - Never provide specific investment advice about individual securities.
 
-## Available app pages (use markdown links when navigating)
-${navMap}
+## Answering data questions
+When a student asks about their financial situation (net worth, total debt, expenses, income, etc.), ANSWER THE QUESTION IN THE CHAT using the data provided below. Do not redirect them to a page as the primary response. A navigation link may appear at the end as a "see the full picture" suggestion, but the answer itself must be in the chat.
 
-When a student asks "where do I log income?" respond with a helpful explanation AND a markdown link, e.g. "You can log that on the [Budget page](/app/student/budget)."
+## App navigation
+Use these links only when: (a) the student explicitly asks where to find something or how to navigate, or (b) as a brief follow-up note after answering a data question.
+${navMap}
 
 ## Financial data tools
 When a student describes a transaction, call the appropriate tool:
@@ -157,12 +160,14 @@ For date fields use today: year=${ctx.today.slice(0, 4)}, month=${parseInt(ctx.t
 
 After calling a tool, confirm what was recorded. If a student wants to edit or delete an entry, direct them to the relevant page — you can only add new entries.
 
-## Student's recent financial activity
-${ctx.recentExpenses ? `Recent expenses:\n${ctx.recentExpenses}` : "No recent expenses logged."}
+## Student's current financial data
+${ctx.recentIncome ? `Income:\n${ctx.recentIncome}` : "No income logged."}
 
-${ctx.recentIncome ? `Recent income:\n${ctx.recentIncome}` : "No recent income logged."}
+${ctx.recentExpenses ? `Expenses:\n${ctx.recentExpenses}` : "No expenses logged."}
 
-${ctx.recentDebts ? `Debts on file:\n${ctx.recentDebts}` : "No debts on file."}
+${ctx.recentDebts ? `Debts:\n${ctx.recentDebts}` : "No debts on file."}
+
+${ctx.assets ? `Assets:\n${ctx.assets}` : "No assets on file."}
 
 ## Course syllabus
 ${
@@ -214,10 +219,11 @@ export async function POST(request: Request) {
     let syllabusContext: string | null = null;
     let syllabusError: string | null = null;
 
-    const [expenses, incomeEntries, debts] = await Promise.all([
+    const [expenses, incomeEntries, debts, assets] = await Promise.all([
       listExpenseEntries(user.uid, semesterId).catch(() => []),
       listIncomeEntries(user.uid, semesterId).catch(() => []),
-      listDebts(user.uid, semesterId).catch(() => [])
+      listDebts(user.uid, semesterId).catch(() => []),
+      listAssets(user.uid, semesterId).catch(() => [])
     ]);
 
     try {
@@ -238,9 +244,16 @@ export async function POST(request: Request) {
       .join("\n");
 
     const recentDebts = debts
-      .slice(-5)
-      .map((d) => `  ${d.label}: $${d.currentBalance} remaining`)
+      .map((d) => `  ${d.label}: $${d.currentBalance} remaining (${d.category})`)
       .join("\n");
+
+    const assetsSummary = assets
+      .map((a) => `  ${a.label}: $${a.currentValue} (${a.category})`)
+      .join("\n");
+
+    const totalAssets = assets.reduce((sum, a) => sum + a.currentValue, 0);
+    const totalDebts = debts.reduce((sum, d) => sum + d.currentBalance, 0);
+    const netWorth = totalAssets - totalDebts;
 
     const systemPrompt = buildSystemPrompt({
       studentName: user.fullName ?? "Student",
@@ -249,7 +262,10 @@ export async function POST(request: Request) {
       syllabusError,
       recentExpenses,
       recentIncome,
-      recentDebts
+      recentDebts,
+      assets: assetsSummary
+        ? `${assetsSummary}\n  Total assets: $${totalAssets.toFixed(2)} | Total debts: $${totalDebts.toFixed(2)} | Net worth: $${netWorth.toFixed(2)}`
+        : ""
     });
 
     // ── Agentic tool loop (max 3 iterations) ─────────────────
