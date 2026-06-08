@@ -156,14 +156,19 @@ export default async function OrganizationDashboardPage() {
                         {semester.isActive ? "Active" : "Inactive"}
                       </span>
                     </td>
-                    <td style={{ textAlign: "right" }}>
-                      <a
-                        className="button-secondary"
-                        href={`/app/org/courses/${semester.semesterId}/edit`}
-                        style={{ fontSize: "0.8125rem", padding: "4px 10px" }}
-                      >
-                        Edit
-                      </a>
+                    <td>
+                      <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+                        <a
+                          aria-label="Edit Course"
+                          className="icon-button"
+                          data-tooltip="Edit Course"
+                          href={`/app/org/courses/${semester.semesterId}/edit`}
+                        >
+                          <svg fill="none" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                            <path d="M11.013 1.427a1.75 1.75 0 0 1 2.474 2.474L5.81 11.577l-2.827.636.636-2.828L11.013 1.427Z" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+                          </svg>
+                        </a>
+                      </div>
                     </td>
                   </tr>
                 ))
