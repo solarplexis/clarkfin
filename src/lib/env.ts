@@ -55,8 +55,8 @@ export function getAppUrl() {
 }
 
 export function getOpenAIKey(): string {
-  const key = process.env.OPEN_AI_KEY ?? "";
-  if (!key) throw new Error("OPEN_AI_KEY is not configured.");
+  const key = process.env.OPENAI_API_KEY ?? "";
+  if (!key) throw new Error("OPENAI_API_KEY is not configured.");
   return key;
 }
 

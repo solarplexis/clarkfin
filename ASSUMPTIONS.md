@@ -46,7 +46,7 @@ Recorded during autonomous implementation session. Review and correct as needed.
 
 14. **Top-k retrieval** — Query returns the top 5 most similar chunks. This was chosen as a balance between context richness and token cost. Can be tuned.
 
-15. **Env var name** — Using `OPEN_AI_KEY` (as found in `.env.local`), not the standard `OPENAI_API_KEY`.
+15. **Env var name** — Using `OPENAI_API_KEY` (as found in `.env.local`), not the standard `OPENAI_API_KEY`.
 
 16. **No chunk for empty syllabus** — If a course has no syllabus, `querySyllabusChunks` returns null. The AI assistant caller is responsible for injecting the "no syllabus available" message.
 
@@ -62,7 +62,7 @@ Recorded during autonomous implementation session. Review and correct as needed.
 
 ## Packages
 
-19. **`openai` package version** — Installed `^6.42.0`. Uses the `openai` npm package with `new OpenAI({ apiKey: process.env.OPEN_AI_KEY })`.
+19. **`openai` package version** — Installed `^6.42.0`. Uses the `openai` npm package with `new OpenAI({ apiKey: process.env.OPENAI_API_KEY })`.
 
 20. **Vector index deployment** — After merging, run `firebase deploy --only firestore:indexes` to activate the vector index on `syllabusChunks.embedding`. Until deployed, `findNearest()` will return a Firestore error on first query. The index config is in `firestore.indexes.json` under `fieldOverrides`.
 
@@ -70,9 +70,9 @@ Recorded during autonomous implementation session. Review and correct as needed.
 
 ## AI Assistant (feature/ai-assistant)
 
-21. **Model** — `gpt-4o` via the existing `openai` package and `OPEN_AI_KEY` env var. No new credentials needed.
+21. **Model** — `gpt-4o` via the existing `openai` package and `OPENAI_API_KEY` env var. No new credentials needed.
 
-22. **API key** — Reuses `OPEN_AI_KEY` already in `.env.local`. No additional setup required.
+22. **API key** — Reuses `OPENAI_API_KEY` already in `.env.local`. No additional setup required.
 
 23. **Ephemeral context** — Chat history lives only in React state. Navigating away clears it. This is enforced by a `useEffect` on `usePathname()` in `AiAssistantPanel`. No chat history is persisted to Firestore.
 
