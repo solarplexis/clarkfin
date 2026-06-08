@@ -6,6 +6,7 @@ import { usePathname, useRouter } from "next/navigation";
 import type { Route } from "next";
 
 import { AccountMenu } from "@/components/account-menu";
+import { AiAssistantPanel } from "@/components/ai-assistant-panel";
 import { Tooltip } from "@/components/tooltip";
 import type { UserProfile } from "@/types/domain";
 
@@ -308,6 +309,9 @@ export function DashboardShell({
           {children}
         </div>
       </main>
+      {isStudent && user.activeSemesterId && (
+        <AiAssistantPanel semesterId={user.activeSemesterId} />
+      )}
     </>
   );
 }

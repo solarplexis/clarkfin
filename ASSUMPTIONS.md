@@ -65,3 +65,23 @@ Recorded during autonomous implementation session. Review and correct as needed.
 19. **`openai` package version** — Installed `^6.42.0`. Uses the `openai` npm package with `new OpenAI({ apiKey: process.env.OPEN_AI_KEY })`.
 
 20. **Vector index deployment** — After merging, run `firebase deploy --only firestore:indexes` to activate the vector index on `syllabusChunks.embedding`. Until deployed, `findNearest()` will return a Firestore error on first query. The index config is in `firestore.indexes.json` under `fieldOverrides`.
+
+---
+
+## AI Assistant (feature/ai-assistant)
+
+21. **Model** — `claude-opus-4-8` with `thinking: { type: "adaptive" }`. Using Opus per the claude-api skill default. If response latency becomes a concern, this can be swapped to `claude-haiku-4-5` (much faster, lower cost) by changing the model string in `app/api/ai/chat/route.ts`.
+
+22. **API key env var** — `ANTHROPIC_API_KEY` (standard Anthropic SDK default). Must be added to `.env.local` before the feature works. A blank placeholder is already in `.env.local`.
+
+23. **Ephemeral context** — Chat history lives only in React state. Navigating away clears it. This is enforced by a `useEffect` on `usePathname()` in `AiAssistantPanel`. No chat history is persisted to Firestore.
+
+24. **FAB placement** — Floating action button is fixed to `bottom: 28px; right: 28px`. The panel opens from the right side (width 420px, slides in). It does not push page content left via CSS — that would require body-level state management. The panel overlays content instead. Can revisit if a non-overlapping layout is preferred.
+
+25. **Tool scope** — Three tools exposed to Claude: `create_expense_entry`, `create_income_entry`, `create_debt`. Update/delete is explicitly excluded — the assistant can only add new entries. To edit or delete, users are directed to the relevant app page. This avoids complex disambiguation ("which entry did you mean?") and keeps financial data mutations auditable.
+
+26. **RAG retrieval per message** — The last user message is used to query the syllabus chunks on every assistant call. This keeps syllabus context fresh without maintaining a running embedding across turns.
+
+27. **Student panel only** — `AiAssistantPanel` is rendered in `DashboardShell` only for `STUDENT` role, and only when `user.activeSemesterId` is set. Org admins and system admins do not get the assistant.
+
+28. **Markdown link rendering** — The assistant can include `[text](/path)` links in responses. A simple regex renderer in the component converts these to Next.js `<Link>` components. No full markdown library is used to keep the bundle small.
