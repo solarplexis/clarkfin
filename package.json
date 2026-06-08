@@ -9,7 +9,6 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@anthropic-ai/sdk": "^0.102.0",
     "@tiptap/extension-link": "^3.26.0",
     "@tiptap/extension-table": "^3.26.0",
     "@tiptap/extension-table-cell": "^3.26.0",

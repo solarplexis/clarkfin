@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import Anthropic from "@anthropic-ai/sdk";
+import OpenAI from "openai";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
 import {
@@ -13,77 +13,86 @@ import {
 } from "@/src/lib/data/repositories";
 import { retrieveSyllabusContext } from "@/src/lib/ai/rag";
 
-// ─── Anthropic client (lazy init) ────────────────────────────
+// ─── OpenAI client (lazy init) ────────────────────────────────
 
-let _client: Anthropic | null = null;
-function getClient(): Anthropic {
+let _client: OpenAI | null = null;
+function getClient(): OpenAI {
   if (!_client) {
-    _client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    _client = new OpenAI({ apiKey: process.env.OPEN_AI_KEY });
   }
   return _client;
 }
 
 // ─── Tool definitions ─────────────────────────────────────────
 
-const TOOLS: Anthropic.Tool[] = [
+const TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
   {
-    name: "create_expense_entry",
-    description:
-      "Record a new expense for the student. Use for spending events: 'I spent $X at Y', 'I paid rent', 'I bought groceries'. Choose category: 'essential' for necessities (rent, utilities, groceries), 'debt' for debt payments, 'discretionary' for optional spending (coffee, entertainment, dining out).",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        label: { type: "string", description: "Short description of what the expense was for (e.g. 'Starbucks', 'Rent', 'Groceries')" },
-        amount: { type: "number", description: "Amount in dollars (positive number)" },
-        category: { type: "string", enum: ["essential", "debt", "discretionary"], description: "Expense category" },
-        periodYear: { type: "integer", description: "Year of the expense (e.g. 2026)" },
-        periodMonth: { type: "integer", description: "Month of the expense (1-12)" },
-        periodWeek: { type: "integer", description: "Week of month (1-4)" },
-        isRecurring: { type: "boolean", description: "True for recurring monthly expenses like rent" }
-      },
-      required: ["label", "amount", "category", "periodYear", "periodMonth", "periodWeek"]
+    type: "function",
+    function: {
+      name: "create_expense_entry",
+      description:
+        "Record a new expense for the student. Use for spending events: 'I spent $X at Y', 'I paid rent', 'I bought groceries'. Choose category: 'essential' for necessities (rent, utilities, groceries), 'debt' for debt payments, 'discretionary' for optional spending (coffee, entertainment, dining out).",
+      parameters: {
+        type: "object",
+        properties: {
+          label: { type: "string", description: "Short description of the expense (e.g. 'Starbucks', 'Rent', 'Groceries')" },
+          amount: { type: "number", description: "Amount in dollars (positive number)" },
+          category: { type: "string", enum: ["essential", "debt", "discretionary"] },
+          periodYear: { type: "integer", description: "Year of the expense (e.g. 2026)" },
+          periodMonth: { type: "integer", description: "Month of the expense (1-12)" },
+          periodWeek: { type: "integer", description: "Week of month (1-4)" },
+          isRecurring: { type: "boolean", description: "True for recurring monthly expenses like rent" }
+        },
+        required: ["label", "amount", "category", "periodYear", "periodMonth", "periodWeek"]
+      }
     }
   },
   {
-    name: "create_income_entry",
-    description:
-      "Record a new income entry for the student. Use for money coming in: 'I got paid', 'I received a bonus', 'I earned interest'. For informal income like 'my friend paid me back', use category 'other'.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        label: { type: "string", description: "Short description of the income source (e.g. 'Paycheck', 'Freelance', 'Friend paid me back')" },
-        amount: { type: "number", description: "Amount in dollars (positive number)" },
-        category: {
-          type: "string",
-          enum: ["gross_pay", "taxes", "bonus", "interest", "other"],
-          description: "Income category. Use 'taxes' for tax withholdings (negative effect), 'other' for informal income."
+    type: "function",
+    function: {
+      name: "create_income_entry",
+      description:
+        "Record a new income entry for the student. Use for money coming in: 'I got paid', 'I received a bonus', 'I earned interest'. For informal income like 'my friend paid me back', use category 'other'.",
+      parameters: {
+        type: "object",
+        properties: {
+          label: { type: "string", description: "Short description of the income source (e.g. 'Paycheck', 'Freelance')" },
+          amount: { type: "number", description: "Amount in dollars (positive number)" },
+          category: {
+            type: "string",
+            enum: ["gross_pay", "taxes", "bonus", "interest", "other"],
+            description: "Use 'taxes' for withholdings (negative effect), 'other' for informal income."
+          },
+          periodYear: { type: "integer" },
+          periodMonth: { type: "integer", description: "Month (1-12)" },
+          periodWeek: { type: "integer", description: "Week of month (1-4)" }
         },
-        periodYear: { type: "integer", description: "Year of the income (e.g. 2026)" },
-        periodMonth: { type: "integer", description: "Month (1-12)" },
-        periodWeek: { type: "integer", description: "Week of month (1-4)" }
-      },
-      required: ["label", "amount", "category", "periodYear", "periodMonth", "periodWeek"]
+        required: ["label", "amount", "category", "periodYear", "periodMonth", "periodWeek"]
+      }
     }
   },
   {
-    name: "create_debt",
-    description:
-      "Record a new debt. Use when the student says they borrowed money or took on new debt: 'my friend loaned me $50', 'I took out a loan'. Do NOT use for regular expense payments — those go in create_expense_entry.",
-    input_schema: {
-      type: "object" as const,
-      properties: {
-        label: { type: "string", description: "What the debt is for (e.g. 'Friend loan', 'Student loan')" },
-        category: {
-          type: "string",
-          enum: ["student_loan", "mortgage", "credit_card", "car", "other"],
-          description: "Debt category. Use 'other' for personal loans from friends/family."
+    type: "function",
+    function: {
+      name: "create_debt",
+      description:
+        "Record a new debt. Use when the student borrowed money or took on new debt: 'my friend loaned me $50', 'I took out a loan'. Do NOT use for regular expense payments.",
+      parameters: {
+        type: "object",
+        properties: {
+          label: { type: "string", description: "What the debt is for (e.g. 'Friend loan', 'Student loan')" },
+          category: {
+            type: "string",
+            enum: ["student_loan", "mortgage", "credit_card", "car", "other"],
+            description: "Use 'other' for personal loans from friends/family."
+          },
+          originalBalance: { type: "number", description: "Original loan amount in dollars" },
+          currentBalance: { type: "number", description: "Current outstanding balance" },
+          monthlyPayment: { type: "number", description: "Expected monthly payment. Use 0 if unknown." },
+          interestRate: { type: "number", description: "Annual interest rate as a decimal (e.g. 0.05 for 5%). Use 0 for informal loans." }
         },
-        originalBalance: { type: "number", description: "Original loan amount in dollars" },
-        currentBalance: { type: "number", description: "Current outstanding balance (same as original for new debts)" },
-        monthlyPayment: { type: "number", description: "Expected monthly payment. Use 0 if unknown or informal." },
-        interestRate: { type: "number", description: "Annual interest rate as a decimal (e.g. 0.05 for 5%). Use 0 for informal loans." }
-      },
-      required: ["label", "category", "originalBalance", "currentBalance", "monthlyPayment"]
+        required: ["label", "category", "originalBalance", "currentBalance", "monthlyPayment"]
+      }
     }
   }
 ];
@@ -105,11 +114,9 @@ const NAV_LINKS: Record<string, string> = {
 
 // ─── System prompt builder ────────────────────────────────────
 
-function buildSystemPrompt(context: {
+function buildSystemPrompt(ctx: {
   studentName: string;
-  semesterId: string;
   today: string;
-  hasSyllabus: boolean;
   syllabusContext: string | null;
   recentExpenses: string;
   recentIncome: string;
@@ -119,9 +126,9 @@ function buildSystemPrompt(context: {
     .map(([k, v]) => `  - "${k}" → ${v}`)
     .join("\n");
 
-  return `You are the ClarkFin financial assistant helping ${context.studentName} manage their personal finances as part of a financial literacy course.
+  return `You are the ClarkFin financial assistant helping ${ctx.studentName} manage their personal finances as part of a financial literacy course.
 
-Today's date: ${context.today}
+Today's date: ${ctx.today}
 
 ## Your role
 - Answer personal finance questions clearly and practically
@@ -131,33 +138,32 @@ Today's date: ${context.today}
 - Be encouraging and educational — this is a learning environment
 
 ## Guardrails
-- ONLY discuss personal finance topics. If asked about anything unrelated to personal finance, budgeting, investing, debt, the ClarkFin app, or the course syllabus, politely decline and redirect to finance topics.
+- ONLY discuss personal finance topics. If asked about anything unrelated to personal finance, budgeting, investing, debt, the ClarkFin app, or the course syllabus, politely decline and redirect.
 - Never provide specific investment advice about individual securities.
-- Never share or reference financial data belonging to other students.
 
 ## Available app pages (use markdown links when navigating)
 ${navMap}
 
-When a student asks "where do I log income?" or "how do I track my debt?", respond with a helpful explanation AND a markdown link, e.g. "You can log that on the [Budget page](/app/student/budget)."
+When a student asks "where do I log income?" respond with a helpful explanation AND a markdown link, e.g. "You can log that on the [Budget page](/app/student/budget)."
 
 ## Financial data tools
-When a student describes a financial transaction, call the appropriate tool:
+When a student describes a transaction, call the appropriate tool:
 - Expense: "I spent $X", "I paid rent", "I bought groceries" → create_expense_entry
 - Income: "I got paid", "I earned $X", "I received a bonus" → create_income_entry
 - New debt: "my friend loaned me $50", "I borrowed $X" → create_debt
 
-For date fields use today: year=${context.today.slice(0, 4)}, month=${parseInt(context.today.slice(5, 7))}, week=1 unless the student specifies otherwise.
+For date fields use today: year=${ctx.today.slice(0, 4)}, month=${parseInt(ctx.today.slice(5, 7))}, week=1 unless the student specifies otherwise.
+
+After calling a tool, confirm what was recorded. If a student wants to edit or delete an entry, direct them to the relevant page — you can only add new entries.
 
 ## Student's recent financial activity
-${context.recentExpenses ? `Recent expenses:\n${context.recentExpenses}` : "No recent expenses logged."}
+${ctx.recentExpenses ? `Recent expenses:\n${ctx.recentExpenses}` : "No recent expenses logged."}
 
-${context.recentIncome ? `Recent income:\n${context.recentIncome}` : "No recent income logged."}
+${ctx.recentIncome ? `Recent income:\n${ctx.recentIncome}` : "No recent income logged."}
 
-${context.recentDebts ? `Debts on file:\n${context.recentDebts}` : "No debts on file."}
+${ctx.recentDebts ? `Debts on file:\n${ctx.recentDebts}` : "No debts on file."}
 
-${context.syllabusContext ? `## Course syllabus context\n${context.syllabusContext}` : ""}
-
-After calling a tool to log data, always confirm what was recorded in a friendly, concise message. If a student says "whoops, I meant $X" or corrects a recent entry, explain that you can only add new entries through this chat — to edit or delete existing entries they should visit the relevant page in the app.`;
+${ctx.syllabusContext ? `## Course syllabus context\n${ctx.syllabusContext}` : ""}`;
 }
 
 // ─── POST /api/ai/chat ────────────────────────────────────────
@@ -195,11 +201,13 @@ export async function POST(request: Request) {
 
     // ── Gather context in parallel ───────────────────────────
     const today = new Date().toISOString().slice(0, 10);
+    const lastUserMessage = messages[messages.length - 1].content;
+
     const [expenses, incomeEntries, debts, syllabusContext] = await Promise.all([
       listExpenseEntries(user.uid, semesterId).catch(() => []),
       listIncomeEntries(user.uid, semesterId).catch(() => []),
       listDebts(user.uid, semesterId).catch(() => []),
-      retrieveSyllabusContext(semesterId, messages[messages.length - 1].content).catch(() => null)
+      retrieveSyllabusContext(semesterId, lastUserMessage).catch(() => null)
     ]);
 
     const recentExpenses = expenses
@@ -219,9 +227,7 @@ export async function POST(request: Request) {
 
     const systemPrompt = buildSystemPrompt({
       studentName: user.fullName ?? "Student",
-      semesterId,
       today,
-      hasSyllabus: !!syllabusContext,
       syllabusContext,
       recentExpenses,
       recentIncome,
@@ -230,45 +236,40 @@ export async function POST(request: Request) {
 
     // ── Agentic tool loop (max 3 iterations) ─────────────────
     const client = getClient();
-    const anthropicMessages: Anthropic.MessageParam[] = messages.map((m) => ({
-      role: m.role,
-      content: m.content
-    }));
+    const chatMessages: OpenAI.Chat.ChatCompletionMessageParam[] = [
+      { role: "system", content: systemPrompt },
+      ...messages.map((m) => ({ role: m.role, content: m.content } as OpenAI.Chat.ChatCompletionMessageParam))
+    ];
 
     let dataUpdated = false;
     let finalText = "";
 
     for (let iteration = 0; iteration < 3; iteration++) {
-      const response = await client.messages.create({
-        model: "claude-opus-4-8",
-        max_tokens: 1024,
-        thinking: { type: "adaptive" },
-        system: systemPrompt,
+      const response = await client.chat.completions.create({
+        model: "gpt-4o",
+        messages: chatMessages,
         tools: TOOLS,
-        messages: anthropicMessages
+        tool_choice: "auto"
       });
 
-      if (response.stop_reason === "end_turn") {
-        finalText = response.content
-          .filter((b): b is Anthropic.TextBlock => b.type === "text")
-          .map((b) => b.text)
-          .join("\n")
-          .trim();
+      const choice = response.choices[0];
+
+      if (choice.finish_reason === "stop") {
+        finalText = choice.message.content ?? "";
         break;
       }
 
-      if (response.stop_reason === "tool_use") {
-        const assistantBlocks = response.content;
-        anthropicMessages.push({ role: "assistant", content: assistantBlocks });
+      if (choice.finish_reason === "tool_calls" && choice.message.tool_calls) {
+        chatMessages.push(choice.message);
 
-        const toolResults: Anthropic.ToolResultBlockParam[] = [];
+        const toolResults: OpenAI.Chat.ChatCompletionToolMessageParam[] = [];
 
-        for (const block of assistantBlocks) {
-          if (block.type !== "tool_use") continue;
-
+        for (const call of choice.message.tool_calls) {
+          if (call.type !== "function") continue;
           let result: string;
           try {
-            result = await executeTool(block.name, block.input as Record<string, unknown>, {
+            const args = JSON.parse(call.function.arguments) as Record<string, unknown>;
+            result = await executeTool(call.function.name, args, {
               userId: user.uid,
               organizationId: user.organizationId!,
               semesterId
@@ -279,22 +280,18 @@ export async function POST(request: Request) {
           }
 
           toolResults.push({
-            type: "tool_result",
-            tool_use_id: block.id,
+            role: "tool",
+            tool_call_id: call.id,
             content: result
           });
         }
 
-        anthropicMessages.push({ role: "user", content: toolResults });
+        chatMessages.push(...toolResults);
         continue;
       }
 
-      // Unexpected stop reason — extract whatever text is available
-      finalText = response.content
-        .filter((b): b is Anthropic.TextBlock => b.type === "text")
-        .map((b) => b.text)
-        .join("\n")
-        .trim();
+      // Unexpected finish reason — take whatever text is available
+      finalText = choice.message.content ?? "";
       break;
     }
 

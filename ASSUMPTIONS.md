@@ -70,9 +70,9 @@ Recorded during autonomous implementation session. Review and correct as needed.
 
 ## AI Assistant (feature/ai-assistant)
 
-21. **Model** — `claude-opus-4-8` with `thinking: { type: "adaptive" }`. Using Opus per the claude-api skill default. If response latency becomes a concern, this can be swapped to `claude-haiku-4-5` (much faster, lower cost) by changing the model string in `app/api/ai/chat/route.ts`.
+21. **Model** — `gpt-4o` via the existing `openai` package and `OPEN_AI_KEY` env var. No new credentials needed.
 
-22. **API key env var** — `ANTHROPIC_API_KEY` (standard Anthropic SDK default). Must be added to `.env.local` before the feature works. A blank placeholder is already in `.env.local`.
+22. **API key** — Reuses `OPEN_AI_KEY` already in `.env.local`. No additional setup required.
 
 23. **Ephemeral context** — Chat history lives only in React state. Navigating away clears it. This is enforced by a `useEffect` on `usePathname()` in `AiAssistantPanel`. No chat history is persisted to Firestore.
 
