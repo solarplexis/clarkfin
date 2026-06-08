@@ -65,3 +65,23 @@ Recorded during autonomous implementation session. Review and correct as needed.
 19. **`openai` package version** — Installed `^6.42.0`. Uses the `openai` npm package with `new OpenAI({ apiKey: process.env.OPEN_AI_KEY })`.
 
 20. **Vector index deployment** — After merging, run `firebase deploy --only firestore:indexes` to activate the vector index on `syllabusChunks.embedding`. Until deployed, `findNearest()` will return a Firestore error on first query. The index config is in `firestore.indexes.json` under `fieldOverrides`.
+
+---
+
+## AI Assistant (feature/ai-assistant)
+
+21. **Model** — `gpt-4o` via the existing `openai` package and `OPEN_AI_KEY` env var. No new credentials needed.
+
+22. **API key** — Reuses `OPEN_AI_KEY` already in `.env.local`. No additional setup required.
+
+23. **Ephemeral context** — Chat history lives only in React state. Navigating away clears it. This is enforced by a `useEffect` on `usePathname()` in `AiAssistantPanel`. No chat history is persisted to Firestore.
+
+24. **FAB placement** — Floating action button is fixed to `bottom: 28px; right: 28px`. The panel opens from the right side (width 420px, slides in). It does not push page content left via CSS — that would require body-level state management. The panel overlays content instead. Can revisit if a non-overlapping layout is preferred.
+
+25. **Tool scope** — Three tools exposed to Claude: `create_expense_entry`, `create_income_entry`, `create_debt`. Update/delete is explicitly excluded — the assistant can only add new entries. To edit or delete, users are directed to the relevant app page. This avoids complex disambiguation ("which entry did you mean?") and keeps financial data mutations auditable.
+
+26. **RAG retrieval per message** — The last user message is used to query the syllabus chunks on every assistant call. This keeps syllabus context fresh without maintaining a running embedding across turns.
+
+27. **Student panel only** — `AiAssistantPanel` is rendered in `DashboardShell` only for `STUDENT` role, and only when `user.activeSemesterId` is set. Org admins and system admins do not get the assistant.
+
+28. **Markdown link rendering** — The assistant can include `[text](/path)` links in responses. A simple regex renderer in the component converts these to Next.js `<Link>` components. No full markdown library is used to keep the bundle small.

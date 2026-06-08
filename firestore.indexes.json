@@ -8,18 +8,17 @@
         { "fieldPath": "semesterId", "order": "ASCENDING" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
       ]
-    }
-  ],
-  "fieldOverrides": [
+    },
     {
       "collectionGroup": "syllabusChunks",
-      "fieldPath": "embedding",
-      "indexes": [
+      "queryScope": "COLLECTION",
+      "fields": [
         {
-          "queryScope": "COLLECTION",
+          "fieldPath": "embedding",
           "vectorConfig": { "dimension": 1536, "flat": {} }
         }
       ]
     }
-  ]
+  ],
+  "fieldOverrides": []
 }
