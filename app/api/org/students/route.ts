@@ -7,6 +7,21 @@ import {
 } from "@/src/lib/data/repositories";
 import { getCurrentUser } from "@/src/lib/auth/session";
 
+/**
+ * Org student endpoints
+ * 
+ * Auth Classification: Internal (ORG_ADMIN session only)
+ * First-party UI consumers: GET (list), POST (create), PATCH (update), DELETE (bulk), DELETE (single)
+ * All routes require ORG_ADMIN session; no API key path supported.
+ * 
+ * Governance: Internal admin routes
+ * - GET: List students for org admin roster view
+ * - POST: Create roster record from admin input
+ * - DELETE (bulk, on route.ts): Bulk student deletion (student-roster-manager.tsx, line 128, 365)
+ * - DELETE (single, on [studentId]/route.ts): Single student deletion (student-roster-manager.tsx, line 196, 283)
+ * Both bulk and single delete are active first-party contracts.
+ */
+
 export async function GET() {
   try {
     const user = await getCurrentUser();

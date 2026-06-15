@@ -2,6 +2,7 @@ import Link from "next/link";
 
 type HttpMethod = "GET" | "POST" | "PATCH" | "DELETE";
 type AuthMode = "Public" | "Session" | "API Key";
+type AuthClassification = "External (API Key)" | "Hybrid (API Key + Session)" | "Internal (Session Only)";
 
 type EndpointDoc = {
   id: string;
@@ -9,10 +10,12 @@ type EndpointDoc = {
   path: string;
   title: string;
   auth: AuthMode;
+  authClassification?: AuthClassification;
   role?: string;
   description: string;
   requestExample?: string;
   responseExample: string;
+  deprecationStatus?: "active" | "beta" | "deprecated";
 };
 
 type EndpointGroup = {
@@ -1261,6 +1264,7 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/org/students/{studentId}/budget",
         title: "Get student budget draft",
         auth: "Session",
+        authClassification: "Internal (Session Only)",
         role: "ORG_ADMIN",
         description: "Returns the budget draft for a specific enrolled student. Requires a `semesterId` query parameter. Returns `null` if the student has not yet linked their account.",
         responseExample: `{
@@ -1281,6 +1285,7 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/org/students/{studentId}/course-progress",
         title: "Get student weekly course progress",
         auth: "Session",
+        authClassification: "Internal (Session Only)",
         role: "ORG_ADMIN",
         description: "Returns itemized weekly course progress for a specific enrolled student. Requires `semesterId` and supports optional `week` for week-by-week navigation. Returns `progress: null` if the student has not linked their account.",
         responseExample: `{
@@ -1318,6 +1323,7 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/org/activity",
         title: "Get organization activity log",
         auth: "Session",
+        authClassification: "Internal (Session Only)",
         role: "ORG_ADMIN",
         description: "Returns activity log entries for the organization. Optionally filter by `semesterId`. Supports a `limit` query parameter (max 200, default 50).",
         responseExample: `{
@@ -1349,6 +1355,7 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/org/enroll",
         title: "Bulk enroll students",
         auth: "API Key",
+        authClassification: "Hybrid (API Key + Session)",
         description: "Idempotently provisions student accounts and course enrollments, then returns a unique auto-login URL per student. Re-posting the same student and course is a no-op. Partial success is supported — `enrolled` and `errors` are both always present in the response.",
         requestExample: `{
   "semesterId": "fall-2026-fin101",
@@ -1385,6 +1392,7 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/org/api-key/rotate",
         title: "Rotate organization API key",
         auth: "Session",
+        authClassification: "Internal (Session Only)",
         role: "ORG_ADMIN",
         description: "Generates a new API key for the organization, immediately invalidating the previous one. The full key is returned once in this response and cannot be retrieved again — save it immediately. The `apiKeyPreview` (e.g. `ck_live_...9d2a`) is visible in the organization profile afterward.",
         responseExample: `{
@@ -1400,6 +1408,7 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/export",
         title: "Get organization export feed",
         auth: "API Key",
+        authClassification: "External (API Key)",
         description: "Returns export-ready student activity records for the organization associated with the provided `X-API-KEY` header.",
         responseExample: `{
   "organization": {
@@ -1423,6 +1432,7 @@ const endpointGroups: EndpointGroup[] = [
         path: "/api/org/race",
         title: "Get course progress",
         auth: "API Key",
+        authClassification: "External (API Key)",
         description: "Returns milestone progress for every enrolled student in a course, sorted alphabetically by last name then first name. Each student has 6 static milestones plus one milestone per calendar month spanned by the course's start and end dates. The monthly actuals milestone is complete when the student has recorded both income and expense entries with dates in that month. Authenticate with either `X-API-KEY: <key>` or `Authorization: Bearer <key>`. Designed for instructor dashboards and external AI-agent visualizations.",
         responseExample: `{
   "semesterId": "fall-2026-fin101",
@@ -1497,6 +1507,9 @@ function EndpointCard({ endpoint }: { endpoint: EndpointDoc }) {
         <h3>{endpoint.title}</h3>
         <div className="api-meta-row">
           <span className="api-pill">{endpoint.auth}</span>
+          {endpoint.authClassification ? (
+            <span className="api-pill api-pill-classification">{endpoint.authClassification}</span>
+          ) : null}
           {endpoint.role ? <span className="api-pill">{endpoint.role}</span> : null}
         </div>
       </div>
