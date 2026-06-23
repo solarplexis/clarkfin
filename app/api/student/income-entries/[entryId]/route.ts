@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
 import {
+  createActivityLog,
   deleteIncomeEntry,
   getStudentEnrollment,
   updateIncomeEntry,
@@ -55,6 +56,17 @@ export async function PUT(
       periodWeek: Number(body.periodWeek ?? 0)
     });
 
+    await createActivityLog({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      module: "budget",
+      action: "income_updated",
+      status: "completed",
+      summary: `Income updated: ${String(body.label ?? "")}`,
+      payload: { entryId, category, amount: Number(body.amount ?? 0) }
+    });
+
     return NextResponse.json({ ok: true, entry });
   } catch (error) {
     return NextResponse.json(
@@ -90,6 +102,17 @@ export async function DELETE(
     }
 
     await deleteIncomeEntry(entryId, user.uid, semesterId);
+
+    await createActivityLog({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      module: "budget",
+      action: "income_deleted",
+      status: "completed",
+      summary: "Income entry deleted",
+      payload: { entryId }
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {

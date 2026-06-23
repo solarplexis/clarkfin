@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
 import {
+  createActivityLog,
   createGoal,
   getStudentEnrollment,
   listGoals,
@@ -82,6 +83,17 @@ export async function POST(request: Request) {
       targetAmount: Number(body.targetAmount ?? 0),
       targetDate: body.targetDate ? String(body.targetDate) : undefined,
       savedToDate: body.savedToDate != null ? Number(body.savedToDate) : 0
+    });
+
+    await createActivityLog({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      module: "budget",
+      action: "goal_added",
+      status: "completed",
+      summary: `Goal added: ${label}`,
+      payload: { goalType, targetAmount: Number(body.targetAmount ?? 0) }
     });
 
     return NextResponse.json({ ok: true, goal }, { status: 201 });

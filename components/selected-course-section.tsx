@@ -7,7 +7,6 @@ import {
   DeleteInviteButton,
   EditInviteDrawer
 } from "@/components/create-student-invite-form";
-import { StudentRosterManager } from "@/components/student-roster-manager";
 
 const STORAGE_KEY = "org-selected-semester-id";
 
@@ -95,7 +94,6 @@ export function SelectedCourseSection({
   const filteredInvites = invites.filter((inv) => inv.semesterId === selectedSemesterId);
   const filteredFeedbacks = feedbacks.filter((fb) => fb.semesterId === selectedSemesterId);
   const invitedStudentIds = new Set(filteredInvites.map((inv) => inv.studentId));
-  const filteredRoster = roster.filter((s) => invitedStudentIds.has(s.studentId));
   const enrolledStudentsById = new Map(enrolledStudents.map((s) => [s.uid, s]));
 
   if (semesters.length === 0) {
@@ -134,7 +132,7 @@ export function SelectedCourseSection({
             <CreateStudentInviteForm
               defaultSemesterId={selectedSemesterId}
               semesters={semesters}
-              students={roster}
+              students={roster.filter((student) => student.status === "prospect" && !invitedStudentIds.has(student.studentId))}
             />
           </div>
           <div className="table-wrap">
@@ -246,7 +244,6 @@ export function SelectedCourseSection({
           </div>
         </div>
 
-        <StudentRosterManager students={filteredRoster} />
       </div>
     </div>
   );

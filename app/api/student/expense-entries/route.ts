@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
 import {
+  createActivityLog,
   createExpenseEntry,
   getStudentEnrollment,
   listExpenseEntries,
@@ -85,6 +86,17 @@ export async function POST(request: Request) {
       label: String(body.label ?? ""),
       amount: Number(body.amount ?? 0),
       isRecurring: Boolean(body.isRecurring ?? false)
+    });
+
+    await createActivityLog({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      module: "budget",
+      action: "expense_added",
+      status: "completed",
+      summary: `Expense added: ${String(body.label ?? "")}`,
+      payload: { category, amount: Number(body.amount ?? 0) }
     });
 
     return NextResponse.json({ ok: true, entry }, { status: 201 });

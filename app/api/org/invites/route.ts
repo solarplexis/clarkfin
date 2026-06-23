@@ -39,12 +39,16 @@ export async function POST(request: Request) {
     const body = (await request.json()) as {
       semesterId?: string;
       studentId?: string;
+      studentIds?: string[];
     };
 
     const semesterId = String(body.semesterId ?? "").trim();
+    const studentIds = Array.isArray(body.studentIds)
+      ? Array.from(new Set(body.studentIds.map((id) => String(id).trim()).filter(Boolean)))
+      : [];
     const studentId = String(body.studentId ?? "").trim();
 
-    if (!semesterId || !studentId) {
+    if (!semesterId || (studentIds.length === 0 && !studentId)) {
       return NextResponse.json(
         { error: "Course and student selection are required." },
         { status: 400 }
@@ -57,14 +61,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "That course could not be found." }, { status: 404 });
     }
 
-    const invite = await createStudentInvite({
-      studentId,
-      organizationId: user.organizationId,
-      semesterId,
-      createdByUid: user.uid
-    });
+    const targetStudentIds = studentIds.length > 0 ? studentIds : [studentId];
+    const invites = [] as Array<Awaited<ReturnType<typeof createStudentInvite>>>;
 
-    return NextResponse.json({ ok: true, invite });
+    for (const targetStudentId of targetStudentIds) {
+      const invite = await createStudentInvite({
+        studentId: targetStudentId,
+        organizationId: user.organizationId,
+        semesterId,
+        createdByUid: user.uid
+      });
+      invites.push(invite);
+    }
+
+    return NextResponse.json({ ok: true, invites });
   } catch (error) {
     return NextResponse.json(
       {

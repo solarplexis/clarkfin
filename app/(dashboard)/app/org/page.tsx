@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CreateSemesterForm } from "@/components/create-semester-form";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { SelectedCourseSection } from "@/components/selected-course-section";
+import { StudentRosterManager } from "@/components/student-roster-manager";
 import { requireRole } from "@/src/lib/auth/session";
 import {
   getOrganizationById,
@@ -69,7 +70,7 @@ export default async function OrganizationDashboardPage() {
                 <th>Student</th>
                 <th>Email</th>
                 <th>Active course</th>
-                <th>Enrollments</th>
+                <th>Last action</th>
                 <th>Latest activity</th>
               </tr>
             </thead>
@@ -96,10 +97,14 @@ export default async function OrganizationDashboardPage() {
                           })()
                         : "No active course"}
                     </td>
-                    <td>{student.enrollmentCount}</td>
+                    <td>
+                      {student.latestActivitySummary
+                        ? student.latestActivitySummary
+                        : <span style={{ color: "var(--muted)" }}>No activity yet</span>}
+                    </td>
                     <td>
                       {student.latestActivityAt
-                        ? new Date(student.latestActivityAt).toLocaleString()
+                        ? new Date(student.latestActivityAt).toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })
                         : <span style={{ color: "var(--muted)" }}>No activity yet</span>}
                     </td>
                   </tr>
@@ -109,6 +114,14 @@ export default async function OrganizationDashboardPage() {
           </table>
         </div>
       </div>
+
+      <SelectedCourseSection
+        enrolledStudents={students}
+        feedbacks={feedbacks}
+        invites={invites}
+        roster={roster}
+        semesters={semesters}
+      />
 
       <div className="card">
         <div className="card-header">
@@ -178,13 +191,7 @@ export default async function OrganizationDashboardPage() {
         </div>
       </div>
 
-      <SelectedCourseSection
-        enrolledStudents={students}
-        feedbacks={feedbacks}
-        invites={invites}
-        roster={roster}
-        semesters={semesters}
-      />
+      <StudentRosterManager students={roster} />
     </DashboardShell>
   );
 }
