@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
 import {
+  createActivityLog,
   deleteExpenseEntry,
   getStudentEnrollment,
   updateExpenseEntry,
@@ -56,6 +57,17 @@ export async function PUT(
       isRecurring: Boolean(body.isRecurring ?? false)
     });
 
+    await createActivityLog({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      module: "budget",
+      action: "expense_updated",
+      status: "completed",
+      summary: `Expense updated: ${String(body.label ?? "")}`,
+      payload: { entryId, category, amount: Number(body.amount ?? 0) }
+    });
+
     return NextResponse.json({ ok: true, entry });
   } catch (error) {
     return NextResponse.json(
@@ -91,6 +103,17 @@ export async function DELETE(
     }
 
     await deleteExpenseEntry(entryId, user.uid, semesterId);
+
+    await createActivityLog({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      module: "budget",
+      action: "expense_deleted",
+      status: "completed",
+      summary: "Expense deleted",
+      payload: { entryId }
+    });
 
     return NextResponse.json({ ok: true });
   } catch (error) {

@@ -545,7 +545,7 @@ p { color: var(--ink-2); }
   color: var(--ink-2);
 }
 
-.field input,
+.field input:not([type="checkbox"]):not([type="radio"]),
 .field textarea,
 .field select {
   width: 100%;
@@ -558,7 +558,7 @@ p { color: var(--ink-2); }
   transition: border-color 120ms, box-shadow 120ms;
 }
 
-.field input:focus,
+.field input:not([type="checkbox"]):not([type="radio"]):focus,
 .field textarea:focus,
 .field select:focus {
   outline: none;
@@ -686,23 +686,36 @@ p { color: var(--ink-2); }
 
 .student-picker {
   position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
 }
 
 .student-picker-summary {
-  margin-top: 8px;
+  margin-top: 0;
   font-size: 0.8rem;
   color: var(--muted);
 }
 
+.student-picker-course-label {
+  padding: 12px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--ink-2);
+  font-size: 0.92rem;
+}
+
 .student-picker-results {
-  margin-top: 8px;
   border: 1px solid var(--line);
   border-radius: var(--radius-md);
   background: var(--surface);
   box-shadow: var(--shadow-md);
-  overflow: hidden;
-  max-height: 240px;
   overflow-y: auto;
+  flex: 1;
+  min-height: 160px;
+  max-height: min(320px, calc(100vh - 300px));
 }
 
 .student-picker-empty {
@@ -716,10 +729,10 @@ p { color: var(--ink-2); }
   border: 0;
   border-bottom: 1px solid var(--line);
   background: transparent;
-  padding: 12px;
-  text-align: left;
-  display: grid;
-  gap: 3px;
+  padding: 10px 12px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
   transition: background 120ms;
 }
 
@@ -728,20 +741,20 @@ p { color: var(--ink-2); }
 }
 
 .student-picker-option:hover,
-.student-picker-option-active,
 .student-picker-option-selected {
   background: var(--bg-subtle);
 }
 
-.student-picker-option-name {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--ink);
+.student-picker-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent);
 }
 
-.student-picker-option-meta {
-  font-size: 0.8rem;
-  color: var(--muted);
+.student-picker-option-name {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink);
 }
 
 /* ─── Checkbox row ────────────────────────────────────────────── */

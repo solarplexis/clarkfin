@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
 import {
+  createActivityLog,
   getAllocationTarget,
   getStudentEnrollment,
   upsertAllocationTarget
@@ -81,6 +82,17 @@ export async function PUT(request: Request) {
       debtPct,
       discretionaryPct,
       savingsPct
+    });
+
+    await createActivityLog({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      module: "budget",
+      action: "allocation_updated",
+      status: "completed",
+      summary: "Spending allocation updated",
+      payload: { essentialPct, debtPct, discretionaryPct, savingsPct }
     });
 
     return NextResponse.json({ ok: true, allocation });

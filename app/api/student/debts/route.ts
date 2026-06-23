@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
 import {
+  createActivityLog,
   createDebt,
   getStudentEnrollment,
   listDebts,
@@ -87,6 +88,17 @@ export async function POST(request: Request) {
       monthlyPayment: Number(body.monthlyPayment ?? 0),
       interestRate: Number(body.interestRate ?? 0),
       repaymentGoalDate: body.repaymentGoalDate ? String(body.repaymentGoalDate) : undefined
+    });
+
+    await createActivityLog({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      module: "debt",
+      action: "debt_added",
+      status: "completed",
+      summary: `Debt added: ${label}`,
+      payload: { category, currentBalance: Number(body.currentBalance ?? 0) }
     });
 
     return NextResponse.json({ ok: true, debt }, { status: 201 });

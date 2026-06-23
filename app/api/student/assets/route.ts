@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { getCurrentUser } from "@/src/lib/auth/session";
 import {
+  createActivityLog,
   createAsset,
   getStudentEnrollment,
   listAssets,
@@ -83,6 +84,17 @@ export async function POST(request: Request) {
       category,
       label,
       currentValue: Number(body.currentValue ?? 0)
+    });
+
+    await createActivityLog({
+      userId: user.uid,
+      organizationId: user.organizationId,
+      semesterId,
+      module: "budget",
+      action: "asset_added",
+      status: "completed",
+      summary: `Asset added: ${label}`,
+      payload: { category, currentValue: Number(body.currentValue ?? 0) }
     });
 
     return NextResponse.json({ ok: true, asset }, { status: 201 });

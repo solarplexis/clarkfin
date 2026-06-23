@@ -1327,7 +1327,7 @@ export async function listActivityLogsForOrganization(
 
 export async function listOrganizationStudentsWithLatestActivity(orgId: string) {
   const adminDb = getAdminDb();
-  const [usersSnapshot, activitySnapshot, enrollmentsSnapshot] = await Promise.all([
+  const [usersSnapshot, activitySnapshot] = await Promise.all([
     adminDb
       .collection("users")
       .where("organizationId", "==", orgId)
@@ -1337,42 +1337,36 @@ export async function listOrganizationStudentsWithLatestActivity(orgId: string) 
       .collection("activity_logs")
       .where("organizationId", "==", orgId)
       .orderBy("occurredAt", "desc")
-      .limit(250)
-      .get(),
-    adminDb
-      .collection("student_enrollments")
-      .where("organizationId", "==", orgId)
+      .limit(500)
       .get()
   ]);
 
-  const latestByUser = new Map<string, string>();
-  const enrollmentCountByUser = new Map<string, number>();
+  const latestByUser = new Map<string, { occurredAt: string; summary: string }>();
 
   activitySnapshot.docs.forEach((doc) => {
     const data = doc.data();
     const userId = String(data.userId ?? "");
 
     if (!latestByUser.has(userId)) {
-      latestByUser.set(userId, toIso(data.occurredAt));
+      latestByUser.set(userId, {
+        occurredAt: toIso(data.occurredAt),
+        summary: String(data.summary ?? "")
+      });
     }
-  });
-
-  enrollmentsSnapshot.docs.forEach((doc) => {
-    const userId = String(doc.data().userId ?? "");
-    enrollmentCountByUser.set(userId, (enrollmentCountByUser.get(userId) ?? 0) + 1);
   });
 
   return usersSnapshot.docs.map((doc) => {
     const data = doc.data();
     const activeSemesterId = data.activeSemesterId ? String(data.activeSemesterId) : "";
+    const latest = latestByUser.get(doc.id) ?? null;
 
     return {
       uid: doc.id,
       fullName: String(data.fullName ?? ""),
       email: String(data.email ?? ""),
       activeSemesterId,
-      enrollmentCount: enrollmentCountByUser.get(doc.id) ?? 0,
-      latestActivityAt: latestByUser.get(doc.id) ?? null
+      latestActivityAt: latest?.occurredAt ?? null,
+      latestActivitySummary: latest?.summary ?? null
     };
   });
 }
