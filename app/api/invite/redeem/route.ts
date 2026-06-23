@@ -6,7 +6,6 @@ import {
   createStudentEnrollment,
   createUserProfile,
   getStudentRecordById,
-  getOrganizationById,
   getSemesterById,
   getUserProfileById,
   getStudentInviteByCode,
@@ -60,20 +59,6 @@ export async function POST(request: Request) {
 
     if (!semester || !semester.isActive || !studentRecord) {
       return NextResponse.json({ error: "This course is no longer accepting invites." }, { status: 404 });
-    }
-
-    const organization = await getOrganizationById(invite.organizationId);
-    const allowedDomains = organization?.settings?.allowedEmailDomains ?? [];
-
-    if (allowedDomains.length > 0) {
-      const domain = email.split("@")[1] ?? "";
-
-      if (!allowedDomains.includes(domain)) {
-        return NextResponse.json(
-          { error: `Email domain must be one of: ${allowedDomains.join(", ")}` },
-          { status: 400 }
-        );
-      }
     }
 
     const adminAuth = getAdminAuth();
