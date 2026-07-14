@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 
 import type { Semester } from "@/types/domain";
 
+const STORAGE_KEY = "org-selected-semester-id";
+
 type WeekAvailability = "available" | "future";
 type CellStatus = "pass" | "fail" | "unavailable";
 
@@ -49,6 +51,27 @@ export function OrgCourseGrid({
   const [data, setData] = useState<GridResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored && semesters.some((semester) => semester.semesterId === stored)) {
+        setSemesterId(stored);
+      }
+    } catch {
+      // localStorage unavailable
+    }
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  function selectSemester(nextSemesterId: string) {
+    setSemesterId(nextSemesterId);
+    setWeekFilter("all");
+    try {
+      localStorage.setItem(STORAGE_KEY, nextSemesterId);
+    } catch {
+      // localStorage unavailable
+    }
+  }
 
   const selectedSemester = useMemo(
     () => semesters.find((semester) => semester.semesterId === semesterId) ?? null,
@@ -132,10 +155,7 @@ export function OrgCourseGrid({
           </span>
           <select
             value={semesterId}
-            onChange={(event) => {
-              setSemesterId(event.target.value);
-              setWeekFilter("all");
-            }}
+            onChange={(event) => { selectSemester(event.target.value); }}
             style={{ height: 38, borderRadius: 10, border: "1px solid var(--line)", padding: "0 10px", background: "var(--card)" }}
           >
             {semesters.map((semester) => (

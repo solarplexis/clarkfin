@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { CreateSemesterForm } from "@/components/create-semester-form";
 import { DashboardShell } from "@/components/dashboard-shell";
 import { SelectedCourseSection } from "@/components/selected-course-section";
+import { StudentActivityTable } from "@/components/student-activity-table";
 import { StudentRosterManager } from "@/components/student-roster-manager";
 import { requireRole } from "@/src/lib/auth/session";
 import {
@@ -28,7 +29,6 @@ export default async function OrganizationDashboardPage() {
     listStudentsForOrganization(orgId),
     listStudentFeedbacksForOrganization(orgId)
   ]);
-  const semestersById = new Map(semesters.map((semester) => [semester.semesterId, semester]));
 
   return (
     <DashboardShell user={user}>
@@ -59,61 +59,7 @@ export default async function OrganizationDashboardPage() {
         </div>
       </div>
 
-      <div className="card">
-        <div className="card-header">
-          <h2>Student Activity</h2>
-        </div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Student</th>
-                <th>Email</th>
-                <th>Active course</th>
-                <th>Last action</th>
-                <th>Latest activity</th>
-              </tr>
-            </thead>
-            <tbody>
-              {students.length === 0 ? (
-                <tr>
-                  <td colSpan={5} style={{ textAlign: "center", color: "var(--muted)" }}>
-                    No enrolled students yet.
-                  </td>
-                </tr>
-              ) : (
-                students.map((student) => (
-                  <tr key={student.uid}>
-                    <td>{student.fullName}</td>
-                    <td>{student.email}</td>
-                    <td>
-                      {student.activeSemesterId
-                        ? (() => {
-                            const semester = semestersById.get(student.activeSemesterId);
-
-                            return semester
-                              ? `${semester.courseCode} · ${semester.title}`
-                              : student.activeSemesterId;
-                          })()
-                        : "No active course"}
-                    </td>
-                    <td>
-                      {student.latestActivitySummary
-                        ? student.latestActivitySummary
-                        : <span style={{ color: "var(--muted)" }}>No activity yet</span>}
-                    </td>
-                    <td>
-                      {student.latestActivityAt
-                        ? new Date(student.latestActivityAt).toLocaleString(undefined, { day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", hour12: true })
-                        : <span style={{ color: "var(--muted)" }}>No activity yet</span>}
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <StudentActivityTable semesters={semesters} students={students} />
 
       <SelectedCourseSection
         enrolledStudents={students}

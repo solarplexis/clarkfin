@@ -24,6 +24,20 @@ const CopyIcon = () => (
   </svg>
 );
 
+const SortChevronIcon = ({ direction }: { direction: "asc" | "desc" }) => (
+  <svg
+    aria-hidden="true"
+    fill="none"
+    height="10"
+    style={{ transform: direction === "desc" ? "rotate(180deg)" : undefined }}
+    viewBox="0 0 10 6"
+    width="10"
+    xmlns="http://www.w3.org/2000/svg"
+  >
+    <path d="M1 1L5 5L9 1" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+  </svg>
+);
+
 type StudentStatus = "prospect" | "invited" | "active" | "inactive";
 
 type StudentRow = {
@@ -34,6 +48,24 @@ type StudentRow = {
   status: StudentStatus;
   authUserId?: string;
 };
+
+type RosterSortKey = "name" | "email" | "status" | "studentId";
+type SortDirection = "asc" | "desc";
+
+const ROSTER_PAGE_SIZE = 15;
+
+function compareStudentRows(a: StudentRow, b: StudentRow, sortKey: RosterSortKey): number {
+  switch (sortKey) {
+    case "name":
+      return `${a.firstName} ${a.lastName}`.toLowerCase().localeCompare(`${b.firstName} ${b.lastName}`.toLowerCase());
+    case "email":
+      return a.email.toLowerCase().localeCompare(b.email.toLowerCase());
+    case "status":
+      return a.status.localeCompare(b.status);
+    case "studentId":
+      return a.studentId.localeCompare(b.studentId);
+  }
+}
 
 function getFieldErrorProps(errorId: string, hasError: boolean) {
   return hasError
@@ -321,14 +353,42 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
   const [bulkError, setBulkError] = useState<string | null>(null);
   const [bulkSuccess, setBulkSuccess] = useState<string | null>(null);
   const [isBulkPending, setIsBulkPending] = useState(false);
+  const [sortKey, setSortKey] = useState<RosterSortKey>("name");
+  const [sortDir, setSortDir] = useState<SortDirection>("asc");
+  const [page, setPage] = useState(0);
   const studentIds = useMemo(() => new Set(students.map((student) => student.studentId)), [students]);
   const hasSelection = selectedStudentIds.length > 0;
-  const allStudentsSelected =
-    students.length > 0 && selectedStudentIds.length === students.length;
+
+  const sortedStudents = useMemo(() => {
+    const rows = [...students].sort((a, b) => compareStudentRows(a, b, sortKey));
+    return sortDir === "asc" ? rows : rows.reverse();
+  }, [students, sortKey, sortDir]);
+
+  const pageCount = Math.max(1, Math.ceil(sortedStudents.length / ROSTER_PAGE_SIZE));
+  const currentPage = Math.min(page, pageCount - 1);
+  const pagedStudents = sortedStudents.slice(
+    currentPage * ROSTER_PAGE_SIZE,
+    currentPage * ROSTER_PAGE_SIZE + ROSTER_PAGE_SIZE
+  );
+  const allOnPageSelected =
+    pagedStudents.length > 0 && pagedStudents.every((student) => selectedStudentIds.includes(student.studentId));
 
   useEffect(() => {
     setSelectedStudentIds((current) => current.filter((studentId) => studentIds.has(studentId)));
   }, [studentIds]);
+
+  useEffect(() => {
+    setPage(0);
+  }, [sortKey, sortDir]);
+
+  function toggleSort(key: RosterSortKey) {
+    if (sortKey === key) {
+      setSortDir((current) => (current === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
 
   function toggleStudent(studentId: string) {
     setSelectedStudentIds((current) =>
@@ -339,12 +399,14 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
   }
 
   function toggleAllDeletable() {
-    if (allStudentsSelected) {
-      setSelectedStudentIds([]);
+    const pageIds = pagedStudents.map((student) => student.studentId);
+
+    if (allOnPageSelected) {
+      setSelectedStudentIds((current) => current.filter((id) => !pageIds.includes(id)));
       return;
     }
 
-    setSelectedStudentIds(students.map((student) => student.studentId));
+    setSelectedStudentIds((current) => Array.from(new Set([...current, ...pageIds])));
   }
 
   async function deleteSelectedStudents() {
@@ -434,29 +496,69 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
             <tr>
               <th style={{ width: 36 }}>
                 <input
-                  aria-label="Select all students"
-                  checked={allStudentsSelected}
-                  disabled={isBulkPending || students.length === 0}
+                  aria-label="Select all students on this page"
+                  checked={allOnPageSelected}
+                  disabled={isBulkPending || pagedStudents.length === 0}
                   type="checkbox"
                   onChange={toggleAllDeletable}
                 />
               </th>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Status</th>
-              <th>Student ID</th>
+              <th>
+                <button
+                  aria-sort={sortKey === "name" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                  className="th-sort-button"
+                  type="button"
+                  onClick={() => { toggleSort("name"); }}
+                >
+                  Name
+                  <SortChevronIcon direction={sortKey === "name" ? sortDir : "asc"} />
+                </button>
+              </th>
+              <th>
+                <button
+                  aria-sort={sortKey === "email" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                  className="th-sort-button"
+                  type="button"
+                  onClick={() => { toggleSort("email"); }}
+                >
+                  Email
+                  <SortChevronIcon direction={sortKey === "email" ? sortDir : "asc"} />
+                </button>
+              </th>
+              <th>
+                <button
+                  aria-sort={sortKey === "status" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                  className="th-sort-button"
+                  type="button"
+                  onClick={() => { toggleSort("status"); }}
+                >
+                  Status
+                  <SortChevronIcon direction={sortKey === "status" ? sortDir : "asc"} />
+                </button>
+              </th>
+              <th>
+                <button
+                  aria-sort={sortKey === "studentId" ? (sortDir === "asc" ? "ascending" : "descending") : "none"}
+                  className="th-sort-button"
+                  type="button"
+                  onClick={() => { toggleSort("studentId"); }}
+                >
+                  Student ID
+                  <SortChevronIcon direction={sortKey === "studentId" ? sortDir : "asc"} />
+                </button>
+              </th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
-            {students.length === 0 ? (
+            {pagedStudents.length === 0 ? (
               <tr>
                 <td colSpan={6} style={{ color: "var(--muted)", textAlign: "center" }}>
                   No students in the roster yet.
                 </td>
               </tr>
             ) : (
-              students.map((student) => (
+              pagedStudents.map((student) => (
                 <tr key={student.studentId}>
                   <td>
                     <input
@@ -513,6 +615,29 @@ export function StudentRosterManager({ students }: { students: StudentRow[] }) {
             )}
           </tbody>
         </table>
+        {sortedStudents.length > ROSTER_PAGE_SIZE ? (
+          <div className="table-pagination">
+            <span className="muted">
+              Page {currentPage + 1} of {pageCount} · {sortedStudents.length} students
+            </span>
+            <button
+              className="button-secondary btn-sm"
+              disabled={currentPage === 0}
+              type="button"
+              onClick={() => { setPage((current) => Math.max(0, current - 1)); }}
+            >
+              Previous
+            </button>
+            <button
+              className="button-secondary btn-sm"
+              disabled={currentPage >= pageCount - 1}
+              type="button"
+              onClick={() => { setPage((current) => Math.min(pageCount - 1, current + 1)); }}
+            >
+              Next
+            </button>
+          </div>
+        ) : null}
       </div>
     </div>
   );
