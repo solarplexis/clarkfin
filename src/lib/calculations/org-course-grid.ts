@@ -121,6 +121,48 @@ function getWeekNumberFromDate(semesterStart: Date, value: Date) {
   return Math.floor(diffMs / MS_PER_WEEK) + 1;
 }
 
+// Mirrors the courseWeek -> {periodYear, periodMonth, periodWeek} mapping the
+// student-facing budget tools use to label entries (see courseWeekToCalendar
+// in components/income-statement-tool.tsx and weekly-planner-tool.tsx). Weeks
+// are strictly defined by the semester's start date, so an entry's course
+// week must be resolved from that same mapping rather than from when the
+// entry happened to be written.
+function courseWeekToPeriod(semesterStart: Date, courseWeek: number) {
+  const weekStart = new Date(semesterStart.getTime() + (courseWeek - 1) * MS_PER_WEEK);
+  return {
+    periodYear: weekStart.getUTCFullYear(),
+    periodMonth: weekStart.getUTCMonth() + 1,
+    periodWeek: Math.min(4, Math.ceil(weekStart.getUTCDate() / 7))
+  };
+}
+
+// Inverts courseWeekToPeriod by searching the (small, bounded) set of course
+// weeks for the one whose calendar coordinates match. A direct arithmetic
+// inverse is lossy near month/week-bucket boundaries, so we recompute the
+// forward mapping for every week instead of approximating backwards.
+function resolveCourseWeekFromPeriod(
+  semesterStart: Date,
+  durationWeeks: number,
+  periodYear: number,
+  periodMonth: number,
+  periodWeek: number
+): number | null {
+  if (periodWeek < 1 || periodWeek > 4) {
+    return null;
+  }
+  for (let courseWeek = 1; courseWeek <= durationWeeks; courseWeek += 1) {
+    const period = courseWeekToPeriod(semesterStart, courseWeek);
+    if (
+      period.periodYear === periodYear &&
+      period.periodMonth === periodMonth &&
+      period.periodWeek === periodWeek
+    ) {
+      return courseWeek;
+    }
+  }
+  return null;
+}
+
 type StudentWeekSignal = {
   budgetTouched: boolean;
   debtTouched: boolean;
@@ -264,8 +306,14 @@ export async function getStudentCurrentWeekProgress(input: {
 
     for (const doc of [...incomeSnapshot.docs, ...expenseSnapshot.docs]) {
       const data = doc.data();
-      const eventDate = toEventDate(data.updatedAt) ?? toEventDate(data.createdAt);
-      if (!eventDate || eventDate < weekStart || eventDate > weekEnd) {
+      const entryWeek = resolveCourseWeekFromPeriod(
+        semesterStart,
+        durationWeeks,
+        Number(data.periodYear ?? 0),
+        Number(data.periodMonth ?? 0),
+        Number(data.periodWeek ?? 0)
+      );
+      if (entryWeek !== weekNumber) {
         continue;
       }
 
@@ -433,13 +481,14 @@ export async function buildOrgCourseWeekGrid(input: {
         continue;
       }
 
-      const eventDate = toEventDate(data.updatedAt) ?? toEventDate(data.createdAt);
-      if (!eventDate) {
-        continue;
-      }
-
-      const weekNumber = getWeekNumberFromDate(semesterStart, eventDate);
-      if (weekNumber < 1 || weekNumber > durationWeeks) {
+      const weekNumber = resolveCourseWeekFromPeriod(
+        semesterStart,
+        durationWeeks,
+        Number(data.periodYear ?? 0),
+        Number(data.periodMonth ?? 0),
+        Number(data.periodWeek ?? 0)
+      );
+      if (weekNumber === null) {
         continue;
       }
 
