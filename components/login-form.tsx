@@ -1,6 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { signInWithEmailAndPassword } from "firebase/auth";
 
@@ -67,7 +68,10 @@ export function LoginForm() {
         />
       </div>
       <div className="field">
-        <label htmlFor="password">Password</label>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+          <label htmlFor="password">Password</label>
+          <Link href="/forgot-password" style={{ fontSize: "0.8125rem" }}>Forgot password?</Link>
+        </div>
         <div className="password-input-wrapper">
           <input
             aria-describedby={error ? errorId : undefined}
