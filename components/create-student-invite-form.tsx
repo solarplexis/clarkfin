@@ -49,6 +49,13 @@ const CopyIcon = () => (
   </svg>
 );
 
+const ReinviteIcon = () => (
+  <svg fill="none" height="14" viewBox="0 0 16 16" width="14" xmlns="http://www.w3.org/2000/svg">
+    <path d="M13.5 8A5.5 5.5 0 1 1 11.7 4" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+    <path d="M13.5 2.5V6H10" stroke="currentColor" strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5"/>
+  </svg>
+);
+
 export function EditInviteDrawer({ invite }: { invite: InviteRow }) {
   const formId = useId();
   const errorId = `${formId}-error`;
@@ -134,6 +141,16 @@ export function DeleteInviteButton({ invite }: { invite: InviteRow }) {
   const [isPending, setIsPending] = useState(false);
 
   async function remove() {
+    if (invite.status === "redeemed") {
+      const confirmed = window.confirm(
+        `${invite.studentFirstName} ${invite.studentLastName} has already redeemed this invite. Deleting it will not remove their account, but this cannot be undone. Delete anyway?`
+      );
+
+      if (!confirmed) {
+        return;
+      }
+    }
+
     setIsPending(true);
     setError(null);
 
@@ -160,11 +177,63 @@ export function DeleteInviteButton({ invite }: { invite: InviteRow }) {
         className="icon-button icon-button-danger"
         data-tooltip="Delete Invite"
         title="Delete Invite"
-        disabled={isPending || invite.status === "redeemed"}
+        disabled={isPending}
         type="button"
         onClick={() => { void remove(); }}
       >
         <TrashIcon />
+      </button>
+      {error ? <p className="error-msg" id={errorId} role="alert" style={{ margin: 0 }}>{error}</p> : null}
+    </div>
+  );
+}
+
+export function ReinviteButton({ invite }: { invite: InviteRow }) {
+  const router = useRouter();
+  const errorId = useId();
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, setIsPending] = useState(false);
+
+  async function reinvite() {
+    const confirmed = window.confirm(
+      `Re-invite ${invite.studentFirstName} ${invite.studentLastName}? This replaces their current invite link with a new one.`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    setIsPending(true);
+    setError(null);
+
+    try {
+      const response = await fetch(`/api/org/invites/${invite.inviteId}/reinvite`, { method: "POST" });
+      const json = (await response.json()) as { error?: string };
+
+      if (!response.ok) {
+        setError(json.error ?? "Unable to re-invite student.");
+        return;
+      }
+
+      startTransition(() => { router.refresh(); });
+    } finally {
+      setIsPending(false);
+    }
+  }
+
+  return (
+    <div className="stack-sm" style={{ alignItems: "flex-end" }}>
+      <button
+        aria-describedby={error ? errorId : undefined}
+        aria-label="Re-invite Student"
+        className="icon-button"
+        data-tooltip="Re-invite Student"
+        title="Re-invite Student"
+        disabled={isPending}
+        type="button"
+        onClick={() => { void reinvite(); }}
+      >
+        <ReinviteIcon />
       </button>
       {error ? <p className="error-msg" id={errorId} role="alert" style={{ margin: 0 }}>{error}</p> : null}
     </div>

@@ -5,7 +5,8 @@ import {
   CopyInviteLinkButton,
   CreateStudentInviteForm,
   DeleteInviteButton,
-  EditInviteDrawer
+  EditInviteDrawer,
+  ReinviteButton
 } from "@/components/create-student-invite-form";
 
 const STORAGE_KEY = "org-selected-semester-id";
@@ -187,7 +188,7 @@ export function SelectedCourseSection({
             <CreateStudentInviteForm
               defaultSemesterId={selectedSemesterId}
               semesters={semesters}
-              students={roster.filter((student) => student.status === "prospect" && !invitedStudentIds.has(student.studentId))}
+              students={roster.filter((student) => !invitedStudentIds.has(student.studentId))}
             />
           </div>
           <div className="table-wrap">
@@ -261,6 +262,7 @@ export function SelectedCourseSection({
                         <td>
                           <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
                             <CopyInviteLinkButton invite={invite} />
+                            <ReinviteButton invite={invite} />
                             <EditInviteDrawer invite={invite} />
                             <DeleteInviteButton invite={invite} />
                           </div>

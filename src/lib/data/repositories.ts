@@ -1042,10 +1042,6 @@ export async function deleteStudentInvite(inviteId: string, organizationId: stri
     throw new Error("That invite does not belong to this organization.");
   }
 
-  if (invite.status === "redeemed") {
-    throw new Error("Redeemed invites cannot be deleted.");
-  }
-
   await inviteRef.delete();
 }
 
