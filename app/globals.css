@@ -4626,6 +4626,39 @@ tbody tr:hover {
 
 .wp-empty-hint a { color: var(--accent); text-decoration: underline; }
 
+.wp-setup-card {
+  background: var(--surface);
+  border: 1.5px solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.wp-setup-header h3 {
+  margin: 0 0 4px;
+  font-size: 1.05rem;
+}
+
+.wp-setup-header p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: var(--muted);
+}
+
+.wp-setup-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.wp-setup-valid { font-size: 0.8rem; color: #0a9e74; }
+.wp-setup-invalid { font-size: 0.8rem; color: var(--danger); }
+.wp-setup-error { font-size: 0.8rem; color: var(--danger); }
+
 .wp-weeks-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

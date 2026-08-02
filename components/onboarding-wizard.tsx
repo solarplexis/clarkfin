@@ -127,16 +127,17 @@ interface Props {
   organizationId: string;
   initialDebts: Debt[];
   initialGoals: Goal[];
+  initialStep?: number;
 }
 
 // ─── Component ──────────────────────────────────────────────────
 
-export function OnboardingWizard({ user, semesterId, organizationId: _organizationId, initialDebts, initialGoals }: Props) {
+export function OnboardingWizard({ user, semesterId, organizationId: _organizationId, initialDebts, initialGoals, initialStep = 0 }: Props) {
   const router = useRouter();
 
   // step 0 = welcome, 1–4 = data entry
   const DATA_STEPS = 4;
-  const [step, setStep] = useState(0);
+  const [step, setStep] = useState(initialStep);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
 

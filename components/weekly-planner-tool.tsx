@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 import { PageConnect } from "@/components/page-connect";
 import { WeeklyCheckinWizard } from "@/components/weekly-checkin-wizard";
@@ -290,6 +291,7 @@ export function WeeklyPlannerTool({
   goals?: Goal[];
   currentMonthIncomeEntries?: IncomeEntry[];
 }) {
+  const router = useRouter();
   const [entries, setEntries] = useState<EntryDraft[]>(() => buildDrafts(initialEntries));
   const [checkinOpen, setCheckinOpen] = useState(false);
 
@@ -298,6 +300,76 @@ export function WeeklyPlannerTool({
   useEffect(() => {
     setEntries(buildDrafts(initialEntries));
   }, [initialEntries]);
+
+  // Budget setup recovery — for students who skipped onboarding step 4 and
+  // have no baseline income on file. There is no other page that can write
+  // the periodYear:0 baseline entry, so this is the only way back in short
+  // of redoing onboarding.
+  const [setupNetPay, setSetupNetPay] = useState("");
+  const [setupEssentialPct, setSetupEssentialPct] = useState(allocationTarget?.essentialPct ?? 55);
+  const [setupDebtPct, setSetupDebtPct] = useState(allocationTarget?.debtPct ?? 15);
+  const [setupDiscretionaryPct, setSetupDiscretionaryPct] = useState(allocationTarget?.discretionaryPct ?? 20);
+  const [setupSavingsPct, setSetupSavingsPct] = useState(allocationTarget?.savingsPct ?? 10);
+  const [setupSaving, setSetupSaving] = useState(false);
+  const [setupError, setSetupError] = useState("");
+
+  const setupNetPayNum = parseFloat(setupNetPay) || 0;
+  const setupAllocTotal = setupEssentialPct + setupDebtPct + setupDiscretionaryPct + setupSavingsPct;
+  const setupAllocValid = Math.abs(setupAllocTotal - 100) < 0.5;
+
+  async function saveBudgetSetup() {
+    setSetupError("");
+    if (setupNetPayNum <= 0) {
+      setSetupError("Enter your monthly net pay.");
+      return;
+    }
+    if (!setupAllocValid) {
+      setSetupError(`Allocation must total 100% (currently ${setupAllocTotal}%).`);
+      return;
+    }
+    setSetupSaving(true);
+    try {
+      const [allocRes, incomeRes] = await Promise.all([
+        fetch("/api/student/allocation", {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            semesterId,
+            essentialPct: setupEssentialPct,
+            debtPct: setupDebtPct,
+            discretionaryPct: setupDiscretionaryPct,
+            savingsPct: setupSavingsPct
+          })
+        }),
+        fetch("/api/student/income-entries", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            semesterId,
+            periodYear: 0,
+            periodMonth: 0,
+            periodWeek: 0,
+            category: "gross_pay",
+            label: "Monthly Net Pay",
+            amount: setupNetPayNum
+          })
+        })
+      ]);
+      if (!allocRes.ok) {
+        const data = await allocRes.json() as { error?: string };
+        throw new Error(data.error ?? "Failed to save allocation.");
+      }
+      if (!incomeRes.ok) {
+        const data = await incomeRes.json() as { error?: string };
+        throw new Error(data.error ?? "Failed to save income baseline.");
+      }
+      router.refresh();
+    } catch (err) {
+      setSetupError(err instanceof Error ? err.message : "Something went wrong.");
+    } finally {
+      setSetupSaving(false);
+    }
+  }
 
   const durationWeeks = semester?.durationWeeks ?? 4;
   const netPayMonthly = calcNetPay(baselineEntries);
@@ -459,11 +531,62 @@ export function WeeklyPlannerTool({
           Your budget is set — but without goals, these numbers don&apos;t mean anything yet.{" "}
           <a href="/app/student/goals">Set up your goals</a> to see what your spending decisions are actually costing you.
         </div>
-      ) : netPayMonthly === 0 ? (
-        <div className="wp-goal-story wp-goal-story-empty">
-          Log your baseline income on the <a href="/app/student/income">Income page</a> to activate your budget and see how your spending connects to your goals.
-        </div>
       ) : null}
+
+      {netPayMonthly === 0 && (
+        <div className="wp-setup-card">
+          <div className="wp-setup-header">
+            <h3>Set up your budget</h3>
+            <p>We don&apos;t have your monthly income on file yet — that&apos;s what your weekly budget is calculated from. Enter it once to activate your budget.</p>
+          </div>
+          <div className="field">
+            <label htmlFor="wp-setup-netpay">
+              Monthly Net Pay
+              <span className="field-hint" style={{ marginLeft: 6 }}>after taxes, what hits your account</span>
+            </label>
+            <input
+              id="wp-setup-netpay"
+              type="number"
+              min="0"
+              value={setupNetPay}
+              onChange={(e) => setSetupNetPay(e.target.value)}
+              placeholder="e.g. 1800"
+              style={{ fontSize: "1.1rem" }}
+            />
+          </div>
+          <div className="wizard-alloc-grid">
+            {([
+              { label: "Essential", value: setupEssentialPct, set: setSetupEssentialPct, hint: "rent, groceries, utilities" },
+              { label: "Debt", value: setupDebtPct, set: setSetupDebtPct, hint: "loan & card payments" },
+              { label: "Discretionary", value: setupDiscretionaryPct, set: setSetupDiscretionaryPct, hint: "dining, entertainment" },
+              { label: "Savings", value: setupSavingsPct, set: setSetupSavingsPct, hint: "your goals" }
+            ] as Array<{ label: string; value: number; set: (v: number) => void; hint: string }>).map(({ label, value, set, hint }) => (
+              <div key={label} className="wizard-alloc-box">
+                <div className="wizard-alloc-label">{label}</div>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={value}
+                  onChange={(e) => set(Number(e.target.value))}
+                  className="wizard-alloc-input"
+                />
+                <div className="wizard-alloc-pct">%</div>
+                <div className="wizard-alloc-hint">{hint}</div>
+              </div>
+            ))}
+          </div>
+          <div className="wp-setup-footer">
+            <span className={setupAllocValid ? "wp-setup-valid" : "wp-setup-invalid"}>
+              {setupAllocValid ? "✓ totals 100%" : `must total 100% · currently ${setupAllocTotal}%`}
+            </span>
+            {setupError && <span className="wp-setup-error">{setupError}</span>}
+            <button className="btn btn-primary" onClick={saveBudgetSetup} disabled={setupSaving}>
+              {setupSaving ? "Saving…" : "Save & calculate my budget"}
+            </button>
+          </div>
+        </div>
+      )}
 
       {hasCreditCard && (
         <div className="wp-cc-banner">
