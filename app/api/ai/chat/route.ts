@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/src/lib/auth/session";
 import { getOpenAIKey } from "@/src/lib/env";
 import {
   getStudentEnrollment,
+  getSemesterById,
   createExpenseEntry,
   createIncomeEntry,
   createDebt,
@@ -14,6 +15,55 @@ import {
   listAssets
 } from "@/src/lib/data/repositories";
 import { retrieveSyllabusContext } from "@/src/lib/ai/rag";
+
+// ─── Course-week date math ─────────────────────────────────────
+// Mirrors the mapping used by the Budget page (components/weekly-planner-tool.tsx)
+// so "week 1" means the same calendar bucket in the assistant as it does in the UI.
+
+const MS_PER_WEEK = 7 * 24 * 60 * 60 * 1000;
+
+function parseSemesterStart(startsAt: string): Date | null {
+  const trimmed = startsAt.trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+    const d = new Date(`${trimmed}T00:00:00.000Z`);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  const d = new Date(startsAt);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+function courseWeekToCalendar(
+  startsAt: string | undefined,
+  courseWeek: number
+): { periodYear: number; periodMonth: number; periodWeek: number } {
+  if (startsAt) {
+    const semStart = parseSemesterStart(startsAt);
+    if (semStart) {
+      const weekStart = new Date(semStart.getTime() + (courseWeek - 1) * MS_PER_WEEK);
+      const year = weekStart.getUTCFullYear();
+      const month = weekStart.getUTCMonth() + 1;
+      const day = weekStart.getUTCDate();
+      const periodWeek = Math.min(4, Math.ceil(day / 7));
+      return { periodYear: year, periodMonth: month, periodWeek };
+    }
+  }
+  const month = Math.ceil(courseWeek / 4);
+  const periodWeek = ((courseWeek - 1) % 4) + 1;
+  return { periodYear: new Date().getFullYear(), periodMonth: month, periodWeek };
+}
+
+function currentCourseWeek(semester: { startsAt?: string; durationWeeks: number } | null): number {
+  const duration = semester?.durationWeeks ?? 4;
+  if (semester?.startsAt) {
+    const semStart = parseSemesterStart(semester.startsAt);
+    if (semStart) {
+      const diffMs = Date.now() - semStart.getTime();
+      const w = Math.ceil(diffMs / MS_PER_WEEK);
+      return Math.min(Math.max(1, w), duration);
+    }
+  }
+  return Math.min(4, Math.ceil(new Date().getDate() / 7));
+}
 
 // ─── OpenAI client (lazy init) ────────────────────────────────
 
@@ -40,12 +90,13 @@ const TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
           label: { type: "string", description: "Short description of the expense (e.g. 'Starbucks', 'Rent', 'Groceries')" },
           amount: { type: "number", description: "Amount in dollars (positive number)" },
           category: { type: "string", enum: ["essential", "debt", "discretionary"] },
-          periodYear: { type: "integer", description: "Year of the expense (e.g. 2026)" },
-          periodMonth: { type: "integer", description: "Month of the expense (1-12)" },
-          periodWeek: { type: "integer", description: "Week of month (1-4)" },
+          courseWeek: {
+            type: "integer",
+            description: "The course week number as the student would say it (e.g. 'week 1', 'week 3') — matches the Week N cards on the Budget page. Defaults to the student's current course week if not specified."
+          },
           isRecurring: { type: "boolean", description: "True for recurring monthly expenses like rent" }
         },
-        required: ["label", "amount", "category", "periodYear", "periodMonth", "periodWeek"]
+        required: ["label", "amount", "category", "courseWeek"]
       }
     }
   },
@@ -65,11 +116,12 @@ const TOOLS: OpenAI.Chat.ChatCompletionTool[] = [
             enum: ["gross_pay", "taxes", "bonus", "interest", "other"],
             description: "Use 'taxes' for withholdings (negative effect), 'other' for informal income."
           },
-          periodYear: { type: "integer" },
-          periodMonth: { type: "integer", description: "Month (1-12)" },
-          periodWeek: { type: "integer", description: "Week of month (1-4)" }
+          courseWeek: {
+            type: "integer",
+            description: "The course week number as the student would say it (e.g. 'week 1', 'week 3') — matches the Week N cards on the Budget page. Defaults to the student's current course week if not specified."
+          }
         },
-        required: ["label", "amount", "category", "periodYear", "periodMonth", "periodWeek"]
+        required: ["label", "amount", "category", "courseWeek"]
       }
     }
   },
@@ -119,6 +171,7 @@ const NAV_LINKS: Record<string, string> = {
 function buildSystemPrompt(ctx: {
   studentName: string;
   today: string;
+  currentCourseWeek: number;
   syllabusContext: string | null;
   syllabusError: string | null;
   recentExpenses: string;
@@ -158,7 +211,7 @@ When a student describes a transaction, call the appropriate tool:
 - Income: "I got paid", "I earned $X", "I received a bonus" → create_income_entry
 - New debt: "my friend loaned me $50", "I borrowed $X" → create_debt
 
-For date fields use today: year=${ctx.today.slice(0, 4)}, month=${parseInt(ctx.today.slice(5, 7))}, week=1 unless the student specifies otherwise.
+Today (${ctx.today}) falls in course week ${ctx.currentCourseWeek} — use courseWeek=${ctx.currentCourseWeek} unless the student names a different week (e.g. "week 3", "last week" → ${Math.max(1, ctx.currentCourseWeek - 1)}).
 
 After calling a tool, confirm what was recorded. If a student wants to edit or delete an entry, direct them to the relevant page — you can only add new entries.
 
@@ -223,11 +276,12 @@ export async function POST(request: Request) {
     let syllabusContext: string | null = null;
     let syllabusError: string | null = null;
 
-    const [expenses, incomeEntries, debts, assets] = await Promise.all([
+    const [expenses, incomeEntries, debts, assets, semester] = await Promise.all([
       listExpenseEntries(user.uid, semesterId).catch(() => []),
       listIncomeEntries(user.uid, semesterId).catch(() => []),
       listDebts(user.uid, semesterId).catch(() => []),
-      listAssets(user.uid, semesterId).catch(() => [])
+      listAssets(user.uid, semesterId).catch(() => []),
+      getSemesterById(semesterId).catch(() => null)
     ]);
 
     try {
@@ -264,6 +318,7 @@ export async function POST(request: Request) {
     const systemPrompt = buildSystemPrompt({
       studentName: user.fullName ?? "Student",
       today,
+      currentCourseWeek: currentCourseWeek(semester),
       syllabusContext,
       syllabusError,
       recentExpenses,
@@ -312,7 +367,8 @@ export async function POST(request: Request) {
             result = await executeTool(call.function.name, args, {
               userId: user.uid,
               organizationId: user.organizationId!,
-              semesterId
+              semesterId,
+              semesterStartsAt: semester?.startsAt
             });
             dataUpdated = true;
           } catch (err) {
@@ -349,9 +405,10 @@ export async function POST(request: Request) {
 async function executeTool(
   name: string,
   input: Record<string, unknown>,
-  ctx: { userId: string; organizationId: string; semesterId: string }
+  ctx: { userId: string; organizationId: string; semesterId: string; semesterStartsAt?: string }
 ): Promise<string> {
   if (name === "create_expense_entry") {
+    const { periodYear, periodMonth, periodWeek } = courseWeekToCalendar(ctx.semesterStartsAt, Number(input.courseWeek));
     const entry = await createExpenseEntry({
       userId: ctx.userId,
       organizationId: ctx.organizationId,
@@ -359,15 +416,16 @@ async function executeTool(
       label: String(input.label),
       amount: Number(input.amount),
       category: input.category as "essential" | "debt" | "discretionary",
-      periodYear: Number(input.periodYear),
-      periodMonth: Number(input.periodMonth),
-      periodWeek: Number(input.periodWeek),
+      periodYear,
+      periodMonth,
+      periodWeek,
       isRecurring: Boolean(input.isRecurring ?? false)
     });
     return `Expense recorded: ${entry.label} — $${entry.amount} (${entry.category}, ID: ${entry.id})`;
   }
 
   if (name === "create_income_entry") {
+    const { periodYear, periodMonth, periodWeek } = courseWeekToCalendar(ctx.semesterStartsAt, Number(input.courseWeek));
     const entry = await createIncomeEntry({
       userId: ctx.userId,
       organizationId: ctx.organizationId,
@@ -375,9 +433,9 @@ async function executeTool(
       label: String(input.label),
       amount: Number(input.amount),
       category: input.category as "gross_pay" | "taxes" | "bonus" | "interest" | "other",
-      periodYear: Number(input.periodYear),
-      periodMonth: Number(input.periodMonth),
-      periodWeek: Number(input.periodWeek)
+      periodYear,
+      periodMonth,
+      periodWeek
     });
     return `Income recorded: ${entry.label} — $${entry.amount} (${entry.category}, ID: ${entry.id})`;
   }

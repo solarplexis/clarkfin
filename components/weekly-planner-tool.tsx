@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { PageConnect } from "@/components/page-connect";
 import { WeeklyCheckinWizard } from "@/components/weekly-checkin-wizard";
@@ -151,7 +151,6 @@ function EntryRow({
         onUpdate({
           ...draft,
           id: data.entry.id,
-          tempId: data.entry.id,
           label: nextLabel.trim(),
           amount: nextAmount,
           isRecurring: nextRecurring,
@@ -235,8 +234,8 @@ function WeekCard({
 }) {
   const spent = entries.reduce((s, e) => s + e.amount, 0);
   const remaining = available - spent;
-  const pct = available > 0 ? Math.min(100, (spent / available) * 100) : 0;
-  const status: StatusClass = pct >= 100 ? "danger" : pct >= 80 ? "warning" : "ok";
+  const pct = available > 0 ? Math.min(100, (spent / available) * 100) : 100;
+  const status: StatusClass = remaining < 0 ? "danger" : pct >= 80 ? "warning" : "ok";
 
   return (
     <div className={`wp-week-card wp-week-card-${status}`}>
@@ -250,7 +249,7 @@ function WeekCard({
         <div className={`wp-progress-fill wp-progress-fill-${status}`} style={{ width: `${pct}%` }} />
       </div>
       <div className="wp-week-meta">
-        <span>Budget: {fmt(available)}</span>
+        <span>Budget: {available >= 0 ? fmt(available) : `-${fmt(available)}`}</span>
         <span>Spent: {fmt(spent)}</span>
       </div>
       <div className="wp-entries">
@@ -294,6 +293,12 @@ export function WeeklyPlannerTool({
   const [entries, setEntries] = useState<EntryDraft[]>(() => buildDrafts(initialEntries));
   const [checkinOpen, setCheckinOpen] = useState(false);
 
+  // Re-seed from the server when this route is refreshed with new data (e.g.
+  // after the AI assistant creates an entry from outside this component).
+  useEffect(() => {
+    setEntries(buildDrafts(initialEntries));
+  }, [initialEntries]);
+
   const durationWeeks = semester?.durationWeeks ?? 4;
   const netPayMonthly = calcNetPay(baselineEntries);
   const discretionaryPct = allocationTarget?.discretionaryPct ?? 0;
@@ -311,12 +316,14 @@ export function WeeklyPlannerTool({
       .filter(e => !!e.id && e.periodYear === periodYear && e.periodMonth === periodMonth && e.periodWeek === periodWeek)
       .reduce((s, e) => s + e.amount, 0);
 
-  // Rolling budgets across all course weeks
+  // Rolling budgets across all course weeks. Surplus and deficit both carry
+  // forward symmetrically — an overspent week reduces next week's budget
+  // just as an unspent week increases it (previously only surplus rolled over).
   const weeklyBudgets: number[] = new Array(durationWeeks + 1).fill(0);
   weeklyBudgets[1] = baseWeeklyBudget;
   for (let w = 2; w <= durationWeeks; w++) {
     const prev = weekCoords[w - 2];
-    weeklyBudgets[w] = baseWeeklyBudget + Math.max(0, weeklyBudgets[w - 1] - savedSpent(prev.periodYear, prev.periodMonth, prev.periodWeek));
+    weeklyBudgets[w] = baseWeeklyBudget + weeklyBudgets[w - 1] - savedSpent(prev.periodYear, prev.periodMonth, prev.periodWeek);
   }
 
   const savedEntries = entries.filter(e => !!e.id);

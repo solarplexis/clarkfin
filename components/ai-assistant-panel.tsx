@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import type { Route } from "next";
 
@@ -59,6 +59,7 @@ function renderContent(text: string): React.ReactNode[] {
 
 export function AiAssistantPanel({ semesterId }: Props) {
   const pathname = usePathname();
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
@@ -132,6 +133,10 @@ export function AiAssistantPanel({ semesterId }: Props) {
         content: data.message ?? ""
       };
       setMessages([...next, assistantMsg]);
+
+      if (data.dataUpdated) {
+        router.refresh();
+      }
     } catch {
       setError("Unable to reach the assistant. Please try again.");
     } finally {
